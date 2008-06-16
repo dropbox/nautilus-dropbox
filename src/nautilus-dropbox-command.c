@@ -470,7 +470,16 @@ nautilus_dropbox_command_thread(gpointer data) {
     g_io_channel_set_close_on_unref(chan, TRUE);
     g_io_channel_set_line_term(chan, "\n", -1);
 
+    /* now we have to wait until the hook client gets connected */
+    g_mutex_lock(cvs->hookserv.connected_mutex);
+    while (cvs->hookserv.connected == FALSE) {
+      g_cond_wait (cvs->hookserv.connected_cond,
+		   cvs->hookserv.connected_mutex);
+    }
+    g_mutex_unlock(cvs->hookserv.connected_mutex);
+
     /* send init message */
+    /* TODO: maybe this should be in the on_connect handler? */
     {
       GHashTable *response;
       response = send_command_to_db(chan, "icon_overlay_init",

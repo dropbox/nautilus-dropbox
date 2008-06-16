@@ -223,6 +223,7 @@ handle_change_state(NautilusDropbox *cvs, GHashTable *args) {
   gchar *value;
 
   if ((value = g_hash_table_lookup(args, "new_state")) != NULL) {
+    debug("dropbox asking us to change our state to %s", value);
     cvs->ndt.icon_state = (strcmp(value, "1") == 0);
   }
 }
@@ -277,6 +278,8 @@ get_active_setting_cb(gchar **arr, NautilusDropbox *cvs,
   active = strcmp(arr[0], "True") == 0;
   /* set icon state */
   cvs->ndt.icon_state = atoi(arr[3]);
+
+  debug("our initial icon state %s", arr[3])
 
   /* set tooltip */
   {

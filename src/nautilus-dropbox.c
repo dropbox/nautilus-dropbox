@@ -450,12 +450,12 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
   cvs->file_store = NULL;
 
   /* order definitely matters here */
- 
-  /* setup the connection to the command server */
-  nautilus_dropbox_command_setup(cvs);
 
   /* setup the connection to the hook server */
   nautilus_dropbox_hooks_setup(cvs);
+ 
+  /* setup the connection to the command server */
+  nautilus_dropbox_command_setup(cvs);
 
   /* set up the status icon */
   nautilus_dropbox_tray_setup(cvs);

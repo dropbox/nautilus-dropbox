@@ -46,6 +46,9 @@ typedef struct {
   GIOChannel *chan;
   int socket;
   NautilusDropboxHhsictx hhsi;
+  GCond *connected_cond;
+  GMutex *connected_mutex;
+  gboolean connected;
 } NautilusDropboxHookserv;
 
 struct _NautilusDropbox {

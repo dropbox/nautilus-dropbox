@@ -207,6 +207,13 @@ handle_hook_server_input(GIOChannel *chan,
 
 static void
 watch_killer(NautilusDropbox *cvs) {
+  debug("hook client got disconnected");
+
+  g_mutex_lock(cvs->hookserv.connected_mutex);
+  cvs->hookserv.connected = FALSE;
+  g_cond_signal(cvs->hookserv.connected_cond);
+  g_mutex_unlock(cvs->hookserv.connected_mutex);
+
   /* we basically just have to free the memory allocated in the
      handle_hook_server_init ctx */
 
@@ -218,11 +225,9 @@ watch_killer(NautilusDropbox *cvs) {
     g_hash_table_unref(cvs->hookserv.hhsi.command_args);
   }
 
-  debug("hook client got disconnected");
-
-  /* lol we also have to start a new connection */
   g_io_channel_unref(cvs->hookserv.chan);
 
+  /* lol we also have to start a new connection */
   try_to_connect(cvs);
 }
 
@@ -256,6 +261,11 @@ try_to_connect(NautilusDropbox *cvs) {
   }
 
   debug("hook client connected");
+
+  g_mutex_lock(cvs->hookserv.connected_mutex);
+  cvs->hookserv.connected = TRUE;
+  g_cond_signal(cvs->hookserv.connected_cond);
+  g_mutex_unlock(cvs->hookserv.connected_mutex);
 
   /* great we connected!, let's create the channel and wait on it */
   cvs->hookserv.chan = g_io_channel_unix_new(cvs->hookserv.socket);
@@ -295,6 +305,10 @@ nautilus_dropbox_hooks_setup(NautilusDropbox *cvs) {
  /* allocate hash table */
   cvs->dispatch_table = g_hash_table_new((GHashFunc) g_str_hash,
 					 (GEqualFunc) g_str_equal);
+
+  cvs->hookserv.connected_mutex = g_mutex_new();
+  cvs->hookserv.connected_cond = g_cond_new();
+  cvs->hookserv.connected = FALSE;
 
   /* register some hooks, other modules are free
      to register their own hooks */
