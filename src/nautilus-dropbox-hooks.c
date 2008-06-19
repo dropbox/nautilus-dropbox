@@ -255,6 +255,7 @@ try_to_connect(NautilusDropbox *cvs) {
 
     /* if there was an error we have to try again later */
     if (err == -1) {
+      close(cvs->hookserv.socket);
       g_timeout_add_seconds(1, (GSourceFunc) try_to_connect, cvs);
       return FALSE;
     }

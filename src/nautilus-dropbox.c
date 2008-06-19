@@ -28,13 +28,6 @@
 #include "nautilus-dropbox-hooks.h"
 #include "nautilus-dropbox-tray.h"
 
-/*
- * things to do:
- * inotify
- * packaging
- * unsyncable on duplicate files with different cases
- */
-
 typedef struct {
   gchar *title;
   gchar *tooltip;
