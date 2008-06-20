@@ -302,11 +302,18 @@ try_to_connect(NautilusDropbox *cvs) {
 }
 
 void
-nautilus_dropbox_hooks_setup(NautilusDropbox *cvs) {
- /* allocate hash table */
-  cvs->dispatch_table = g_hash_table_new((GHashFunc) g_str_hash,
-					 (GEqualFunc) g_str_equal);
+nautilus_dropbox_hooks_wait_until_connected(NautilusDropbox *cvs, gboolean val) {
+  /* now we have to wait until the hook client gets connected */
+  g_mutex_lock(cvs->hookserv.connected_mutex);
+  while (cvs->hookserv.connected == !val) {
+    g_cond_wait (cvs->hookserv.connected_cond,
+		 cvs->hookserv.connected_mutex);
+  }
+  g_mutex_unlock(cvs->hookserv.connected_mutex);
+}
 
+void
+nautilus_dropbox_hooks_setup(NautilusDropbox *cvs) {
   cvs->hookserv.connected_mutex = g_mutex_new();
   cvs->hookserv.connected_cond = g_cond_new();
   cvs->hookserv.connected = FALSE;
@@ -321,6 +328,9 @@ nautilus_dropbox_hooks_setup(NautilusDropbox *cvs) {
 		      (DropboxUpdateHook) handle_launch_folder);
   g_hash_table_insert(cvs->dispatch_table, "launch_url",
 		      (DropboxUpdateHook) handle_launch_url);
+}
 
+void
+nautilus_dropbox_hooks_start(NautilusDropbox *cvs) {
   try_to_connect(cvs);
 }

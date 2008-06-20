@@ -79,7 +79,7 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 
   if (g_list_index(cvs->file_store, file) == -1) {
     cvs->file_store = g_list_append(cvs->file_store, g_object_ref(file));
-    g_signal_connect(file, "changed", G_CALLBACK(test_cb), NULL);
+    /*g_signal_connect(file, "changed", G_CALLBACK(test_cb), NULL); */
   }
 
   if (nautilus_dropbox_command_is_connected(cvs) == FALSE) {
@@ -95,7 +95,7 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
     dfic->update_complete = g_closure_ref(update_complete);
     dfic->file = g_object_ref(file);
     
-    g_async_queue_push(cvs->command_queue, dfic);
+    nautilus_dropbox_command_request(cvs, (DropboxCommand *) dfic);
     
     *handle = (NautilusOperationHandle *) dfic;
     
@@ -278,7 +278,7 @@ menu_item_cb(NautilusMenuItem *item,
   dcac->handler = NULL;
   dcac->handler_ud = NULL;
 
-  g_async_queue_push(cvs->command_queue, dcac);
+  nautilus_dropbox_command_request(cvs, (DropboxCommand *) dcac);
 }
 
 static GList *
@@ -439,19 +439,19 @@ nautilus_dropbox_info_provider_iface_init (NautilusInfoProviderIface *iface) {
 
 static void
 nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
-  /* path to file object hash */
+  /* this data is shared by all submodules */
   cvs->file_store = NULL;
+  cvs->dispatch_table = g_hash_table_new((GHashFunc) g_str_hash,
+					 (GEqualFunc) g_str_equal);
 
-  /* order definitely matters here */
-
-  /* setup the connection to the hook server */
+  /* setup our different submodules */
   nautilus_dropbox_hooks_setup(cvs);
- 
-  /* setup the connection to the command server */
   nautilus_dropbox_command_setup(cvs);
-
-  /* set up the status icon */
   nautilus_dropbox_tray_setup(cvs);
+
+  /* now start up the two connections */
+  nautilus_dropbox_hooks_start(cvs);
+  nautilus_dropbox_command_start(cvs);
 
   return;
 }

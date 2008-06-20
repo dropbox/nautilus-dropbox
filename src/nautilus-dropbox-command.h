@@ -44,7 +44,14 @@ typedef struct {
 gboolean nautilus_dropbox_command_is_connected(NautilusDropbox *cvs);
 
 void
+nautilus_dropbox_command_request(NautilusDropbox *cvs, DropboxCommand *dc);
+
+void
 nautilus_dropbox_command_setup(NautilusDropbox *cvs);
+
+void
+nautilus_dropbox_command_start(NautilusDropbox *cvs);
+
 
 G_END_DECLS
 

@@ -100,6 +100,6 @@ nautilus_dropbox_common_get_globals(NautilusDropbox *cvs,
     ggd->ud = ud;
     dgc->handler_ud = (gpointer) ggd;
   }
-  
-  g_async_queue_push(cvs->command_queue, dgc);
+
+  nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
 }

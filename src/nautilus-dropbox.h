@@ -33,6 +33,7 @@ typedef struct {
   GdkPixbuf *busy2;
   gint icon_state;
   gint busy_frame;
+  gboolean last_active;
   
 } NautilusDropboxTray;
 

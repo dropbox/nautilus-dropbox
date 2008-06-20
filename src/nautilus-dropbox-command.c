@@ -18,6 +18,7 @@
 #include "nautilus-dropbox.h"
 #include "nautilus-dropbox-command.h"
 #include "nautilus-dropbox-tray.h"
+#include "nautilus-dropbox-hooks.h"
 
 /* this is a tiny hack, necessitated by the fact that
    finish_file info command is in nautilus_dropbox,
@@ -47,7 +48,6 @@ on_disconnect(NautilusDropbox *cvs) {
 
   return FALSE;
 }
-
 
 gboolean
 nautilus_dropbox_command_is_connected(NautilusDropbox *cvs) {
@@ -448,13 +448,6 @@ nautilus_dropbox_command_thread(gpointer data) {
     GError *gerr = NULL;
     int sock;
 
-    g_mutex_lock(cvs->command_connected_mutex);
-    cvs->command_connected = FALSE;
-    g_mutex_unlock(cvs->command_connected_mutex);
-
-    /* call the disconnect handler */
-    g_idle_add((GSourceFunc) on_disconnect, cvs);
-
     sock = socket(PF_UNIX, SOCK_STREAM, 0);
 
     do {
@@ -470,13 +463,7 @@ nautilus_dropbox_command_thread(gpointer data) {
     g_io_channel_set_close_on_unref(chan, TRUE);
     g_io_channel_set_line_term(chan, "\n", -1);
 
-    /* now we have to wait until the hook client gets connected */
-    g_mutex_lock(cvs->hookserv.connected_mutex);
-    while (cvs->hookserv.connected == FALSE) {
-      g_cond_wait (cvs->hookserv.connected_cond,
-		   cvs->hookserv.connected_mutex);
-    }
-    g_mutex_unlock(cvs->hookserv.connected_mutex);
+    nautilus_dropbox_hooks_wait_until_connected(cvs, TRUE);
 
     /* send init message */
     /* TODO: maybe this should be in the on_connect handler? */
@@ -545,6 +532,14 @@ nautilus_dropbox_command_thread(gpointer data) {
 	g_error_free(gerr);
       BADCONNECTION:
 	g_io_channel_unref(chan);
+
+	g_mutex_lock(cvs->command_connected_mutex);
+	cvs->command_connected = FALSE;
+	g_mutex_unlock(cvs->command_connected_mutex);
+	
+	/* call the disconnect handler */
+	g_idle_add((GSourceFunc) on_disconnect, cvs);
+
 	break;
       }
     }
@@ -554,13 +549,20 @@ nautilus_dropbox_command_thread(gpointer data) {
 }
 
 void
-nautilus_dropbox_command_setup(NautilusDropbox *cvs) {
-  cvs->command_connected_mutex = g_mutex_new();
-  cvs->command_connected = FALSE;
+nautilus_dropbox_command_request(NautilusDropbox *cvs, DropboxCommand *dc) {
+  g_async_queue_push(cvs->command_queue, dc);
+}
 
-  /* create async queue for command thread */
+void
+nautilus_dropbox_command_setup(NautilusDropbox *cvs) {
   cvs->command_queue = g_async_queue_new();
 
+  cvs->command_connected_mutex = g_mutex_new();
+  cvs->command_connected = FALSE;
+}
+
+void
+nautilus_dropbox_command_start(NautilusDropbox *cvs) {
   /* setup the connect to the command server */
   g_thread_create(nautilus_dropbox_command_thread, cvs, FALSE, NULL);
 }

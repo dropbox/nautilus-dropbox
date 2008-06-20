@@ -4,6 +4,7 @@
  *
  */
 
+#include <stdlib.h>
 #include <string.h>
 
 #include <glib.h>
@@ -41,7 +42,7 @@ activate_open_my_dropbox(GtkStatusIcon *status_icon,
     dgc->handler = NULL;
     dgc->handler_ud = NULL;
     
-    g_async_queue_push(cvs->command_queue, dgc);
+    nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
   }
 }
 
@@ -57,7 +58,7 @@ activate_menu_item(GtkStatusIcon *status_icon,
     dgc->handler = NULL;
     dgc->handler_ud = NULL;
     
-    g_async_queue_push(mid->cvs->command_queue, dgc);
+    nautilus_dropbox_command_request(mid->cvs, (DropboxCommand *) dgc);
   }
 }
 
@@ -114,7 +115,7 @@ get_menu_options_response_cb(GHashTable *response, NautilusDropbox *cvs) {
     gchar **options_arr;
 
     options_arr = g_strsplit(options->str, "\t", 0);
-    if (cvs->ndt.context_menu != NULL) gtk_object_destroy(cvs->ndt.context_menu);
+    if (cvs->ndt.context_menu != NULL) gtk_object_destroy(GTK_OBJECT(cvs->ndt.context_menu));
     build_context_menu_from_list(cvs, options_arr);
 
     gtk_status_icon_set_visible(cvs->ndt.status_icon, TRUE); 
@@ -143,7 +144,7 @@ send_for_menu(NautilusDropbox *cvs, gboolean active,
   dgc->handler = (NautilusDropboxCommandResponseHandler) get_menu_options_response_cb;
   dgc->handler_ud = (gpointer) cvs;
   
-  g_async_queue_push(cvs->command_queue, dgc);
+  nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
 }
 
 static void
@@ -210,9 +211,10 @@ handle_change_to_menu(NautilusDropbox *cvs, GHashTable *args) {
 
     create_menu(cvs, active);
 
-    if (active) {
+    if (active != cvs->ndt.last_active) {
       nautilus_dropbox_common_get_globals(cvs, "version\temail",
 					  get_dropbox_globals_cb, NULL);
+      cvs->ndt.last_active = active;
     }
   }
 }
@@ -230,13 +232,7 @@ handle_change_state(NautilusDropbox *cvs, GHashTable *args) {
 
 static void
 handle_refresh_tray_menu(NautilusDropbox *cvs, GHashTable *args) {
-  /*debug_enter(); */
-
-  gchar *value;
-
-  if ((value = g_hash_table_lookup(args, "active")) != NULL) {
-    create_menu(cvs, strcmp("true", value) == 0);
-  }
+  create_menu(cvs, cvs->ndt.last_active);
 }
 
 static void 
@@ -267,15 +263,13 @@ on_connect_menu_cb(GHashTable *response, NautilusDropbox *cvs) {
 static void
 get_active_setting_cb(gchar **arr, NautilusDropbox *cvs,
 		   gpointer ud) {
-  gboolean active;
-
   if (arr == NULL || g_strv_length(arr) != 4) {
     /* we should do something in this case */
     return;
   }
 
   /* convert active argument */
-  active = strcmp(arr[0], "True") == 0;
+  cvs->ndt.last_active = strcmp(arr[0], "True") == 0;
   /* set icon state */
   cvs->ndt.icon_state = atoi(arr[3]);
 
@@ -295,7 +289,7 @@ get_active_setting_cb(gchar **arr, NautilusDropbox *cvs,
   }
 
   /* now just set the menu and activate the toolbar */
-  send_for_menu(cvs, active,
+  send_for_menu(cvs, cvs->ndt.last_active,
 		(NautilusDropboxCommandResponseHandler) on_connect_menu_cb);
 }
 
@@ -351,6 +345,7 @@ nautilus_dropbox_tray_setup(NautilusDropbox *cvs) {
   cvs->ndt.busy = gdk_pixbuf_new_from_inline(-1, busy, FALSE, NULL);
   cvs->ndt.busy2 = gdk_pixbuf_new_from_inline(-1, busy2, FALSE, NULL);
 
+  cvs->ndt.last_active = 0;
   cvs->ndt.status_icon = gtk_status_icon_new_from_pixbuf(cvs->ndt.idle);
   cvs->ndt.context_menu = NULL;
   gtk_status_icon_set_visible(cvs->ndt.status_icon, FALSE); 
