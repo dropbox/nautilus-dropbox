@@ -20,6 +20,7 @@
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
 #include "nautilus-dropbox-hooks.h"
+#include "nautilus-dropbox-command.h"
 
 static gboolean
 try_to_connect(NautilusDropbox *cvs);
@@ -207,25 +208,32 @@ handle_hook_server_input(GIOChannel *chan,
 
 static void
 watch_killer(NautilusDropbox *cvs) {
-  debug("hook client got disconnected");
+  debug("hook client disconnected");
 
   g_mutex_lock(cvs->hookserv.connected_mutex);
   cvs->hookserv.connected = FALSE;
   g_cond_signal(cvs->hookserv.connected_cond);
   g_mutex_unlock(cvs->hookserv.connected_mutex);
 
+  nautilus_dropbox_command_force_reconnect(cvs);
+
   /* we basically just have to free the memory allocated in the
      handle_hook_server_init ctx */
 
   if (cvs->hookserv.hhsi.command_name != NULL) {
     g_free(cvs->hookserv.hhsi.command_name);
+    cvs->hookserv.hhsi.command_name = NULL;
   }
 
   if (cvs->hookserv.hhsi.command_args != NULL) {
     g_hash_table_unref(cvs->hookserv.hhsi.command_args);
+    cvs->hookserv.hhsi.command_args = NULL;
   }
 
   g_io_channel_unref(cvs->hookserv.chan);
+  cvs->hookserv.chan = NULL;
+  cvs->hookserv.event_source = 0;
+  cvs->hookserv.socket = 0;
 
   /* lol we also have to start a new connection */
   try_to_connect(cvs);
@@ -293,14 +301,40 @@ try_to_connect(NautilusDropbox *cvs) {
   cvs->hookserv.hhsi.line = 0;
   cvs->hookserv.hhsi.command_args = NULL;
   cvs->hookserv.hhsi.command_name = NULL;
-  g_io_add_watch_full(cvs->hookserv.chan, G_PRIORITY_DEFAULT,
-		      G_IO_IN | G_IO_ERR,
-		      (GIOFunc) handle_hook_server_input, cvs,
-		      (GDestroyNotify) watch_killer);
+  cvs->hookserv.event_source = 
+    g_io_add_watch_full(cvs->hookserv.chan, G_PRIORITY_DEFAULT,
+			G_IO_IN | G_IO_ERR,
+			(GIOFunc) handle_hook_server_input, cvs,
+			(GDestroyNotify) watch_killer);
   
   return FALSE;
 }
 
+/* should only be called in glib main loop */
+/* returns a gboolean because it is a GSourceFunc */
+gboolean nautilus_dropbox_hooks_force_reconnect(NautilusDropbox *cvs) {
+  if (cvs->hookserv.connected == FALSE) {
+    return FALSE;
+  }
+
+  debug("forcing hook to reconnect");
+
+  g_assert(cvs->hookserv.event_source >= 0);
+  
+  if (cvs->hookserv.event_source > 0) {
+    g_source_remove(cvs->hookserv.event_source);
+  }
+  else if (cvs->hookserv.event_source == 0) {
+    debug("event source was zero!!!!!");
+  }
+  else {
+    g_assert_not_reached();
+  }
+	 
+  return FALSE;
+}
+
+  /* can be called from any thread*/
 void
 nautilus_dropbox_hooks_wait_until_connected(NautilusDropbox *cvs, gboolean val) {
   /* now we have to wait until the hook client gets connected */

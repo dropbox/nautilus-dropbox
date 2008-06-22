@@ -113,82 +113,94 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
     options_lookup = g_string_new("options");
 
     /* if the file status command went okay */
-    if (dficr->file_status_response != NULL &&
+    if ((dficr->file_status_response != NULL &&
 	(status =
-	 g_hash_table_lookup(dficr->file_status_response, status_lookup)) != NULL) {
-      int emblem_code = 0;
-      
-      if (strcmp("up to date", status->str) == 0) {
-	emblem_code = 1;
-      }
-      else if (strcmp("syncing", status->str) == 0) {
-	emblem_code = 2;
-      }
-
-      if (emblem_code > 0) {
-	/*
-	debug("%s to %s", emblems[emblem_code-1],
-	      g_filename_from_uri(nautilus_file_info_get_uri(dficr->dfic->file),
-	      NULL, NULL));
-	*/
-	nautilus_file_info_add_emblem(dficr->dfic->file, emblems[emblem_code-1]);
-      }
-    }
-    
-    /* if the context options command went okay */
-    if (dficr->context_options_response != NULL &&
-	(options =
-	 g_hash_table_lookup(dficr->context_options_response,
-			     options_lookup)) != NULL) {
-      /* great now we have to parse these freaking optionssss also make the menu items */
-      /* this is where python really makes things easy */
-      GHashTable *context_option_hash;
-      gchar **options_list;
-      int i;
-
-      context_option_hash = g_hash_table_new_full((GHashFunc) g_str_hash,
-						  (GEqualFunc) g_str_equal,
-						  g_free, menu_item_free);
-
-      options_list = g_strsplit(options->str, "|", 0);
-
-      for (i = 0; options_list[i] != NULL; i++) {
-	gchar **option_info;
-
-	option_info = g_strsplit(options_list[i], "~", 3);
-	/* if this is a valid string */
-	if (option_info[0] != NULL && option_info[1] != NULL &&
-	    option_info[2] != NULL && option_info[3] == NULL) {
-	  DropboxContextMenuItem *dcmi = g_new0(DropboxContextMenuItem, 1);
-
-	  dcmi->title = g_strdup(option_info[0]);	  
-	  dcmi->tooltip = g_strdup(option_info[1]);
-	  dcmi->verb = g_strdup(option_info[2]);
-
-	  g_hash_table_insert(context_option_hash, g_strdup(dcmi->verb), dcmi);
+	 g_hash_table_lookup(dficr->file_status_response, status_lookup)) != NULL) &&
+	(dficr->context_options_response != NULL &&
+	 (options =
+	  g_hash_table_lookup(dficr->context_options_response,
+			      options_lookup)) != NULL)) {
+	
+      /* set the emblem */
+      {
+	int emblem_code = 0;
+	
+	if (strcmp("up to date", status->str) == 0) {
+	  emblem_code = 1;
+	}
+	else if (strcmp("syncing", status->str) == 0) {
+	  emblem_code = 2;
 	}
 	
-	g_strfreev(option_info);
+	if (emblem_code > 0) {
+	  /*
+	    debug("%s to %s", emblems[emblem_code-1],
+	    g_filename_from_uri(nautilus_file_info_get_uri(dficr->dfic->file),
+	    NULL, NULL));
+	  */
+	  nautilus_file_info_add_emblem(dficr->dfic->file, emblems[emblem_code-1]);
+	}
       }
-
-      g_object_set_data_full(G_OBJECT(dficr->dfic->file),
-			     "nautilus_dropbox_menu_item",
-			     context_option_hash,
-			     (GDestroyNotify) g_hash_table_destroy);
       
-      g_strfreev(options_list);
+      /* save the context menu options */
+      {
+	/* great now we have to parse these freaking optionssss also make the menu items */
+	/* this is where python really makes things easy */
+	GHashTable *context_option_hash;
+	gchar **options_list;
+	int i;
+	
+	context_option_hash = g_hash_table_new_full((GHashFunc) g_str_hash,
+						    (GEqualFunc) g_str_equal,
+						    g_free, menu_item_free);
+	
+	options_list = g_strsplit(options->str, "|", 0);
+	
+	for (i = 0; options_list[i] != NULL; i++) {
+	  gchar **option_info;
+	  
+	  option_info = g_strsplit(options_list[i], "~", 3);
+	  /* if this is a valid string */
+	  if (option_info[0] != NULL && option_info[1] != NULL &&
+	      option_info[2] != NULL && option_info[3] == NULL) {
+	    DropboxContextMenuItem *dcmi = g_new0(DropboxContextMenuItem, 1);
+	    
+	    dcmi->title = g_strdup(option_info[0]);	  
+	    dcmi->tooltip = g_strdup(option_info[1]);
+	    dcmi->verb = g_strdup(option_info[2]);
+	    
+	    g_hash_table_insert(context_option_hash, g_strdup(dcmi->verb), dcmi);
+	  }
+	  
+	  g_strfreev(option_info);
+	}
+	
+	g_object_set_data_full(G_OBJECT(dficr->dfic->file),
+			       "nautilus_dropbox_menu_item",
+			       context_option_hash,
+			       (GDestroyNotify) g_hash_table_destroy);
+	
+	g_strfreev(options_list);
+	
+	/* lol that wasn't so bad, glib is a big help */
+      }    
 
-      /* lol that wasn't so bad, glib is a big help */
-    }    
-
+      /* finally complete the request */
+      nautilus_info_provider_update_complete_invoke(dficr->dfic->update_complete,
+						    dficr->dfic->provider,
+						    (NautilusOperationHandle*) dficr->dfic,
+						    NAUTILUS_OPERATION_COMPLETE);
+    }
+    else {
+      /* operation failed, for some reason... */
+      nautilus_info_provider_update_complete_invoke(dficr->dfic->update_complete,
+						    dficr->dfic->provider,
+						    (NautilusOperationHandle*) dficr->dfic,
+						    NAUTILUS_OPERATION_FAILED);
+    }
+    
     g_string_free(status_lookup, TRUE);
     g_string_free(options_lookup, TRUE);
-
-    /* finally complete the request */
-    nautilus_info_provider_update_complete_invoke(dficr->dfic->update_complete,
-						  dficr->dfic->provider,
-						  (NautilusOperationHandle*) dficr->dfic,
-						  NAUTILUS_OPERATION_COMPLETE);
   }
 
   /* destroy the objects we created */
@@ -413,6 +425,15 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
 
 void
 nautilus_dropbox_on_connect(NautilusDropbox *cvs) {
+  DropboxGeneralCommand *dgc = g_new(DropboxGeneralCommand, 1);
+  
+  dgc->dc.request_type = GENERAL_COMMAND;
+  dgc->command_name = g_strdup("icon_overlay_init");
+  dgc->command_args = NULL;
+  dgc->handler = NULL;
+  dgc->handler_ud = NULL;
+  
+  nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
 }
 
 void
@@ -452,6 +473,9 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
   /* now start up the two connections */
   nautilus_dropbox_hooks_start(cvs);
   nautilus_dropbox_command_start(cvs);
+
+  /* start dropbox */
+  //nautilus_dropbox_tray_start_dropbox(cvs);
 
   return;
 }

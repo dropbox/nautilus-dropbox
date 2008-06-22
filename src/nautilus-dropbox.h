@@ -44,12 +44,17 @@ typedef struct {
 } NautilusDropboxHhsictx;
 
 typedef struct {
+  gboolean user_quit;
+} NautilusDropboxConnectionAttemptCtx;
+
+typedef struct {
   GIOChannel *chan;
   int socket;
   NautilusDropboxHhsictx hhsi;
   GCond *connected_cond;
   GMutex *connected_mutex;
   gboolean connected;
+  guint event_source;
 } NautilusDropboxHookserv;
 
 struct _NautilusDropbox {
@@ -61,6 +66,7 @@ struct _NautilusDropbox {
   gboolean command_connected;
   NautilusDropboxTray ndt;
   NautilusDropboxHookserv hookserv;
+  NautilusDropboxConnectionAttemptCtx ca;
 };
 
 struct _NautilusDropboxClass {

@@ -16,6 +16,9 @@ nautilus_dropbox_hooks_start(NautilusDropbox *cvs);
 void
 nautilus_dropbox_hooks_wait_until_connected(NautilusDropbox *cvs, gboolean val);
 
+gboolean
+nautilus_dropbox_hooks_force_reconnect(NautilusDropbox *cvs);
+
 G_END_DECLS
 
 #endif

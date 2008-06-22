@@ -98,6 +98,19 @@ build_context_menu_from_list(NautilusDropbox *cvs, gchar **options_arr) {
       }
     }
   }
+
+  /* now add the quit dropbox item */
+  {
+    GtkWidget *item;
+    MenuItemData *mid = g_new0(MenuItemData, 1);
+    mid->cvs = cvs;
+    mid->command = g_strdup("tray_action_hard_exit");
+    item = gtk_menu_item_new_with_label("Stop Dropbox");
+    gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
+    g_signal_connect_data(G_OBJECT(item), "activate",
+			  G_CALLBACK(activate_menu_item), 
+			  mid, (GClosureNotify) menu_item_data_destroy, 0);
+  }
 }
 
 static void
@@ -306,6 +319,18 @@ nautilus_dropbox_tray_on_disconnect(NautilusDropbox *cvs) {
   gtk_status_icon_set_visible(cvs->ndt.status_icon, FALSE); 
 }
 
+/*
+  gameplan for new tray menu:
+  1. on startup start dropbox
+     - if dropbox doesn't exist in client dir, then download it
+     - and display download status in tray menu
+  2. once dropbox starts, the connection should start and override the menu
+  3. if anyone disconnects, disconnect the other one
+  4. if a disconnect happens automatically, if after 5 seconds we haven't reconnected,
+     kill dropboxd (if alive) and restart it
+  5. if a disconenct happens because the user requested to kill dropbox, don't do that
+ */
+
 static gboolean
 animate_icon(NautilusDropbox *cvs) {
   if (cvs->ndt.icon_state == 0) {
@@ -327,8 +352,6 @@ animate_icon(NautilusDropbox *cvs) {
 
 void
 nautilus_dropbox_tray_setup(NautilusDropbox *cvs) {
-  debug_enter();
-
   /* register hooks from the daemon */
   g_hash_table_insert(cvs->dispatch_table, "bubble",
 		      (DropboxUpdateHook) handle_bubble);
