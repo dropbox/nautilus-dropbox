@@ -34,23 +34,16 @@ typedef struct {
   gint icon_state;
   gint busy_frame;
   gboolean last_active;
-  
 } NautilusDropboxTray;
-
-typedef struct {
-  int line;
-  gchar *command_name;
-  GHashTable *command_args;
-} NautilusDropboxHhsictx;
-
-typedef struct {
-  gboolean user_quit;
-} NautilusDropboxConnectionAttemptCtx;
 
 typedef struct {
   GIOChannel *chan;
   int socket;
-  NautilusDropboxHhsictx hhsi;
+  struct {
+    int line;
+    gchar *command_name;
+    GHashTable *command_args;
+  } hhsi;
   GCond *connected_cond;
   GMutex *connected_mutex;
   gboolean connected;
@@ -66,7 +59,9 @@ struct _NautilusDropbox {
   gboolean command_connected;
   NautilusDropboxTray ndt;
   NautilusDropboxHookserv hookserv;
-  NautilusDropboxConnectionAttemptCtx ca;
+  struct {
+    gboolean user_quit;
+  } ca;
 };
 
 struct _NautilusDropboxClass {

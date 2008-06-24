@@ -23,6 +23,9 @@ libnautilus_dropbox_la_SOURCES = \
 	nautilus-dropbox-command.h \
 	nautilus-dropbox-command.c \
 	busy2.h busy.h idle.h \
+	async-http-downloader.h \
+	async-http-downloader.c \
+	async-io-coroutine.h \
 	dropbox.c
 
 libnautilus_dropbox_la_LDFLAGS = -module -avoid-version

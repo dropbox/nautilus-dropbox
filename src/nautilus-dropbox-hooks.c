@@ -17,6 +17,7 @@
 
 #include <libnautilus-extension/nautilus-file-info.h>
 
+#include "async-io-coroutine.h"
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
 #include "nautilus-dropbox-hooks.h"
@@ -102,44 +103,13 @@ handle_hook_server_input(GIOChannel *chan,
 			 GIOCondition cond,
 			 NautilusDropbox *cvs) {
 
-  if (cond == G_IO_ERR) {
+  if (cond == G_IO_ERR || cond == G_IO_HUP) {
     return FALSE;
-  }
-
-#define CRBEGIN switch (cvs->hookserv.hhsi.line) { case 0:
-#define CREND } return FALSE
-#define CRYIELD do { cvs->hookserv.hhsi.line = __LINE__; return TRUE; case __LINE__:;} while (0)
-#define CRHALT return FALSE  
-
-#define READLINE(where)						\
-  while (1) {							\
-    gchar *__line;						\
-    gsize __line_length, __newline_pos;				\
-    GIOStatus __iostat;							\
-    									\
-    __iostat = g_io_channel_read_line(chan, &__line,			\
-				      &__line_length,			\
-				      &__newline_pos, NULL);		\
-    if (__iostat == G_IO_STATUS_AGAIN) {				\
-      CRYIELD;								\
-    }									\
-    else if (__iostat == G_IO_STATUS_NORMAL) {				\
-      *(__line + __newline_pos) = '\0';				\
-      where = __line;						\
-      break;							\
-    }								\
-    else if (__iostat == G_IO_STATUS_EOF ||			\
-	     __iostat == G_IO_STATUS_ERROR) {			\
-      CRHALT;							\
-    }								\
-    else {							\
-      g_assert_not_reached();					\
-    }								\
   }
 
   /* we have some sweet macros defined that allow us to write this
      async event handler like a microthread yeahh, watch out for context */
-  CRBEGIN;
+  CRBEGIN(cvs->hookserv.hhsi.line);
   while (1) {
     cvs->hookserv.hhsi.command_args =
       g_hash_table_new_full((GHashFunc) g_str_hash,
@@ -149,13 +119,13 @@ handle_hook_server_input(GIOChannel *chan,
     
     /* read the command name */
     /* TODO: unescape tabs and newlines */
-    READLINE(cvs->hookserv.hhsi.command_name);
+    CRREADLINE(cvs->hookserv.hhsi.line, chan, cvs->hookserv.hhsi.command_name);
 
     /* now read each arg line until we receive "done" */
     /* TODO: NO THIS IS BAD WE SHOULD NOT LOOP BASED ON OUR INPUT */
     while (1) {
       gchar *line;
-      READLINE(line);
+      CRREADLINE(cvs->hookserv.hhsi.line, chan, line);
 
       if (strcmp("done", line) == 0) {
 	g_free(line);
@@ -199,11 +169,6 @@ handle_hook_server_input(GIOChannel *chan,
     cvs->hookserv.hhsi.command_args = NULL;
   }
   CREND;
-
-#undef CRBEGIN
-#undef CREND
-#undef CRYIELD
-#undef CRHALT
 }
 
 static void
@@ -303,7 +268,7 @@ try_to_connect(NautilusDropbox *cvs) {
   cvs->hookserv.hhsi.command_name = NULL;
   cvs->hookserv.event_source = 
     g_io_add_watch_full(cvs->hookserv.chan, G_PRIORITY_DEFAULT,
-			G_IO_IN | G_IO_ERR,
+			G_IO_IN | G_IO_ERR | G_IO_HUP,
 			(GIOFunc) handle_hook_server_input, cvs,
 			(GDestroyNotify) watch_killer);
   
