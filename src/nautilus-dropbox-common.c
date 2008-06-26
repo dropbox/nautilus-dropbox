@@ -1,6 +1,6 @@
 /*
  *
- *  nautilus-dropbox-common.c util functions
+ *  nautilus-dropbox-common.c nautilus-dropbox dependent util functions
  * 
  */
 
@@ -11,32 +11,10 @@
 #include <glib.h>
 #include <gdk/gdk.h>
 
+#include "g-util.h"
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox-command.h"
-
-static void nullfunc(gpointer ud) {
-}
-
-gboolean
-nautilus_dropbox_common_execute_command_line(const gchar *command_line) {
-  gint argc;
-  gchar **argv;
-  
-  g_shell_parse_argv(command_line, &argc, &argv, NULL);
-  
-  return gdk_spawn_on_screen(gdk_screen_get_default(),
-			     NULL, argv, NULL,
-			     G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL |
-			     G_SPAWN_STDERR_TO_DEV_NULL,
-			     nullfunc, NULL,
-			     NULL, NULL);
-}
-
-void
-nautilus_dropbox_common_destroy_string(gpointer data) {
-  g_string_free((GString *) data, TRUE);
-  return;
-}
+#include "nautilus-dropbox-tray.h"
 
 typedef struct {
   NautilusDropbox *cvs;
@@ -85,8 +63,8 @@ nautilus_dropbox_common_get_globals(NautilusDropbox *cvs,
   {
     dgc->command_args = g_hash_table_new_full((GHashFunc) g_string_hash,
 					      (GEqualFunc) g_string_equal,
-					      nautilus_dropbox_common_destroy_string,
-					      nautilus_dropbox_common_destroy_string);
+					      g_util_destroy_string,
+					      g_util_destroy_string);
     g_hash_table_insert(dgc->command_args,
 			g_string_new("keys"), g_string_new(tabbed_keys));
   }
@@ -105,7 +83,7 @@ nautilus_dropbox_common_get_globals(NautilusDropbox *cvs,
 }
 
 /* TODO: return something that indicates status of call */
-void
+gboolean
 nautilus_dropbox_common_start_dropbox(NautilusDropbox *cvs, gboolean download) {
   gchar *dropboxd_path;
 

@@ -14,6 +14,7 @@
 
 #include <glib.h>
 
+#include "g-util.h"
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
 #include "nautilus-dropbox-command.h"
@@ -232,8 +233,8 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
   if (strncmp(line->str, "ok\n", 3) == 0) {
     GHashTable *return_table = 
       g_hash_table_new_full((GHashFunc) g_string_hash, (GEqualFunc) g_string_equal,
-			    nautilus_dropbox_common_destroy_string,
-			    nautilus_dropbox_common_destroy_string);
+			    g_util_destroy_string,
+			    g_util_destroy_string);
         
     g_string_free(line, TRUE);
 
@@ -294,8 +295,8 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
 
   args = g_hash_table_new_full((GHashFunc) g_string_hash,
 			       (GEqualFunc) g_string_equal,
-			       nautilus_dropbox_common_destroy_string,
-			       nautilus_dropbox_common_destroy_string);
+			       g_util_destroy_string,
+			       g_util_destroy_string);
   {
     GString *key, *value;
     key = g_string_new("path");
@@ -316,8 +317,8 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
 
   args = g_hash_table_new_full((GHashFunc) g_string_hash,
 			       (GEqualFunc) g_string_equal,
-			       nautilus_dropbox_common_destroy_string,
-			       nautilus_dropbox_common_destroy_string);
+			       g_util_destroy_string,
+			       g_util_destroy_string);
 
   {
     GString *key, *value;

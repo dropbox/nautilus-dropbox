@@ -17,6 +17,7 @@
 
 #include <libnotify/notify.h>
 
+#include "g-util.h"
 #include "nautilus-dropbox.h"
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox-command.h"
@@ -33,13 +34,13 @@ typedef struct {
 } MenuItemData;
 
 static void
-menu_refresh(NautilusDropbox *cvs) {
+menu_refresh(NautilusDropboxTray *ndt) {
   gboolean visible;
   
-  gtk_object_get(cvs->ndt.context_menu, "visible", &visible, NULL);
+  g_object_get(G_OBJECT(ndt->context_menu), "visible", &visible, NULL);
 
   if (visible) {
-    gtk_widget_show_all(GTK_WIDGET(cvs->ndt.context_menu));
+    gtk_widget_show_all(GTK_WIDGET(ndt->context_menu));
   }
 }
 
@@ -70,7 +71,7 @@ activate_open_my_dropbox(GtkStatusIcon *status_icon,
 }
 
 static void
-activate_stop_dropbox(GtkStatusIcon *status_icon,
+activate_stop_dropbox(GtkMenuItem *mi,
 		      NautilusDropbox *cvs) {
   if (nautilus_dropbox_command_is_connected(cvs) == TRUE) {
     DropboxGeneralCommand *dgc;
@@ -90,7 +91,7 @@ activate_stop_dropbox(GtkStatusIcon *status_icon,
 }
 
 static void
-activate_start_dropbox(GtkStatusIcon *status_icon,
+activate_start_dropbox(GtkMenuItem *mi,
 		       NautilusDropbox *cvs) {
   nautilus_dropbox_common_start_dropbox(cvs, TRUE);
 }
@@ -174,7 +175,7 @@ get_menu_options_response_cb(GHashTable *response, NautilusDropbox *cvs) {
     /* TODO: don't kill old menu here, wait until next popup */
     gtk_container_remove_all(GTK_CONTAINER(cvs->ndt.context_menu));
     build_context_menu_from_list(cvs, options_arr);
-    menu_refresh(cvs);
+    menu_refresh(&(cvs->ndt));
     gtk_status_icon_set_visible(cvs->ndt.status_icon, TRUE); 
   }
 
@@ -191,8 +192,8 @@ create_menu(NautilusDropbox *cvs, gboolean active) {
   {
     dgc->command_args = g_hash_table_new_full((GHashFunc) g_string_hash,
 					      (GEqualFunc) g_string_equal,
-					      nautilus_dropbox_common_destroy_string,
-					      nautilus_dropbox_common_destroy_string);
+					      g_util_destroy_string,
+					      g_util_destroy_string);
     g_hash_table_insert(dgc->command_args,
 			g_string_new("is_active"),
 			g_string_new(active ? "true" : "false"));
@@ -363,8 +364,21 @@ nautilus_dropbox_tray_on_disconnect(NautilusDropbox *cvs) {
     g_object_set(item, "sensitive", FALSE, NULL);    
   }
   
-  menu_refresh(cvs);
+  menu_refresh(&(cvs->ndt));
 }
+
+typedef struct {
+  NautilusDropbox *cvs;
+  GtkLabel *percent_done_label;
+  gint filesize;
+  GIOChannel *tmpfilechan;
+  gchar *tmpfilename;
+  gint bytes_downloaded;
+  guint ev_id;
+  gboolean user_cancelled;
+  gboolean download_finished;
+} HttpDownloadCtx;
+
 
 static void
 handle_tar_dying(GPid pid, gint status, gpointer *ud) {
@@ -380,9 +394,7 @@ handle_tar_dying(GPid pid, gint status, gpointer *ud) {
 static gboolean
 handle_incoming_http_data(GIOChannel *chan,
 			  GIOCondition cond,
-			  gpointer data) {
-  gpointer *ud = data;
-  
+			  HttpDownloadCtx *ctx) {
   g_assert((cond & G_IO_IN) || (cond & G_IO_PRI));
   
   {
@@ -392,40 +404,58 @@ handle_incoming_http_data(GIOChannel *chan,
     while ((iostat = g_io_channel_read_chars(chan, buf, 4096,
 					     &bytes_read, NULL)) ==
 	   G_IO_STATUS_NORMAL) {
-      ud[5] = GINT_TO_POINTER(GPOINTER_TO_INT(ud[5]) + bytes_read);
+      ctx->bytes_downloaded += bytes_read;
 
       /* TODO: this blocks, should put buffesr to write on a queue
-	 that gets read whenever ud[3] is ready to write,
+	 that gets read whenever ctx->tmpfilechan is ready to write,
 	 we should be okay for now since it shouldn't block except
 	 only in EXTREME circumstances */
-      if (g_io_channel_write_chars(ud[3], buf,
+      if (g_io_channel_write_chars(ctx->tmpfilechan, buf,
 				   bytes_read, NULL, NULL) != G_IO_STATUS_NORMAL) {
 	/* TODO: error condition, ignore for now */
       }
     }
 
     /* now update the gtk label */
-    if (GPOINTER_TO_INT(ud[2]) != -1) {
+    if (ctx->filesize != -1) {
       gchar *percent_done;
       
       percent_done =
 	g_strdup_printf("Downloading Dropbox... %d%% Done",
-			GPOINTER_TO_INT(ud[5]) * 100 / GPOINTER_TO_INT(ud[2]));
+			ctx->bytes_downloaded * 100 / ctx->filesize);
       
-      gtk_label_set_text(GTK_LABEL(ud[1]), percent_done);
+      gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), percent_done);
       g_free(percent_done);
+    }
+    else {
+      switch (ctx->bytes_downloaded % 4) {
+      case 0:
+	gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), "Downloading Dropbox");
+	break;
+      case 1:
+	gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), "Downloading Dropbox.");
+	break;
+      case 2:
+	gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), "Downloading Dropbox..");
+	break;
+      default:
+	gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), "Downloading Dropbox...");
+	break;
+      }
     }
     
     if (iostat == G_IO_STATUS_EOF) {
       GPid pid;
       gchar **argv;
       /* completed download, untar the archive and run */
+      ctx->download_finished = TRUE;
+
       argv = g_new(gchar *, 6);
       argv[0] = g_strdup("tar");
       argv[1] = g_strdup("-C");
       argv[2] = g_strdup(g_get_home_dir());
       argv[3] = g_strdup("-xzf");
-      argv[4] = g_strdup(ud[4]);
+      argv[4] = g_strdup(ctx->tmpfilename);
       argv[5] = NULL;
 
       g_spawn_async(NULL, argv, NULL,
@@ -436,8 +466,8 @@ handle_incoming_http_data(GIOChannel *chan,
       {
 	gpointer *ud2;
 	ud2 = g_new(gpointer, 2);
-	ud2[0] = g_strdup(ud[4]);
-	ud2[1] = ud[0];
+	ud2[0] = g_strdup(ctx->tmpfilename);
+	ud2[1] = ctx->cvs;
 	g_child_watch_add(pid, (GChildWatchFunc) handle_tar_dying, ud2);
       }
       
@@ -450,21 +480,40 @@ handle_incoming_http_data(GIOChannel *chan,
 }
 
 static void
-kill_hihd_ud(gpointer data) {
-  gpointer *ud = (gpointer *) data;
+kill_hihd_ud(HttpDownloadCtx *ctx) {
+  if (ctx->user_cancelled == TRUE) {
+    GtkWidget *item;
+    gtk_container_remove_all(GTK_CONTAINER(ctx->cvs->ndt.context_menu));
+    
+    item = gtk_menu_item_new_with_label("Start Dropbox");
+    gtk_menu_shell_append(GTK_MENU_SHELL(ctx->cvs->ndt.context_menu), item);
+    
+    g_signal_connect(G_OBJECT(item), "activate",
+		     G_CALLBACK(activate_start_dropbox), ctx->cvs);
+    
+    menu_refresh(&(ctx->cvs->ndt));
+  }
+  else if (ctx->download_finished == FALSE) {
+    /* TODO: should flag an error */
+  }
 
-  g_io_channel_unref(ud[3]);
-  g_free(ud[4]);
-  g_free(ud);
+  g_io_channel_unref(ctx->tmpfilechan);
+  g_free(ctx->tmpfilename);
+  g_free(ctx);
+}
+
+static void
+activate_cancel_download(GtkMenuItem *mi,
+			 HttpDownloadCtx *ctx) {
+  ctx->user_cancelled = TRUE;
+  g_source_remove(ctx->ev_id);
 }
 
 static void
 handle_dropbox_download_response(gint response_code,
 				 GList *headers,
 				 GIOChannel *chan,
-				 gpointer *ud) {
-  debug_enter();
-
+				 HttpDownloadCtx *ctx) {
   int filesize = -1;
 
   /* TODO: do something when http request fails, but what?
@@ -473,7 +522,7 @@ handle_dropbox_download_response(gint response_code,
   */
   if (response_code != 200) {
     debug("downloading dropbox dist failed with %d", response_code);
-    g_free(ud);
+    g_free(ctx);
     return;
   }
 
@@ -499,109 +548,111 @@ handle_dropbox_download_response(gint response_code,
     if (g_io_channel_set_flags(chan, flags | G_IO_FLAG_NONBLOCK, NULL) !=
 	G_IO_STATUS_NORMAL) {
       g_io_channel_unref(chan);
-      g_free(ud);
+      g_free(ctx);
       return;
     }
   }
 
   if (g_io_channel_set_encoding(chan, NULL, NULL) != G_IO_STATUS_NORMAL) {
     /* TODO: error fail out for now */
-    g_free(ud);
+    g_free(ctx);
     return;
   }
 
-  ud[2] = GINT_TO_POINTER(filesize);
+  ctx->filesize = filesize;
   {
     gint fd;
     gchar *filename;
     fd = g_file_open_tmp(NULL, &filename, NULL);
     /* TODO: error fail out for now*/
     if (fd == -1) {
-      g_free(ud);
+      g_free(ctx);
       return;
     }
 
     debug("saving to %s", filename);
 
-    ud[3] = g_io_channel_unix_new(fd);
-    g_io_channel_set_close_on_unref(ud[3], TRUE);
+    ctx->tmpfilechan = g_io_channel_unix_new(fd);
+    g_io_channel_set_close_on_unref(ctx->tmpfilechan, TRUE);
 
     /* TODO: error fail out for now */
-    if (g_io_channel_set_encoding(ud[3], NULL, NULL) != G_IO_STATUS_NORMAL) {
-      g_io_channel_unref(ud[3]);
+    if (g_io_channel_set_encoding(ctx->tmpfilechan, NULL, NULL) != G_IO_STATUS_NORMAL) {
+      g_io_channel_unref(ctx->tmpfilechan);
       g_free(filename);
-      g_free(ud);
+      g_free(ctx);
       return;
     }
 
-    ud[4] = filename;
+    ctx->tmpfilename = filename;
   }
 
   debug("installing http receiver callback");
 
-  ud[5] = GINT_TO_POINTER(0);
-  g_io_add_watch_full(chan, G_PRIORITY_DEFAULT,
-		      G_IO_IN | G_IO_PRI,
-		      handle_incoming_http_data,
-		      ud, kill_hihd_ud);
+  ctx->user_cancelled = FALSE;
+  ctx->bytes_downloaded = 0;
+  ctx->download_finished = FALSE;
+  ctx->ev_id = g_util_dependable_io_read_watch(chan, G_PRIORITY_DEFAULT,
+					       (GIOFunc) handle_incoming_http_data,
+					       ctx, (GDestroyNotify) kill_hihd_ud);
+
+  /* great we got here, now set downloading menu */
+  {
+    /* setup the menu here */
+    gtk_container_remove_all(GTK_CONTAINER(ctx->cvs->ndt.context_menu));
+    
+    {
+      GtkWidget *item;
+      item = gtk_menu_item_new_with_label("Downloading Dropbox...");
+      ctx->percent_done_label = GTK_LABEL(gtk_bin_get_child(GTK_BIN(item)));
+      
+      g_object_set(item, "sensitive", FALSE, NULL);
+      gtk_menu_shell_append(GTK_MENU_SHELL(ctx->cvs->ndt.context_menu), item);
+    }
+
+    gtk_menu_shell_append(GTK_MENU_SHELL(ctx->cvs->ndt.context_menu), gtk_separator_menu_item_new());
+
+    {
+      GtkWidget *item;
+      item = gtk_menu_item_new_with_label("Cancel Download");
+      
+      gtk_menu_shell_append(GTK_MENU_SHELL(ctx->cvs->ndt.context_menu), item);
+
+      g_signal_connect(G_OBJECT(item), "activate",
+		       G_CALLBACK(activate_cancel_download), ctx);
+      
+    }
+
+    menu_refresh(&(ctx->cvs->ndt));
+  }
 }
 
 void
 nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropbox *cvs) {
-  GtkLabel *percent_done_label;
-
   /* setup the menu here */
   gtk_container_remove_all(GTK_CONTAINER(cvs->ndt.context_menu));
-
   {
     GtkWidget *item;
-    gchar *percent_done;
-
-    percent_done = g_strdup_printf("Downloading Dropbox... %d%% Done", 0);
-
-    item = gtk_menu_item_new_with_label(percent_done);
-    g_free(percent_done);
-
-    percent_done_label = GTK_LABEL(gtk_bin_get_child(GTK_BIN(item)));
-
+    item = gtk_menu_item_new_with_label("Attempting to download Dropbox...");
     g_object_set(item, "sensitive", FALSE, NULL);
-
     gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
   }
-
-  gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu),
-			gtk_separator_menu_item_new());
+  menu_refresh(&(cvs->ndt));
   
   {
-    GtkWidget *item;
-
-    item = gtk_menu_item_new_with_label("Cancel Download");
-    /* TODO: add activation signal */
-    gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
-  }
-
-  {
-    gpointer *ud;
+    HttpDownloadCtx *ctx;
     /* TODO: this one little data structure deals with
        this entire transfer, a little unclean */
-    ud = g_new(gpointer, 6);
-    ud[0] = (gpointer) cvs;
-    ud[1] = (gpointer) percent_done_label;
-    debug("making request for http://%s%s...",
-	  "sunkenship",
-	  "/~rian/dropbox-linux-ubuntu-8.04-amd64.tar.gz");
-
+    ctx = g_new(HttpDownloadCtx, 1);
+    ctx->cvs = cvs;
     if (make_async_http_get_request(
 				    //"dl.getdropbox.com", "/u/5143/dropbox-linux-amd64.tar.gz",
 				    //"sunkenship", "/~rian/dropbox-linux-ubuntu-8.04-amd64.tar.gz",
 				    "foursquare.nfshost.com", "/bb.tar.gz",
 				    NULL, (HttpResponseHandler) handle_dropbox_download_response,
-				    (gpointer) ud) == FALSE) {
+				    (gpointer) ctx) == FALSE) {
       /* TODO: on failure? */
     }
   }
-  
-  menu_refresh(cvs);
 }
 
 static gboolean

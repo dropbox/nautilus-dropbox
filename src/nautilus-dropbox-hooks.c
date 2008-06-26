@@ -17,6 +17,7 @@
 
 #include <libnautilus-extension/nautilus-file-info.h>
 
+#include "g-util.h"
 #include "async-io-coroutine.h"
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
