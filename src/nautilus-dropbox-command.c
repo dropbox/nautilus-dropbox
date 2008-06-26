@@ -42,6 +42,9 @@ static gboolean
 on_connect(NautilusDropbox *cvs) {
   debug("command client connection");
 
+  cvs->ca.user_quit = FALSE;
+  cvs->ca.dropbox_starting = FALSE;
+
   nautilus_dropbox_on_connect(cvs);
   nautilus_dropbox_tray_on_connect(cvs);
 
@@ -65,7 +68,15 @@ connection_attempt(ConnectionAttempt *ca) {
 
   g_free(ca);
 
-  if (cvs->ca.user_quit == TRUE) {
+  /* if the user hasn't quit us and this is the third time trying to 
+     reconnect, then dropbox is probably dead, we should start it
+   */
+  if (cvs->ca.user_quit == FALSE &&
+      i > 3 &&
+      cvs->ca.dropbox_starting == FALSE) {
+    cvs->ca.dropbox_starting = TRUE;
+    debug("couldn't connect to dropbox, auto-starting");
+    nautilus_dropbox_common_start_dropbox(cvs, TRUE);
   }
 
   return FALSE;

@@ -103,3 +103,67 @@ nautilus_dropbox_common_get_globals(NautilusDropbox *cvs,
 
   nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
 }
+
+/* TODO: return something that indicates status of call */
+void
+nautilus_dropbox_common_start_dropbox(NautilusDropbox *cvs, gboolean download) {
+  gchar *dropboxd_path;
+
+  /* first kill any pre-existing instances of dropbox */
+  /* TODO: is there a portable way to kill processes by name? */
+  g_spawn_command_line_async("killall dropboxd", NULL);
+
+  /* now check if dropboxd exists in the magic place,
+     first generate executable name
+   */
+  dropboxd_path = g_strdup_printf("%s/.dropbox-dist/dropboxd",
+                                  g_get_home_dir());
+
+  /* if dropboxd exists let's just start it */
+  if (g_file_test(dropboxd_path,
+                  G_FILE_TEST_IS_EXECUTABLE | G_FILE_TEST_EXISTS)) {
+    /* if there was a problem with starting dropbox
+       something's up with the package, we should redownload it */
+    /* TODO: this should daemonize dropbox,
+       i.e. remove the controlling tty etc */
+    if (g_spawn_command_line_async(dropboxd_path, NULL)) {
+      goto OUTTRUE;
+    }
+    else {
+      gchar *delete_dropbox_cmdline;
+      
+      g_free(dropboxd_path);
+      delete_dropbox_cmdline = g_strdup_printf("rm -rf %s/.dropbox-dist/",
+                                               g_get_home_dir());
+      g_spawn_command_line_async(delete_dropbox_cmdline, NULL);
+      
+      g_free(delete_dropbox_cmdline);
+
+      if (download) {
+	nautilus_dropbox_tray_start_dropbox_transfer(cvs);
+	goto OUTTRUE;
+      }
+      else {
+	goto OUTFALSE;
+      }
+    }
+  }
+  /* else we have to download it */
+  else {
+    if (download) {
+      nautilus_dropbox_tray_start_dropbox_transfer(cvs);
+      goto OUTTRUE;
+    }
+    else {
+      goto OUTFALSE;
+    }
+  }
+
+ OUTTRUE:
+  g_free(dropboxd_path);
+  return TRUE;
+
+ OUTFALSE:
+  g_free(dropboxd_path);
+  return FALSE;
+}

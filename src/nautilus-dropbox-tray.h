@@ -14,7 +14,8 @@ nautilus_dropbox_tray_on_connect(NautilusDropbox *cvs);
 void
 nautilus_dropbox_tray_on_disconnect(NautilusDropbox *cvs);
 
-
+void
+nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropbox *cvs);
 
 G_END_DECLS
 

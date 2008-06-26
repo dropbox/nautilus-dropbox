@@ -6,6 +6,7 @@
 #include <glib.h>
 #include <glib/gprintf.h>
 
+#include "nautilus-dropbox-common.h"
 #include "async-http-downloader.h"
 #include "async-io-coroutine.h"
 
@@ -20,6 +21,8 @@ typedef struct {
   HttpResponseHandler cb;
   gpointer ud;
   GIOChannel *stdout_chan;
+  guint ev_id_watch;
+  guint *mark;
   struct {
     int codepos;
     int response_code;
@@ -27,12 +30,25 @@ typedef struct {
   } readctx;
 } WgetAsyncHttpRequest;
 
+typedef struct {
+  guint *mark;
+  guint ev_id_read;
+} WgetCBHelper;
+
 static void setClocale(gpointer ud) {
   /* we do this so wget's output can be interpreted as utf8 encoding */
   g_setenv("LC_ALL", "C", TRUE);
 }
 
-static void free_wahp(WgetAsyncHttpRequest *wahp) {
+static void free_wahp_read(WgetAsyncHttpRequest *wahp) {
+  if (*wahp->mark != 0) {
+    *wahp->mark = 0;
+    g_source_remove(wahp->ev_id_watch);
+  }
+  else {
+    g_free(wahp->mark);
+  }
+
   /* do all the wahp cleanup here, who knows if
      a readline could fail */
   g_io_channel_unref(wahp->stdout_chan);
@@ -46,31 +62,45 @@ static void free_wahp(WgetAsyncHttpRequest *wahp) {
   g_free(wahp);
 }
 
+static void free_wahp_watch(WgetCBHelper *data) {
+  if (*data->mark != 0) {
+    *data->mark = 0;
+    g_source_remove(data->ev_id_read);
+  }
+  else {
+    g_free(data->mark);
+  }
+
+  g_free(data);
+}
+
+static gboolean
+handle_wget_stderr_bad(GIOChannel *stderr_chan,
+			GIOCondition cond,
+			WgetAsyncHttpRequest *wahp) {
+  return FALSE;
+}
+
 static gboolean
 handle_wget_stderr(GIOChannel *stderr_chan,
                    GIOCondition cond,
                    WgetAsyncHttpRequest *wahp) {
-
-  if (cond == G_IO_ERR || cond == G_IO_HUP) {
-    return FALSE;
-  }
-
   CRBEGIN(wahp->readctx.codepos);
-
+    
   /* read line until we get the first line that starts with "  " */
   while (1) {
     gchar *line;
-
+      
     CRREADLINE(wahp->readctx.codepos, stderr_chan, line);
-
+      
     /* first response line is the HTTP response code */
     /* we can character manipulation like this because
        wget should be pumping only 7-bit ascii to us
        (remember we set the locale?) */
-    if (strncmp("  ", line, 2) == 0) {
+    if (strncmp("  HTTP", line, 6) == 0) {
       line[14] = '\0';
       /* we could also probably extract out the http version and
-         response message if need be */
+	 response message if need be */
       wahp->readctx.response_code = atoi(&line[11]);
       g_free(line);
       break;
@@ -86,10 +116,11 @@ handle_wget_stderr(GIOChannel *stderr_chan,
     gchar *line;
 
     CRREADLINE(wahp->readctx.codepos, stderr_chan, line);
-    
+
     if (strncmp("  ", line, 2) == 0) {
       wahp->readctx.response_headers = 
-        g_list_append(wahp->readctx.response_headers, line);
+	g_list_append(wahp->readctx.response_headers, g_strdup(2 + line));
+      g_free(line);
     }
     else {
       g_free(line);
@@ -100,8 +131,8 @@ handle_wget_stderr(GIOChannel *stderr_chan,
   /* great got all the response headers and the response code
      we are basically just, just call our callback */
   wahp->cb(wahp->readctx.response_code,
-           wahp->readctx.response_headers,
-           wahp->stdout_chan, wahp->ud);
+	   wahp->readctx.response_headers,
+	   wahp->stdout_chan, wahp->ud);
 
   CREND;
 }
@@ -121,13 +152,13 @@ make_async_http_get_request(const char *host, const char *path,
     int i = 0;
     int argv_length;
 
-    argv_length = 6 + g_list_length(request_headers);
+    argv_length = 5 + g_list_length(request_headers);
 
     argv = g_new(gchar *, argv_length);
     argv[i++] = g_strdup("wget");
     argv[i++] = g_strdup("-O-");
     argv[i++] = g_strdup("--server-response");
-    argv[i++] = g_strdup("--max-redirect=0");
+    //argv[i++] = g_strdup("--max-redirect=0");
 
     {
       GList *li;
@@ -175,6 +206,8 @@ make_async_http_get_request(const char *host, const char *path,
     }
     
     wahp = g_new(WgetAsyncHttpRequest, 1);
+    wahp->mark = g_new(guint, 1);
+    *wahp->mark = 1;
     wahp->cb = cb;
     wahp->ud = ud;
     wahp->stdout_chan = g_io_channel_unix_new(stdout);
@@ -183,10 +216,21 @@ make_async_http_get_request(const char *host, const char *path,
     wahp->readctx.codepos = 0;
     wahp->readctx.response_code = -1;
     wahp->readctx.response_headers = NULL;
-    g_io_add_watch_full(stderr_chan, G_PRIORITY_DEFAULT,
-                        G_IO_IN | G_IO_ERR | G_IO_HUP,
-                        (GIOFunc) handle_wget_stderr, wahp,
-                        (GDestroyNotify) free_wahp);
+    {
+      WgetCBHelper *wcbh = g_new(WgetCBHelper, 1);
+      wcbh->mark = wahp->mark;
+
+      wcbh->ev_id_read =
+	g_io_add_watch_full(stderr_chan, G_PRIORITY_DEFAULT,
+			    G_IO_IN | G_IO_PRI,
+			    (GIOFunc) handle_wget_stderr, wahp,
+			    (GDestroyNotify) free_wahp_read);
+      wahp->ev_id_watch =
+	g_io_add_watch_full(stderr_chan, G_PRIORITY_DEFAULT,
+			    G_IO_HUP | G_IO_ERR | G_IO_NVAL,
+			    (GIOFunc) handle_wget_stderr_bad, wcbh,
+			    (GDestroyNotify) free_wahp_watch);
+    }
 
     g_io_channel_unref(stderr_chan);
   }

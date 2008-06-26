@@ -61,6 +61,7 @@ struct _NautilusDropbox {
   NautilusDropboxHookserv hookserv;
   struct {
     gboolean user_quit;
+    gboolean dropbox_starting;
   } ca;
 };
 

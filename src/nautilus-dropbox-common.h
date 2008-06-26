@@ -28,6 +28,9 @@ nautilus_dropbox_common_get_globals(NautilusDropbox *cvs,
 				    gchar *tabbed_keys,
 				    NautilusDropboxGlobalCB cb, gpointer ud);
 
+void
+nautilus_dropbox_common_start_dropbox(NautilusDropbox *cvs, gboolean download);
+
 G_END_DECLS
 
 #endif

@@ -461,6 +461,8 @@ nautilus_dropbox_info_provider_iface_init (NautilusInfoProviderIface *iface) {
 static void
 nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
   /* this data is shared by all submodules */
+  cvs->ca.user_quit = FALSE;
+  cvs->ca.dropbox_starting = FALSE;
   cvs->file_store = NULL;
   cvs->dispatch_table = g_hash_table_new((GHashFunc) g_str_hash,
 					 (GEqualFunc) g_str_equal);
@@ -473,9 +475,6 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
   /* now start up the two connections */
   nautilus_dropbox_hooks_start(cvs);
   nautilus_dropbox_command_start(cvs);
-
-  /* start dropbox */
-  //nautilus_dropbox_tray_start_dropbox(cvs);
 
   return;
 }
