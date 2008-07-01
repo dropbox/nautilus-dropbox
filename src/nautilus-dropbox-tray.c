@@ -376,6 +376,7 @@ void
 nautilus_dropbox_tray_on_disconnect(NautilusDropbox *cvs) {
   if (cvs->ca.user_quit == TRUE) {
     install_start_dropbox_menu(cvs);
+    gtk_status_icon_set_tooltip(cvs->ndt.status_icon, "Dropbox");
   }
   else {
     gtk_container_remove_all(GTK_CONTAINER(cvs->ndt.context_menu));
@@ -384,6 +385,7 @@ nautilus_dropbox_tray_on_disconnect(NautilusDropbox *cvs) {
     gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
     g_object_set(item, "sensitive", FALSE, NULL);    
     menu_refresh(&(cvs->ndt));
+    gtk_status_icon_set_tooltip(cvs->ndt.status_icon, "Reconnecting to Dropbox...");
   }
 }
 
@@ -518,6 +520,8 @@ kill_hihd_ud(HttpDownloadCtx *ctx) {
   else if (ctx->download_finished == FALSE) {
     fail_dropbox_download(ctx->cvs, NULL);
   }
+
+  gtk_status_icon_set_tooltip(ctx->cvs->ndt.status_icon, "Dropbox");
 
   g_io_channel_unref(ctx->tmpfilechan);
   g_free(ctx->tmpfilename);
@@ -654,6 +658,8 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropbox *cvs) {
     gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
   }
   menu_refresh(&(cvs->ndt));
+
+  gtk_status_icon_set_tooltip(cvs->ndt.status_icon, "Downloading Dropbox...");
   
   {
     HttpDownloadCtx *ctx;
