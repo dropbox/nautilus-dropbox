@@ -27,6 +27,7 @@
 #include "busy2.h"
 #include "busy.h"
 #include "idle.h"
+#include "logo.h"
 
 typedef struct {
   NautilusDropbox *cvs;
@@ -111,6 +112,23 @@ activate_menu_item(GtkStatusIcon *status_icon,
     nautilus_dropbox_command_request(mid->cvs, (DropboxCommand *) dgc);
   }
 }
+
+static void
+install_start_dropbox_menu(NautilusDropbox *cvs) {
+  /* install start dropbox menu */
+  gtk_container_remove_all(GTK_CONTAINER(cvs->ndt.context_menu));
+  
+  {
+    GtkWidget *item;
+    item = gtk_menu_item_new_with_label("Start Dropbox");
+    gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
+    g_signal_connect(G_OBJECT(item), "activate",
+		     G_CALLBACK(activate_start_dropbox), cvs);
+  }
+  
+  menu_refresh(&(cvs->ndt));
+}
+
 
 void menu_item_data_destroy(MenuItemData *mid,
 			    GClosure *closure) {
@@ -210,6 +228,30 @@ create_menu(NautilusDropbox *cvs, gboolean active) {
   nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
 }
 
+
+gboolean
+nautilus_dropbox_tray_bubble(NautilusDropbox *cvs, const gchar *caption,
+			     const gchar *message, GError **gerr) {
+  gboolean toret;
+  GdkRectangle area;
+  NotifyNotification *n =
+    notify_notification_new(caption, message,
+			    NULL, NULL);
+  
+  gtk_status_icon_get_geometry(cvs->ndt.status_icon,
+			       NULL, &area, NULL);
+  
+  notify_notification_set_hint_int32 (n, "x", area.x+area.width/2);
+  notify_notification_set_hint_int32 (n, "y", area.y+area.height);
+  
+  if ((toret = notify_notification_show(n, gerr)) == FALSE) {
+    debug("couldn't show notification: %s", (*gerr)->message);
+  }
+  
+  g_object_unref(G_OBJECT(n));
+  return toret;
+}
+
 static void
 handle_bubble(NautilusDropbox *cvs, GHashTable *args) {
   gchar **message, **caption;
@@ -218,24 +260,7 @@ handle_bubble(NautilusDropbox *cvs, GHashTable *args) {
   caption = g_hash_table_lookup(args, "caption");
 
   if (message != NULL && caption != NULL) {
-    GError *gerr = NULL;
-    GdkRectangle area;
-    NotifyNotification *n =
-      notify_notification_new(caption[0], message[0],
-			      NULL, NULL);
-    
-    gtk_status_icon_get_geometry(cvs->ndt.status_icon,
-				 NULL, &area, NULL);
-
-    notify_notification_set_hint_int32 (n, "x", area.x+area.width/2);
-    notify_notification_set_hint_int32 (n, "y", area.y+area.height);
-
-    if (!notify_notification_show(n, &gerr)) {
-      debug("couldn't show notification: %s", gerr->message);
-      g_error_free(gerr);
-    }
-
-    g_object_unref(G_OBJECT(n));
+    nautilus_dropbox_tray_bubble(cvs, caption[0], message[0], NULL);
   }
 }
 
@@ -349,27 +374,17 @@ nautilus_dropbox_tray_on_connect(NautilusDropbox *cvs) {
 
 void
 nautilus_dropbox_tray_on_disconnect(NautilusDropbox *cvs) {
-  /* TODO: change menu to start_dropbox */
-
-  /* setup the menu here */
-  gtk_container_remove_all(GTK_CONTAINER(cvs->ndt.context_menu));
-  
   if (cvs->ca.user_quit == TRUE) {
-    GtkWidget *item;
-    item = gtk_menu_item_new_with_label("Start Dropbox");
-    gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
-
-    g_signal_connect(G_OBJECT(item), "activate",
-		     G_CALLBACK(activate_start_dropbox), cvs);
+    install_start_dropbox_menu(cvs);
   }
   else {
+    gtk_container_remove_all(GTK_CONTAINER(cvs->ndt.context_menu));
     GtkWidget *item;
     item = gtk_menu_item_new_with_label("Reconnecting to Dropbox...");
     gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
     g_object_set(item, "sensitive", FALSE, NULL);    
+    menu_refresh(&(cvs->ndt));
   }
-  
-  menu_refresh(&(cvs->ndt));
 }
 
 typedef struct {
@@ -384,6 +399,17 @@ typedef struct {
   gboolean download_finished;
 } HttpDownloadCtx;
 
+
+static void
+fail_dropbox_download(NautilusDropbox *cvs, const gchar *msg) {
+  install_start_dropbox_menu(cvs);
+
+  nautilus_dropbox_tray_bubble(cvs, "Couldn't download Dropbox",
+			       msg == NULL
+			       ? "Failed to download Dropbox, try again "
+			       "later."
+			       : msg, NULL);
+}
 
 static void
 handle_tar_dying(GPid pid, gint status, gpointer *ud) {
@@ -487,19 +513,10 @@ handle_incoming_http_data(GIOChannel *chan,
 static void
 kill_hihd_ud(HttpDownloadCtx *ctx) {
   if (ctx->user_cancelled == TRUE) {
-    GtkWidget *item;
-    gtk_container_remove_all(GTK_CONTAINER(ctx->cvs->ndt.context_menu));
-    
-    item = gtk_menu_item_new_with_label("Start Dropbox");
-    gtk_menu_shell_append(GTK_MENU_SHELL(ctx->cvs->ndt.context_menu), item);
-    
-    g_signal_connect(G_OBJECT(item), "activate",
-		     G_CALLBACK(activate_start_dropbox), ctx->cvs);
-    
-    menu_refresh(&(ctx->cvs->ndt));
+    install_start_dropbox_menu(ctx->cvs);
   }
   else if (ctx->download_finished == FALSE) {
-    /* TODO: should flag an error */
+    fail_dropbox_download(ctx->cvs, NULL);
   }
 
   g_io_channel_unref(ctx->tmpfilechan);
@@ -521,12 +538,8 @@ handle_dropbox_download_response(gint response_code,
 				 HttpDownloadCtx *ctx) {
   int filesize = -1;
 
-  /* TODO: do something when http request fails, but what?
-     show issue in context menu? dropbox is unstartable? 
-     maybe try again in some amount of time
-  */
   if (response_code != 200) {
-    debug("downloading dropbox dist failed with %d", response_code);
+    fail_dropbox_download(ctx->cvs, "");
     g_free(ctx);
     return;
   }
@@ -549,17 +562,16 @@ handle_dropbox_download_response(gint response_code,
   {
     GIOFlags flags;
     flags = g_io_channel_get_flags(chan);
-    /* TODO: error fail otu for now */
     if (g_io_channel_set_flags(chan, flags | G_IO_FLAG_NONBLOCK, NULL) !=
 	G_IO_STATUS_NORMAL) {
-      g_io_channel_unref(chan);
+      fail_dropbox_download(ctx->cvs, NULL);
       g_free(ctx);
       return;
     }
   }
 
   if (g_io_channel_set_encoding(chan, NULL, NULL) != G_IO_STATUS_NORMAL) {
-    /* TODO: error fail out for now */
+    fail_dropbox_download(ctx->cvs, NULL);
     g_free(ctx);
     return;
   }
@@ -569,19 +581,19 @@ handle_dropbox_download_response(gint response_code,
     gint fd;
     gchar *filename;
     fd = g_file_open_tmp(NULL, &filename, NULL);
-    /* TODO: error fail out for now*/
     if (fd == -1) {
+      fail_dropbox_download(ctx->cvs, NULL);
       g_free(ctx);
       return;
     }
 
-    debug("saving to %s", filename);
+    /*debug("saving to %s", filename); */
 
     ctx->tmpfilechan = g_io_channel_unix_new(fd);
     g_io_channel_set_close_on_unref(ctx->tmpfilechan, TRUE);
 
-    /* TODO: error fail out for now */
     if (g_io_channel_set_encoding(ctx->tmpfilechan, NULL, NULL) != G_IO_STATUS_NORMAL) {
+      fail_dropbox_download(ctx->cvs, NULL);
       g_io_channel_unref(ctx->tmpfilechan);
       g_free(filename);
       g_free(ctx);
@@ -591,7 +603,7 @@ handle_dropbox_download_response(gint response_code,
     ctx->tmpfilename = filename;
   }
 
-  debug("installing http receiver callback");
+  /*debug("installing http receiver callback"); */
 
   ctx->user_cancelled = FALSE;
   ctx->bytes_downloaded = 0;
@@ -645,8 +657,6 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropbox *cvs) {
   
   {
     HttpDownloadCtx *ctx;
-    /* TODO: this one little data structure deals with
-       this entire transfer, a little unclean */
     ctx = g_new(HttpDownloadCtx, 1);
     ctx->cvs = cvs;
     if (make_async_http_get_request(
@@ -655,25 +665,31 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropbox *cvs) {
 				    "foursquare.nfshost.com", "/bb.tar.gz",
 				    NULL, (HttpResponseHandler) handle_dropbox_download_response,
 				    (gpointer) ctx) == FALSE) {
-      /* TODO: on failure? */
+      fail_dropbox_download(cvs, NULL);
     }
   }
 }
 
 static gboolean
 animate_icon(NautilusDropbox *cvs) {
-  if (cvs->ndt.icon_state == 0) {
-    gtk_status_icon_set_from_pixbuf(cvs->ndt.status_icon,
-				    cvs->ndt.idle);
+  if (nautilus_dropbox_command_is_connected(cvs)) {
+    if (cvs->ndt.icon_state == 0) {
+      gtk_status_icon_set_from_pixbuf(cvs->ndt.status_icon,
+				      cvs->ndt.idle);
+    }
+    else {
+      gtk_status_icon_set_from_pixbuf(cvs->ndt.status_icon,
+				      cvs->ndt.busy_frame
+				      ? cvs->ndt.busy
+				      : cvs->ndt.busy2);
+      cvs->ndt.busy_frame = !cvs->ndt.busy_frame;
+    }
   }
   else {
     gtk_status_icon_set_from_pixbuf(cvs->ndt.status_icon,
-				    cvs->ndt.busy_frame
-				    ? cvs->ndt.busy
-				    : cvs->ndt.busy2);
-    cvs->ndt.busy_frame = !cvs->ndt.busy_frame;
+				    cvs->ndt.logo);
   }
-
+    
   g_timeout_add(500, (GSourceFunc)animate_icon, cvs);
 
   return FALSE;
@@ -696,9 +712,10 @@ nautilus_dropbox_tray_setup(NautilusDropbox *cvs) {
   cvs->ndt.idle = gdk_pixbuf_new_from_inline(-1, idle, FALSE, NULL);
   cvs->ndt.busy = gdk_pixbuf_new_from_inline(-1, busy, FALSE, NULL);
   cvs->ndt.busy2 = gdk_pixbuf_new_from_inline(-1, busy2, FALSE, NULL);
+  cvs->ndt.logo = gdk_pixbuf_new_from_inline(-1, logo, FALSE, NULL);
 
   cvs->ndt.last_active = 0;
-  cvs->ndt.status_icon = gtk_status_icon_new_from_pixbuf(cvs->ndt.idle);
+  cvs->ndt.status_icon = gtk_status_icon_new_from_pixbuf(cvs->ndt.logo);
   {
     GtkWidget *item;
     cvs->ndt.context_menu = GTK_MENU(gtk_menu_new());

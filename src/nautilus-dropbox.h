@@ -31,6 +31,7 @@ typedef struct {
   GdkPixbuf *idle;
   GdkPixbuf *busy;
   GdkPixbuf *busy2;
+  GdkPixbuf *logo;
   gint icon_state;
   gint busy_frame;
   gboolean last_active;
@@ -43,6 +44,7 @@ typedef struct {
     int line;
     gchar *command_name;
     GHashTable *command_args;
+    int numargs;
   } hhsi;
   GCond *connected_cond;
   GMutex *connected_mutex;

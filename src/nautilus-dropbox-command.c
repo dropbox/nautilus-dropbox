@@ -143,15 +143,24 @@ nautilus_dropbox_command_parse_arg(const gchar *line, GHashTable *return_table) 
   return retval;
 }
 
-static void
+static gboolean
 receive_args_until_done(GIOChannel *chan, GHashTable *return_table,
 			GError **err) {
   GIOStatus iostat;
   GError *tmp_error = NULL;
+  guint numargs = 0;
 
   while (1) {
     gchar *line;
     gsize term_pos;
+
+    /* if we are getting too many args, connection could be malicious */
+    if (numargs >= 20) {
+      g_set_error(err,
+		  g_quark_from_static_string("malicious connection"),
+		  0, "malicious connection");
+      return FALSE;
+    }
     
     /* get the string */
     iostat = g_io_channel_read_line(chan, &line, NULL,
@@ -159,19 +168,18 @@ receive_args_until_done(GIOChannel *chan, GHashTable *return_table,
     if (iostat == G_IO_STATUS_ERROR || tmp_error != NULL) {
       g_free(line);
       g_propagate_error(err, tmp_error);
-      return;
+      return FALSE;
     }
     else if (iostat == G_IO_STATUS_EOF) {
       g_free(line);
       g_set_error(err,
 		  g_quark_from_static_string("connection closed"),
 		  0, "connection closed");
-      return;
+      return FALSE;
     }
 
     *(line+term_pos) = '\0';
 
-    /* TODO: shouldn't loop forever, i.e. looping based on input, this will kill us */
     if (strcmp("done", line) == 0) {
       g_free(line);
       break;
@@ -186,12 +194,14 @@ receive_args_until_done(GIOChannel *chan, GHashTable *return_table,
 	g_set_error(err,
 		    g_quark_from_static_string("parse error"),
 		    0, "parse error");
-	return;
+	return FALSE;
       }
     }
+    
+    numargs += 1;
   }
 
-  return;
+  return TRUE;
 }
 
 /*

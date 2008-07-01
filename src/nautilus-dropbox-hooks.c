@@ -22,6 +22,7 @@
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
 #include "nautilus-dropbox-hooks.h"
+#include "nautilus-dropbox-tray.h"
 #include "nautilus-dropbox-command.h"
 
 static gboolean
@@ -75,7 +76,12 @@ handle_launch_url(NautilusDropbox *cvs, GHashTable *args) {
     command_line = g_strdup_printf("gnome-open %s", url[0]);
 
     if (!g_util_execute_command_line(command_line)) {
-      /* TODO: popup some notice that says we couldn't open the window */
+      gchar *msg;
+      msg = g_strdup_printf("Couldn't start 'gnome-open %s'. Please check "
+			    "and see if you have the 'gnome-open' program "
+			    "installed.", url[0]);
+      nautilus_dropbox_tray_bubble(cvs, "Couldn't launch browser", msg, NULL);
+      g_free(msg);
     }
 
     g_free(command_line);
@@ -112,6 +118,7 @@ handle_hook_server_input(GIOChannel *chan,
 			    (GEqualFunc) g_str_equal,
 			    (GDestroyNotify) g_free,
 			    (GDestroyNotify) g_strfreev);
+    cvs->hookserv.hhsi.numargs = 0;
     
     /* read the command name */
     {
@@ -121,10 +128,15 @@ handle_hook_server_input(GIOChannel *chan,
       g_free(line);
     }
 
-    /* now read each arg line until we receive "done" */
-    /* TODO: NO THIS IS BAD WE SHOULD NOT LOOP BASED ON OUR INPUT */
+    /* now read each arg line (until a certain limit) until we receive "done" */
     while (1) {
       gchar *line;
+
+      /* if too many arguments, this connection seems malicious */
+      if (cvs->hookserv.hhsi.numargs >= 20) {
+	CRHALT;
+      }
+
       CRREADLINE(cvs->hookserv.hhsi.line, chan, line);
 
       if (strcmp("done", line) == 0) {
@@ -144,6 +156,8 @@ handle_hook_server_input(GIOChannel *chan,
 	  CRHALT;
 	}
       }
+
+      cvs->hookserv.hhsi.numargs += 1;
     }
 
     /*debug("got a hook: %s", cvs->hookserv.hhsi.command_name); */

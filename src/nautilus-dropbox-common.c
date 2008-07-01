@@ -76,7 +76,6 @@ nautilus_dropbox_common_get_globals(NautilusDropbox *cvs,
   nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
 }
 
-/* TODO: return something that indicates status of call */
 gboolean
 nautilus_dropbox_common_start_dropbox(NautilusDropbox *cvs, gboolean download) {
   gchar *dropboxd_path;
