@@ -39,6 +39,8 @@ typedef struct {
   guint connect_attempt;
 } ConnectionAttempt;
 
+static gchar chars_not_to_escape[256];
+
 static gboolean
 on_connect(NautilusDropbox *cvs) {
   debug("command client connection");
@@ -94,62 +96,101 @@ nautilus_dropbox_command_is_connected(NautilusDropbox *cvs) {
   return command_connected;
 }
 
+gchar *nautilus_dropbox_command_sanitize(const gchar *a) {
+  /* this function escapes teh following utf-8 characters:
+   * '\\', '\n', '\t'
+   */
+  return g_strescape(a, chars_not_to_escape);
+}
+
+gchar *nautilus_dropbox_command_desanitize(const gchar *a) {
+  return g_strcompress(a);
+}
+
+gboolean
+nautilus_dropbox_command_parse_arg(const gchar *line, GHashTable *return_table) {
+  gchar **argval;
+  guint len;
+  gboolean retval;
+  
+  argval = g_strsplit(line, "\t", 0);
+  len = g_strv_length(argval);
+
+  /*  debug("parsed: (%d) %s", len, line); */
+  
+  if (len > 1) {
+    int i;
+    gchar **vals;
+    
+    vals = g_new(gchar *, len);
+    vals[len - 1] = NULL;
+    
+    for (i = 1; argval[i] != NULL; i++) {
+      vals[i-1] = nautilus_dropbox_command_desanitize(argval[i]);
+      
+    }
+    
+    g_hash_table_insert(return_table,
+			nautilus_dropbox_command_desanitize(argval[0]),
+			vals);
+    retval = TRUE;
+  }
+  else {
+    retval = FALSE;
+  }
+
+  g_strfreev(argval);
+  return retval;
+}
+
 static void
 receive_args_until_done(GIOChannel *chan, GHashTable *return_table,
 			GError **err) {
   GIOStatus iostat;
   GError *tmp_error = NULL;
-  GString *line;
-
-  line = g_string_new("");
 
   while (1) {
-    GString *key_str, *val_str;
-    char *tab_loc;
-    
-    /* clear the string */
-    g_string_erase(line, 0, -1);
+    gchar *line;
+    gsize term_pos;
     
     /* get the string */
-    iostat = g_io_channel_read_line_string(chan, line,
-					   NULL, &tmp_error);
+    iostat = g_io_channel_read_line(chan, &line, NULL,
+				    &term_pos, &tmp_error);
     if (iostat == G_IO_STATUS_ERROR || tmp_error != NULL) {
-      g_string_free(line, TRUE);
+      g_free(line);
       g_propagate_error(err, tmp_error);
       return;
     }
     else if (iostat == G_IO_STATUS_EOF) {
-      g_string_free(line, TRUE);
+      g_free(line);
       g_set_error(err,
 		  g_quark_from_static_string("connection closed"),
 		  0, "connection closed");
       return;
     }
 
+    *(line+term_pos) = '\0';
+
     /* TODO: shouldn't loop forever, i.e. looping based on input, this will kill us */
-    if (strncmp(line->str, "done\n", 5) == 0) {
+    if (strcmp("done", line) == 0) {
+      g_free(line);
       break;
     }
     else {
-      tab_loc = strchr(line->str, '\t');
+      gboolean parse_result;
 
-      if (tab_loc != NULL) {
-	key_str = g_string_new_len(line->str, tab_loc - line->str);
-	val_str = g_string_new_len(tab_loc+1, line->len - (tab_loc - line->str) - 2);
-	
-	g_hash_table_insert(return_table, key_str, val_str);
-      }
-      else {
-	g_string_free(line, TRUE);
+      parse_result = nautilus_dropbox_command_parse_arg(line, return_table);
+      g_free(line);
+
+      if (FALSE == parse_result) {
 	g_set_error(err,
-		    g_quark_from_static_string("invalid connection"),
-		    0, "invalid connection");
+		    g_quark_from_static_string("parse error"),
+		    0, "parse error");
 	return;
       }
     }
   }
 
-  g_string_free(line, TRUE);
   return;
 }
 
@@ -167,35 +208,50 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
   GError *tmp_error = NULL;
   GIOStatus iostat;
   gsize bytes_trans;
-  GString *line;
+  gchar *line;
 
   g_assert(chan != NULL);
   g_assert(command_name != NULL);
-
-#define WRITE_OR_DIE(s,l) {					\
-    iostat = g_io_channel_write_chars(chan, s,l, &bytes_trans,	\
-				      &tmp_error);		\
-    if (iostat == G_IO_STATUS_ERROR || tmp_error != NULL) {	\
-      g_propagate_error(err, tmp_error);                        \
-      return NULL;                                              \
-    }								\
+  
+#define WRITE_OR_DIE_SANI(s,l) {					\
+    gchar *sani_s;							\
+    sani_s = nautilus_dropbox_command_sanitize(s);						\
+    iostat = g_io_channel_write_chars(chan, sani_s,l, &bytes_trans,	\
+				      &tmp_error);			\
+    g_free(sani_s);							\
+    if (iostat == G_IO_STATUS_ERROR || tmp_error != NULL) {		\
+      g_propagate_error(err, tmp_error);				\
+      return NULL;							\
+    }									\
   }
-    
+  
+#define WRITE_OR_DIE(s,l) {						\
+    iostat = g_io_channel_write_chars(chan, s,l, &bytes_trans,		\
+				      &tmp_error);			\
+    if (iostat == G_IO_STATUS_ERROR || tmp_error != NULL) {		\
+      g_propagate_error(err, tmp_error);				\
+      return NULL;							\
+    }									\
+  }
+  
   /* send command to server */
-  /* TODO: escape tabs and newlines */
-  WRITE_OR_DIE(command_name, -1);
+  WRITE_OR_DIE_SANI(command_name, -1);
   WRITE_OR_DIE("\n", -1);
 
   if (args != NULL) {
-    GString *key, *value;
+    gchar *key;
+    gchar **value;
     GHashTableIter iter;
 
     g_hash_table_iter_init(&iter, args);
     while (g_hash_table_iter_next(&iter, (gpointer) &key,
 				  (gpointer) &value)) {
-      WRITE_OR_DIE(key->str, key->len);
-      WRITE_OR_DIE("\t", -1);
-      WRITE_OR_DIE(value->str, value->len);
+      int i;
+      WRITE_OR_DIE_SANI(key, -1);
+      for (i = 0; value[i] != NULL; i++) {
+	WRITE_OR_DIE("\t", -1);
+	WRITE_OR_DIE_SANI(value[i], -1);
+      }
       WRITE_OR_DIE("\n", -1);
     }
   }
@@ -203,25 +259,24 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
   WRITE_OR_DIE("done\n", -1);
 
 #undef WRITE_OR_DIE
+#undef WRITE_OR_DIE_SANI
 
-  iostat = g_io_channel_flush(chan, &tmp_error);
-  if (iostat == G_IO_STATUS_ERROR || tmp_error != NULL) {
+  g_io_channel_flush(chan, &tmp_error);
+  if (tmp_error != NULL) {
     g_propagate_error(err, tmp_error);
     return NULL;
   }
 
   /* now we have to read the data */
-  /* TODO: unescape tabs and newlines */
-  line = g_string_new("");
-  iostat = g_io_channel_read_line_string(chan, line,
-					 NULL, &tmp_error);
+  iostat = g_io_channel_read_line(chan, &line, NULL,
+				  NULL, &tmp_error);
   if (iostat == G_IO_STATUS_ERROR || tmp_error != NULL) {
-    g_string_free(line, TRUE);
+    if (line != NULL) g_free(line);
     g_propagate_error(err, tmp_error);
     return NULL;
   }
   else if (iostat == G_IO_STATUS_EOF) {
-    g_string_free(line, TRUE);
+    if (line != NULL) g_free(line);
     g_set_error(err,
 		g_quark_from_static_string("dropbox command connection closed"),
 		0,
@@ -230,13 +285,14 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
   }
 
   /* if the response was okay */
-  if (strncmp(line->str, "ok\n", 3) == 0) {
+  if (strncmp(line, "ok\n", 3) == 0) {
     GHashTable *return_table = 
-      g_hash_table_new_full((GHashFunc) g_string_hash, (GEqualFunc) g_string_equal,
-			    g_util_destroy_string,
-			    g_util_destroy_string);
-        
-    g_string_free(line, TRUE);
+      g_hash_table_new_full((GHashFunc) g_str_hash,
+			    (GEqualFunc) g_str_equal,
+			    (GDestroyNotify) g_free,
+			    (GDestroyNotify) g_strfreev);
+    
+    g_free(line);
 
     receive_args_until_done(chan, return_table, &tmp_error);
     if (tmp_error != NULL) {
@@ -249,21 +305,21 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
   }
   /* otherwise */
   else {
+    g_free(line);
+
     /* read errors off until we get done */
     do {
       /* clear string */
-      g_string_erase(line, 0, -1);
-
-      iostat = g_io_channel_read_line_string(chan, line,
-					     NULL, &tmp_error);
+      iostat = g_io_channel_read_line(chan, &line, NULL,
+				      NULL, &tmp_error);
       if (iostat == G_IO_STATUS_ERROR ||
 	  tmp_error != NULL) {
-	g_string_free(line, TRUE);
+	g_free(line);
 	g_propagate_error(err, tmp_error);
 	return NULL;
       }
       else if (iostat == G_IO_STATUS_EOF) {
-	g_string_free(line, TRUE);
+	g_free(line);
 	g_set_error(err,
 		    g_quark_from_static_string("dropbox command connection closed"),
 		    0,
@@ -272,9 +328,9 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
       }
 
       /* we got our line */
-    } while (strncmp(line->str, "done", 4) != 0);
+    } while (strncmp(line, "done\n", 5) != 0);
 
-    g_string_free(line, TRUE);
+    g_free(line);
     return NULL;
   }
 }
@@ -293,45 +349,51 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
   filename = g_filename_from_uri(nautilus_file_info_get_uri(dfic->file),
 				 NULL, NULL);
 
-  args = g_hash_table_new_full((GHashFunc) g_string_hash,
-			       (GEqualFunc) g_string_equal,
-			       g_util_destroy_string,
-			       g_util_destroy_string);
+  args = g_hash_table_new_full((GHashFunc) g_str_hash,
+			       (GEqualFunc) g_str_equal,
+			       (GDestroyNotify) g_free,
+			       (GDestroyNotify) g_strfreev);
   {
-    GString *key, *value;
-    key = g_string_new("path");
-    value = g_string_new(filename);
-
-    g_hash_table_insert(args, key, value);
+    gchar **path_arg;
+    path_arg = g_new(gchar *, 2);
+    path_arg[0] = g_strdup(filename);
+    path_arg[1] = NULL;
+    g_hash_table_insert(args, g_strdup("path"), path_arg);
   }
+
   
   /* send status command to server */
   file_status_response = send_command_to_db(chan, "icon_overlay_file_status",
 					    args, &tmp_gerr);
-  g_hash_table_destroy(args);
+  g_hash_table_unref(args);
+  args = NULL;
   if (tmp_gerr != NULL) {
+    g_free(filename);
     g_assert(file_status_response == NULL);
     g_propagate_error(gerr, tmp_gerr);
     return;
   }
 
-  args = g_hash_table_new_full((GHashFunc) g_string_hash,
-			       (GEqualFunc) g_string_equal,
-			       g_util_destroy_string,
-			       g_util_destroy_string);
-
+  args = g_hash_table_new_full((GHashFunc) g_str_hash,
+			       (GEqualFunc) g_str_equal,
+			       (GDestroyNotify) g_free,
+			       (GDestroyNotify) g_strfreev);
   {
-    GString *key, *value;
-    key = g_string_new("paths");
-    value = g_string_new(filename);
-    g_hash_table_insert(args, key, value);
+    gchar **paths_arg;
+    paths_arg = g_new(gchar *, 2);
+    paths_arg[0] = g_strdup(filename);
+    paths_arg[1] = NULL;
+    g_hash_table_insert(args, g_strdup("paths"), paths_arg);
   }
-  
+
+  g_free(filename);
+
   /* send context options command to server */
   context_options_response =
     send_command_to_db(chan, "icon_overlay_context_options",
 		       args, &tmp_gerr);
-  g_hash_table_destroy(args);
+  g_hash_table_unref(args);
+  args = NULL;
   if (tmp_gerr != NULL) {
     if (file_status_response != NULL)
       g_hash_table_destroy(file_status_response);
@@ -360,9 +422,10 @@ finish_general_command(DropboxGeneralCommandResponse *dgcr) {
   if (dgcr->response != NULL) {
     g_hash_table_destroy(dgcr->response);
   }
+
   g_free(dgcr->dgc->command_name);
   if (dgcr->dgc->command_args != NULL) {
-    g_hash_table_destroy(dgcr->dgc->command_args);
+    g_hash_table_unref(dgcr->dgc->command_args);
   }
   g_free(dgcr->dgc);
   g_free(dgcr);
@@ -388,14 +451,14 @@ do_general_command(GIOChannel *chan, DropboxGeneralCommand *dcac,
   /* debug general responses */
   if (FALSE) {
     GHashTableIter iter;
-    GString *key, *val;
+    gchar *key, *val;
     debug("general command: %s", dcac->command_name);
 
     g_hash_table_iter_init(&iter, dcac->command_args);
     while (g_hash_table_iter_next(&iter,
 				  (gpointer) &key,
 				  (gpointer) &val)) {
-      debug("arg: %s, val: %s", key->str, val->str);
+      debug("arg: %s, val: %s", key, val);
     }
 
 
@@ -404,14 +467,14 @@ do_general_command(GIOChannel *chan, DropboxGeneralCommand *dcac,
       while (g_hash_table_iter_next(&iter,
 				    (gpointer) &key,
 				    (gpointer) &val)) {
-	debug("response: %s, val: %s", key->str, val->str);
+	debug("response: %s, val: %s", key, val);
       }
     }
     else {
       debug("response was null");
     }
   }
-
+  
   /* great, the server did the command perfectly,
      now call the handler with the response */
   {
@@ -570,6 +633,7 @@ nautilus_dropbox_command_thread(gpointer data) {
 	 (this function is static)
        */
       if ((gpointer (*)(gpointer data)) dc == &nautilus_dropbox_command_thread) {
+	debug("got a reset request");
 	goto BADCONNECTION;
       }
 
@@ -590,6 +654,8 @@ nautilus_dropbox_command_thread(gpointer data) {
       if (gerr != NULL) {
 	/* mark this request as never to be completed */
 	end_request(dc);
+	
+	debug("command error: %s", gerr->message);
 	
 	g_error_free(gerr);
       BADCONNECTION:
@@ -639,6 +705,22 @@ nautilus_dropbox_command_setup(NautilusDropbox *cvs) {
 
   cvs->command_connected_mutex = g_mutex_new();
   cvs->command_connected = FALSE;
+
+  /* build list of characters to not escape */
+  {
+    guchar c;
+    unsigned int i = 0;
+
+    for (c = 0x01; c <= 0x1f; c++) {
+      if (c != '\n' && c != '\t') {
+	chars_not_to_escape[i++] = c;
+      }
+    }
+    for (c = 0x7f; c != 0x0; c++) {
+      chars_not_to_escape[i++] = c;
+    }
+    chars_not_to_escape[i++] = '\0';
+  }
 }
 
 /* should only be called once on initialization */

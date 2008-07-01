@@ -22,6 +22,7 @@
 #include <libnautilus-extension/nautilus-menu-provider.h>
 #include <libnautilus-extension/nautilus-info-provider.h>
 
+#include "g-util.h"
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
 #include "nautilus-dropbox-command.h"
@@ -56,12 +57,6 @@ test_cb(NautilusFileInfo *file, gpointer ud) {
   //  debug("%s changed", g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL));
 }
 
-static void
-destroy_string(gpointer data) {
-  g_string_free((GString *) data, TRUE);
-  return;
-}
-
 static NautilusOperationResult
 nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
                                   NautilusFileInfo         *file,
@@ -72,8 +67,11 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
   
   filename = g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL);
   if (filename == NULL) {
+    g_free(filename);
     return NAUTILUS_OPERATION_COMPLETE;
   }
+
+  g_free(filename);
   
   cvs = NAUTILUS_DROPBOX(provider);
 
@@ -107,28 +105,25 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 gboolean
 nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr) {
   if (dficr->dfic->cancelled == FALSE) {
-    GString *status_lookup, *status= NULL, *options_lookup, *options=NULL;
+    gchar **status= NULL, **options=NULL;
     
-    status_lookup = g_string_new("status");
-    options_lookup = g_string_new("options");
-
     /* if the file status command went okay */
     if ((dficr->file_status_response != NULL &&
 	(status =
-	 g_hash_table_lookup(dficr->file_status_response, status_lookup)) != NULL) &&
+	 g_hash_table_lookup(dficr->file_status_response, "status")) != NULL) &&
 	(dficr->context_options_response != NULL &&
 	 (options =
 	  g_hash_table_lookup(dficr->context_options_response,
-			      options_lookup)) != NULL)) {
+			      "options")) != NULL)) {
 	
       /* set the emblem */
       {
 	int emblem_code = 0;
 	
-	if (strcmp("up to date", status->str) == 0) {
+	if (strcmp("up to date", status[0]) == 0) {
 	  emblem_code = 1;
 	}
-	else if (strcmp("syncing", status->str) == 0) {
+	else if (strcmp("syncing", status[0]) == 0) {
 	  emblem_code = 2;
 	}
 	
@@ -147,19 +142,16 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 	/* great now we have to parse these freaking optionssss also make the menu items */
 	/* this is where python really makes things easy */
 	GHashTable *context_option_hash;
-	gchar **options_list;
 	int i;
 	
 	context_option_hash = g_hash_table_new_full((GHashFunc) g_str_hash,
 						    (GEqualFunc) g_str_equal,
 						    g_free, menu_item_free);
-	
-	options_list = g_strsplit(options->str, "|", 0);
-	
-	for (i = 0; options_list[i] != NULL; i++) {
+
+	for (i = 0; options[i] != NULL; i++) {
 	  gchar **option_info;
 	  
-	  option_info = g_strsplit(options_list[i], "~", 3);
+	  option_info = g_strsplit(options[i], "~", 3);
 	  /* if this is a valid string */
 	  if (option_info[0] != NULL && option_info[1] != NULL &&
 	      option_info[2] != NULL && option_info[3] == NULL) {
@@ -180,8 +172,6 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 			       context_option_hash,
 			       (GDestroyNotify) g_hash_table_destroy);
 	
-	g_strfreev(options_list);
-	
 	/* lol that wasn't so bad, glib is a big help */
       }    
 
@@ -198,17 +188,14 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 						    (NautilusOperationHandle*) dficr->dfic,
 						    NAUTILUS_OPERATION_FAILED);
     }
-    
-    g_string_free(status_lookup, TRUE);
-    g_string_free(options_lookup, TRUE);
   }
 
   /* destroy the objects we created */
   if (dficr->file_status_response != NULL)
-    g_hash_table_destroy(dficr->file_status_response);
+    g_hash_table_unref(dficr->file_status_response);
   if (dficr->context_options_response != NULL)
-    g_hash_table_destroy(dficr->context_options_response);
-
+    g_hash_table_unref(dficr->context_options_response);
+  
   /* unref the objects we didn't create */
   g_closure_unref(dficr->dfic->update_complete);
   g_object_unref(dficr->dfic->file);
@@ -255,36 +242,34 @@ menu_item_cb(NautilusMenuItem *item,
   dcac->dc.request_type = GENERAL_COMMAND;
 
   /* build the argument list */
-  dcac->command_args = g_hash_table_new_full((GHashFunc) g_string_hash,
-					     (GEqualFunc) g_string_equal,
-					     (GDestroyNotify) destroy_string,
-					     (GDestroyNotify) destroy_string);
+  dcac->command_args = g_hash_table_new_full((GHashFunc) g_str_hash,
+					     (GEqualFunc) g_str_equal,
+					     (GDestroyNotify) g_free,
+					     (GDestroyNotify) g_strfreev);
   {
+    gchar **arglist;
+    guint i;
     GList *li;
-    int i;
-    gchar **str_list = g_new0(gchar *, g_list_length(files)+1);
-    gchar *conc_string;
+
+    arglist = g_new(gchar *,g_list_length(files) + 1);
+
     for (li = files, i = 0; li != NULL; li = g_list_next(li), i++) {
       char *path =
 	g_filename_from_uri(nautilus_file_info_get_uri(NAUTILUS_FILE_INFO(li->data)),
 			    NULL, NULL);
-      str_list[i] = g_strdup(path);//g_strescape(path, NAUTILUS_DROPBOX_STR_EXCEPTIONS);
+      arglist[i] = path;
     }
-    str_list[i] = NULL;
     
-    conc_string = g_strjoinv("\t", str_list);
-
+    arglist[i] = NULL;
+    
     g_hash_table_insert(dcac->command_args,
-			g_string_new("paths"),
-			g_string_new(conc_string));
-    
-    g_free(conc_string);
-    g_strfreev(str_list);
+			g_strdup("paths"),
+			arglist);
   }
 
   g_hash_table_insert(dcac->command_args,
-		      g_string_new("verb"),
-		      g_string_new(verb));
+		      g_strdup("verb"),
+		      g_list_append(NULL, g_strdup(verb)));
 
   dcac->command_name = g_strdup("icon_overlay_context_action");
   dcac->handler = NULL;

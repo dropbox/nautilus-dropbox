@@ -119,27 +119,35 @@ void menu_item_data_destroy(MenuItemData *mid,
 }
 
 static void
-build_context_menu_from_list(NautilusDropbox *cvs, gchar **options_arr) {
+build_context_menu_from_list(NautilusDropbox *cvs, gchar **options) {
   int i;
 
-  for (i = 0; options_arr[i] != NULL; i+=2) {
+  /* there should be more asserts */
+  g_assert(cvs != NULL);
+  g_assert(options != NULL);
+  g_assert(g_strv_length(options) % 2 == 0);
+
+  for (i = 0; options[i] != NULL; i += 2) {
     GtkWidget *item;
     
-    if (strcmp(options_arr[i], "") == 0) {
+    if (strcmp(options[i], "") == 0) {
       item = gtk_separator_menu_item_new();
       gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
     }
     else {
-      item = gtk_menu_item_new_with_label(options_arr[i]);
+      gchar *command;
+      item = gtk_menu_item_new_with_label(options[i]);
       gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
 
-      if (strcmp(options_arr[i+1], "") == 0) {
+      command = options[i+1];
+
+      if (strcmp(command, "") == 0) {
 	g_object_set(item, "sensitive", FALSE, NULL);
       }
       else {
 	MenuItemData *mid = g_new0(MenuItemData, 1);
 	mid->cvs = cvs;
-	mid->command = g_strdup(options_arr[i+1]);
+	mid->command = g_strdup(command);
 	g_signal_connect_data(G_OBJECT(item), "activate",
 			      G_CALLBACK(activate_menu_item), 
 			      mid, (GClosureNotify) menu_item_data_destroy, 0);
@@ -163,23 +171,15 @@ get_menu_options_response_cb(GHashTable *response, NautilusDropbox *cvs) {
 
   /*debug_enter(); */
 
-  GString *options_key;
-  GString *options;
+  gchar **options;
 
-  options_key = g_string_new("options");
-
-  if ((options = g_hash_table_lookup(response, options_key)) != NULL) {
-    gchar **options_arr;
-
-    options_arr = g_strsplit(options->str, "\t", 0);
-    /* TODO: don't kill old menu here, wait until next popup */
+  if ((options = g_hash_table_lookup(response, "options")) != NULL &&
+      g_strv_length(options) % 2 == 0) {
     gtk_container_remove_all(GTK_CONTAINER(cvs->ndt.context_menu));
-    build_context_menu_from_list(cvs, options_arr);
+    build_context_menu_from_list(cvs, options);
     menu_refresh(&(cvs->ndt));
     gtk_status_icon_set_visible(cvs->ndt.status_icon, TRUE); 
   }
-
-  g_string_free(options_key, TRUE);
 }
 
 static void
@@ -190,13 +190,19 @@ create_menu(NautilusDropbox *cvs, gboolean active) {
   dgc->command_name = g_strdup("tray_action_get_menu_options");
 
   {
-    dgc->command_args = g_hash_table_new_full((GHashFunc) g_string_hash,
-					      (GEqualFunc) g_string_equal,
-					      g_util_destroy_string,
-					      g_util_destroy_string);
+    gchar **is_active_arg;
+
+    is_active_arg = g_new(gchar *, 2);
+    is_active_arg[0] = g_strdup(active ? "true" : "false");
+    is_active_arg[1] = NULL;
+
+    dgc->command_args = g_hash_table_new_full((GHashFunc) g_str_hash,
+					      (GEqualFunc) g_str_equal,
+					      (GDestroyNotify) g_free,
+					      (GDestroyNotify) g_strfreev);
     g_hash_table_insert(dgc->command_args,
-			g_string_new("is_active"),
-			g_string_new(active ? "true" : "false"));
+			g_strdup("is_active"), is_active_arg);
+
   }
   dgc->handler = (NautilusDropboxCommandResponseHandler) get_menu_options_response_cb;
   dgc->handler_ud = (gpointer) cvs;
@@ -206,7 +212,7 @@ create_menu(NautilusDropbox *cvs, gboolean active) {
 
 static void
 handle_bubble(NautilusDropbox *cvs, GHashTable *args) {
-  gchar *message, *caption;
+  gchar **message, **caption;
   
   message = g_hash_table_lookup(args, "message");
   caption = g_hash_table_lookup(args, "caption");
@@ -215,7 +221,7 @@ handle_bubble(NautilusDropbox *cvs, GHashTable *args) {
     GError *gerr = NULL;
     GdkRectangle area;
     NotifyNotification *n =
-      notify_notification_new(caption, message,
+      notify_notification_new(caption[0], message[0],
 			      NULL, NULL);
     
     gtk_status_icon_get_geometry(cvs->ndt.status_icon,
@@ -238,7 +244,8 @@ get_dropbox_globals_cb(gchar **arr, NautilusDropbox *cvs, gpointer ud) {
   gchar *tooltip;
 
   if (arr == NULL && g_strv_length(arr) != 2) {
-    /* TODO: we may need to do soemthing here */
+    /* TODO: we may need to do soemthing here,
+       probably restart dropbox */
     return;
   }
 
@@ -253,12 +260,12 @@ get_dropbox_globals_cb(gchar **arr, NautilusDropbox *cvs, gpointer ud) {
 
 static void
 handle_change_to_menu(NautilusDropbox *cvs, GHashTable *args) {
-  gchar *value;
+  gchar **value;
 
   if ((value = g_hash_table_lookup(args, "active")) != NULL) {
     gboolean active;
 
-    active = strcmp("true", value) == 0;
+    active = strcmp("true", value[0]) == 0;
 
     create_menu(cvs, active);
 
@@ -273,11 +280,11 @@ handle_change_to_menu(NautilusDropbox *cvs, GHashTable *args) {
 static void
 handle_change_state(NautilusDropbox *cvs, GHashTable *args) {
   /* great got the menu options, now build the menu and show the tray icon*/
-  gchar *value;
+  gchar **value;
 
   if ((value = g_hash_table_lookup(args, "new_state")) != NULL) {
-    debug("dropbox asking us to change our state to %s", value);
-    cvs->ndt.icon_state = (strcmp(value, "1") == 0);
+    debug("dropbox asking us to change our state to %s", value[0]);
+    cvs->ndt.icon_state = (strcmp(value[0], "1") == 0);
   }
 }
 
@@ -315,8 +322,6 @@ get_active_setting_cb(gchar **arr, NautilusDropbox *cvs,
   cvs->ndt.last_active = strcmp(arr[0], "True") == 0;
   /* set icon state */
   cvs->ndt.icon_state = atoi(arr[3]);
-
-  debug("our initial icon state %s", arr[3]);
 
   /* set tooltip */
   {

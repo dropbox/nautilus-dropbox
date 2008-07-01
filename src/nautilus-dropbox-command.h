@@ -45,6 +45,13 @@ gboolean nautilus_dropbox_command_is_connected(NautilusDropbox *cvs);
 
 void nautilus_dropbox_command_force_reconnect(NautilusDropbox *cvs);
 
+gboolean
+nautilus_dropbox_command_parse_arg(const gchar *line, GHashTable *return_table);
+
+gchar *nautilus_dropbox_command_sanitize(const gchar *a);
+
+gchar *nautilus_dropbox_command_desanitize(const gchar *a);
+
 void
 nautilus_dropbox_command_request(NautilusDropbox *cvs, DropboxCommand *dc);
 

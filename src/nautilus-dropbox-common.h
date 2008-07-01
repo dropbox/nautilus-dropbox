@@ -10,9 +10,6 @@ G_BEGIN_DECLS
 
 typedef void (*NautilusDropboxGlobalCB)(gchar **, NautilusDropbox *, gpointer);
 
-gboolean
-nautilus_dropbox_common_execute_command_line(const gchar *);
-
 void
 nautilus_dropbox_common_get_globals(NautilusDropbox *cvs,
 				    gchar *tabbed_keys,

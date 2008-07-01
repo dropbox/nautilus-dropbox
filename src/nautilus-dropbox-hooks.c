@@ -29,12 +29,12 @@ try_to_connect(NautilusDropbox *cvs);
 
 static void
 handle_copy_to_clipboard(NautilusDropbox *cvs, GHashTable *args) {
-  GtkClipboard *clip;
-  gchar *text;
+  gchar **text;
 
   if ((text = g_hash_table_lookup(args, "text")) != NULL) {
+    GtkClipboard *clip;
     clip = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
-    gtk_clipboard_set_text(clip, text, -1);
+    gtk_clipboard_set_text(clip, text[0], -1);
   }
   
   return;
@@ -42,7 +42,7 @@ handle_copy_to_clipboard(NautilusDropbox *cvs, GHashTable *args) {
 
 static void
 handle_shell_touch(NautilusDropbox *cvs, GHashTable *args) {
-  gchar *path;
+  gchar **path;
 
   //  debug_enter();
 
@@ -52,7 +52,7 @@ handle_shell_touch(NautilusDropbox *cvs, GHashTable *args) {
     for (li = cvs->file_store; li != NULL; li = g_list_next(li)) {
       if (strcmp(g_filename_from_uri(nautilus_file_info_get_uri(NAUTILUS_FILE_INFO(li->data)),
 				     NULL, NULL),
-		 path) == 0) {
+		 path[0]) == 0) {
 	/* found it */
 	nautilus_file_info_invalidate_extension_info(NAUTILUS_FILE_INFO(li->data));
 	break;
@@ -65,16 +65,16 @@ handle_shell_touch(NautilusDropbox *cvs, GHashTable *args) {
 
 static void
 handle_launch_url(NautilusDropbox *cvs, GHashTable *args) {
-  gchar *url;
+  gchar **url;;
   
   //  debug_enter();
 
   if ((url = g_hash_table_lookup(args, "url")) != NULL) {
     gchar *command_line;
 
-    command_line = g_strdup_printf("gnome-open %s", url);
+    command_line = g_strdup_printf("gnome-open %s", url[0]);
 
-    if (!nautilus_dropbox_common_execute_command_line(command_line)) {
+    if (!g_util_execute_command_line(command_line)) {
       /* TODO: popup some notice that says we couldn't open the window */
     }
 
@@ -84,15 +84,15 @@ handle_launch_url(NautilusDropbox *cvs, GHashTable *args) {
 
 static void
 handle_launch_folder(NautilusDropbox *cvs, GHashTable *args) {
-  gchar *path;
+  gchar **path;
 
   if ((path = g_hash_table_lookup(args, "path")) != NULL) {
     gchar *command_line, *escaped_string;
 
-    escaped_string = g_strescape(path, NULL);
+    escaped_string = g_strescape(path[0], NULL);
     command_line = g_strdup_printf("nautilus \"%s\"", escaped_string);
 
-    nautilus_dropbox_common_execute_command_line(command_line);
+    g_util_execute_command_line(command_line);
 
     g_free(escaped_string);
     g_free(command_line);
@@ -103,11 +103,6 @@ static gboolean
 handle_hook_server_input(GIOChannel *chan,
 			 GIOCondition cond,
 			 NautilusDropbox *cvs) {
-
-  if (cond == G_IO_ERR || cond == G_IO_HUP) {
-    return FALSE;
-  }
-
   /* we have some sweet macros defined that allow us to write this
      async event handler like a microthread yeahh, watch out for context */
   CRBEGIN(cvs->hookserv.hhsi.line);
@@ -115,12 +110,16 @@ handle_hook_server_input(GIOChannel *chan,
     cvs->hookserv.hhsi.command_args =
       g_hash_table_new_full((GHashFunc) g_str_hash,
 			    (GEqualFunc) g_str_equal,
-			    g_free, g_free);
-
+			    (GDestroyNotify) g_free,
+			    (GDestroyNotify) g_strfreev);
     
     /* read the command name */
-    /* TODO: unescape tabs and newlines */
-    CRREADLINE(cvs->hookserv.hhsi.line, chan, cvs->hookserv.hhsi.command_name);
+    {
+      gchar *line;
+      CRREADLINE(cvs->hookserv.hhsi.line, chan, line);
+      cvs->hookserv.hhsi.command_name = nautilus_dropbox_command_desanitize(line);
+      g_free(line);
+    }
 
     /* now read each arg line until we receive "done" */
     /* TODO: NO THIS IS BAD WE SHOULD NOT LOOP BASED ON OUR INPUT */
@@ -133,20 +132,15 @@ handle_hook_server_input(GIOChannel *chan,
 	break;
       }
       else {
-	char *tab_loc;
-	gchar *key_str, *val_str;
-	tab_loc = strchr(line, '\t');
+	gboolean parse_result;
 	
-	/* TODO: unescape tabs and newlines */
-	if (tab_loc != NULL)  {
-	  key_str = g_strndup(line, tab_loc - line);
-	  val_str = g_strdup(tab_loc+1);
-	  
-	  g_hash_table_insert(cvs->hookserv.hhsi.command_args, key_str, val_str);
-	  g_free(line);
-	}
-	else {
-	  /* if the input is invalid, then we should stop this connection */
+	parse_result =
+	  nautilus_dropbox_command_parse_arg(line,
+					     cvs->hookserv.hhsi.command_args);
+	g_free(line);
+
+	if (FALSE == parse_result) {
+	  debug("bad parse");
 	  CRHALT;
 	}
       }
@@ -268,10 +262,9 @@ try_to_connect(NautilusDropbox *cvs) {
   cvs->hookserv.hhsi.command_args = NULL;
   cvs->hookserv.hhsi.command_name = NULL;
   cvs->hookserv.event_source = 
-    g_io_add_watch_full(cvs->hookserv.chan, G_PRIORITY_DEFAULT,
-			G_IO_IN | G_IO_ERR | G_IO_HUP,
-			(GIOFunc) handle_hook_server_input, cvs,
-			(GDestroyNotify) watch_killer);
+    g_util_dependable_io_read_watch(cvs->hookserv.chan, G_PRIORITY_DEFAULT,
+				    (GIOFunc) handle_hook_server_input, cvs,
+				    (GDestroyNotify) watch_killer);
   
   return FALSE;
 }

@@ -24,24 +24,17 @@ typedef struct {
 
 static void
 get_dropbox_globals_cb(GHashTable *response, GetGlobalsData *ggd) {
-  GString *key, *value;
-  
-  key = g_string_new("values");
+  gchar **value;
   
   if (response != NULL &&
-      (value = g_hash_table_lookup(response, key)) != NULL) {
-    gchar **value_arr;
-
-    value_arr = g_strsplit(value->str, "\t", 0);
-    ggd->cb(value_arr, ggd->cvs, ggd->ud);
-    g_strfreev(value_arr);
+      (value = g_hash_table_lookup(response, "values")) != NULL) {
+    ggd->cb(value, ggd->cvs, ggd->ud);
   }
   else {
     ggd->cb(NULL, ggd->cvs, ggd->ud);
   }
-
+  
   g_free(ggd);
-  g_string_free(key, TRUE);
 }
 
 void
@@ -61,12 +54,13 @@ nautilus_dropbox_common_get_globals(NautilusDropbox *cvs,
 
   /* build command args */
   {
-    dgc->command_args = g_hash_table_new_full((GHashFunc) g_string_hash,
-					      (GEqualFunc) g_string_equal,
-					      g_util_destroy_string,
-					      g_util_destroy_string);
-    g_hash_table_insert(dgc->command_args,
-			g_string_new("keys"), g_string_new(tabbed_keys));
+    dgc->command_args = g_hash_table_new_full((GHashFunc) g_str_hash,
+					      (GEqualFunc) g_str_equal,
+					      (GDestroyNotify) g_free,
+					      (GDestroyNotify) g_strfreev);
+
+    g_hash_table_insert(dgc->command_args, g_strdup("keys"),
+			g_strsplit(tabbed_keys, "\t", 0));
   }
   
   dgc->handler = (NautilusDropboxCommandResponseHandler) get_dropbox_globals_cb;
