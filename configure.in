@@ -1,14 +1,17 @@
 # Initialization
-AC_INIT
 
-PACKAGE=nautilus-dropbox
-VERSION=0.10
+AC_INIT([nautilus-dropbox],0.1.0)
+AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 
-AC_SUBST(PACKAGE)
-AC_SUBST(VERSION)
-
-AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
 AM_CONFIG_HEADER(config.h)
+
+# not ready for i18n yet
+#AC_PROG_INTLTOOL([0.29])
+
+# Dependency checks
+NAUTILUS_REQUIRED=2.20.0
+GLIB_REQUIRED=2.4.0
+LIBNOTIFY_REQUIRED=0.4.4
 
 # Used programs
 AC_PROG_CC
@@ -21,12 +24,9 @@ if test "x$HAVE_PKGCONFIG" = "xno"; then
 	AC_MSG_ERROR(you need to have pkgconfig installed !)
 fi
 
-# Dependency checks
-NAUTILUS_REQUIRED=2.20.0
-GLIB_REQUIRED=2.4.0
-LIBNOTIFY_REQUIRED=0.4.4
-
-PKG_CHECK_MODULES(NAUTILUS, libnautilus-extension >= $NAUTILUS_REQUIRED glib-2.0 >= $GLIB_REQUIRED libnotify >= $LIBNOTIFY_REQUIRED)
+PKG_CHECK_MODULES(NAUTILUS, libnautilus-extension >= $NAUTILUS_REQUIRED)
+PKG_CHECK_MODULES(GLIB, glib-2.0 >= $GLIB_REQUIRED)
+PKG_CHECK_MODULES(LIBNOTIFY, libnotify >= $LIBNOTIFY_REQUIRED)
 
 # Make dependency CFLAGS and LIBS available
 AC_SUBST(NAUTILUS_CFLAGS)

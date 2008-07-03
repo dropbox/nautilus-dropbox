@@ -1,5 +1,30 @@
-Building Dropbox Nautilus Extension
---------------------------
+Hi Friend!
+
+This Dropbox extension for Nautilus!!!
+
+Now you can use your favorite sync, versioning, and backup software with GNU/Linux!
+Yes!! Radical!!! Gnarly!!!!
+
+Check us out at http://www.getdropbox.com/
+
+<3,
+Rian Hunter and the rest of the Dropbox Team
+
+Building Dropbox Nautilus Extension From Source Tarball
+--------------------------------------------------
+
+You will need the following packages (or equivalant):
+
+libnautilus-extension-dev
+libnotify-dev
+
+In the nautilus-dropbox dir just do:
+$ ./configure
+$ make
+$ sudo make install
+
+Building Dropbox Nautilus Extension From Mercurial
+--------------------------------------------------
 
 To compile you'll need the following packages (or equivalent):
 
@@ -19,32 +44,3 @@ $ sudo make install
 
 should be good.
 
-
-Dropbox Linux on 64bit Ubuntu 8.04:
--------------------
-
-You will need to install our custom python build:
-
-$ sudo apt-get install libsqlite3-dev
-$ hg clone ssh://$USER@turbo.getdropbox.com//var/hg/python-2.5-dropbox
-$ cd python-2.5-dropbox
-$ ./configure --prefix=$HOME/dropbox-python && make && make install # can't just do make install, python
-  	      				       	       	    	    # build sucks
-
-You will also need the dropbox client source (your probably already have it).
-To start dropbox, In the client dir:
-
-$ rm common_util/_librsync.so # not 64-bit, 64-bit version in binlib-ubuntu-8.04-amd64
-$ PATH=$HOME/dropbox-python/bin:$PATH DBDEV=kindofmagic \
-PYTHONPATH=./binlib-ubuntu-8.04-amd64/:./lib/ python dropbox.py
-
-Once you have that started go into another terminal:
-
-$ gnome-session-properties
-
-now go to the "Current Session" tab and remove nautilus, then apply and close
-
-$ export NAUTILUS_DEBUG=1
-$ nautilus
-
-Have fun!
