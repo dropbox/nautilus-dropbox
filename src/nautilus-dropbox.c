@@ -267,9 +267,13 @@ menu_item_cb(NautilusMenuItem *item,
 			arglist);
   }
 
-  g_hash_table_insert(dcac->command_args,
-		      g_strdup("verb"),
-		      g_list_append(NULL, g_strdup(verb)));
+  {
+    gchar **arglist;
+    arglist = g_new(gchar *, 2);
+    arglist[0] = g_strdup(verb);
+    arglist[1] = NULL;
+    g_hash_table_insert(dcac->command_args, g_strdup("verb"), arglist);
+  }
 
   dcac->command_name = g_strdup("icon_overlay_context_action");
   dcac->handler = NULL;

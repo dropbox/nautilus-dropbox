@@ -4,6 +4,8 @@
  * 
  */
 
+#include <unistd.h>
+
 #ifdef HAVE_CONFIG_H
 #include <config.h> /* for GETTEXT_PACKAGE */
 #endif
@@ -76,6 +78,12 @@ nautilus_dropbox_common_get_globals(NautilusDropbox *cvs,
   nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
 }
 
+static 
+void dropboxd_setup(gpointer ud) {
+  /* daemonize dropbox */
+  setsid();
+}
+
 gboolean
 nautilus_dropbox_common_start_dropbox(NautilusDropbox *cvs, gboolean download) {
   gchar *dropboxd_path;
@@ -93,17 +101,22 @@ nautilus_dropbox_common_start_dropbox(NautilusDropbox *cvs, gboolean download) {
   /* if dropboxd exists let's just start it */
   if (g_file_test(dropboxd_path,
                   G_FILE_TEST_IS_EXECUTABLE | G_FILE_TEST_EXISTS)) {
-    /* if there was a problem with starting dropbox
-       something's up with the package, we should redownload it */
-    /* TODO: this should daemonize dropbox,
-       i.e. remove the controlling tty etc */
-    if (g_spawn_command_line_async(dropboxd_path, NULL)) {
+    gchar **argv;
+
+    argv = g_new(gchar *, 2);
+    argv[0] = dropboxd_path;
+    argv[1] = NULL;
+    
+    if (g_spawn_async(g_get_home_dir(), argv, NULL, 0, dropboxd_setup, NULL,
+		      NULL, NULL)) {
+      g_free(argv);
       goto OUTTRUE;
     }
     else {
       gchar *delete_dropbox_cmdline;
-      
-      g_free(dropboxd_path);
+
+      g_free(argv);
+
       delete_dropbox_cmdline = g_strdup_printf("rm -rf %s/.dropbox-dist/",
                                                g_get_home_dir());
       g_spawn_command_line_async(delete_dropbox_cmdline, NULL);
@@ -137,4 +150,11 @@ nautilus_dropbox_common_start_dropbox(NautilusDropbox *cvs, gboolean download) {
  OUTFALSE:
   g_free(dropboxd_path);
   return FALSE;
+}
+
+gchar *
+nautilus_dropbox_common_get_platform() {
+  /* this function is haxed, we don't support a plethora of
+     platforms yet, so we don't need great platform detection */
+  return g_strdup_printf("lnx-%s", sizeof(long) == 8 ? "x86_64" : "x86");
 }

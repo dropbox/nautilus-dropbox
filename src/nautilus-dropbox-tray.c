@@ -487,7 +487,7 @@ handle_incoming_http_data(GIOChannel *chan,
       argv[0] = g_strdup("tar");
       argv[1] = g_strdup("-C");
       argv[2] = g_strdup(g_get_home_dir());
-      argv[3] = g_strdup("-xzf");
+      argv[3] = g_strdup("-xjf");
       argv[4] = g_strdup(ctx->tmpfilename);
       argv[5] = NULL;
 
@@ -662,17 +662,22 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropbox *cvs) {
   gtk_status_icon_set_tooltip(cvs->ndt.status_icon, "Downloading Dropbox...");
   
   {
+    gchar *dropbox_platform, *webpath;
     HttpDownloadCtx *ctx;
     ctx = g_new(HttpDownloadCtx, 1);
     ctx->cvs = cvs;
-    if (make_async_http_get_request(
-				    //"dl.getdropbox.com", "/u/5143/dropbox-linux-amd64.tar.gz",
-				    //"sunkenship", "/~rian/dropbox-linux-ubuntu-8.04-amd64.tar.gz",
-				    "foursquare.nfshost.com", "/bb.tar.gz",
+    
+    dropbox_platform = nautilus_dropbox_common_get_platform();
+    webpath = g_strdup_printf("/u/5143/dropbox-%s-latest.tar.bz2", dropbox_platform);
+    
+    if (make_async_http_get_request("dl.getdropbox.com", webpath,
 				    NULL, (HttpResponseHandler) handle_dropbox_download_response,
 				    (gpointer) ctx) == FALSE) {
       fail_dropbox_download(cvs, NULL);
     }
+    
+    g_free(dropbox_platform);
+    g_free(webpath);
   }
 }
 
