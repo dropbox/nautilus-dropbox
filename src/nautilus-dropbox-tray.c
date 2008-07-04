@@ -727,7 +727,7 @@ animate_icon(NautilusDropbox *cvs) {
 				    cvs->ndt.logo);
   }
     
-  g_timeout_add(500, (GSourceFunc)animate_icon, cvs);
+  g_timeout_add(100, (GSourceFunc)animate_icon, cvs);
 
   return FALSE;
 }

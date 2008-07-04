@@ -68,10 +68,40 @@ menu_item_free(gpointer data) {
 }
 
 static void
-test_cb(NautilusFileInfo *file, gpointer ud) {
-  /* when the file changes, check if it's in the process of being updated
-     if not, then invalidate it*/
-  //  debug("%s changed", g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL));
+reset_file(NautilusFileInfo *file) {
+  nautilus_file_info_invalidate_extension_info(file);
+
+  g_object_set_data(G_OBJECT(file),
+		    "nautilus_dropbox_menu_item", NULL);
+}
+
+static void
+test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
+  /* check if this file's path has changed, if so update the hash and invalidate
+     the file */
+  gchar *filename;
+  gchar *filename2;
+  
+  filename = g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL);
+  filename2 =  g_hash_table_lookup(cvs->obj2filename, file);
+  g_assert(filename2 != NULL);
+
+  /* this is a hack, because nautilus doesn't do this for us, for some reason
+     the file's path has changed */
+  if (strcmp(filename, filename2) != 0) {
+    /* the original filename 2 is freed by the next g_hash_table_replace call */
+    filename2 = g_strdup(filename2);
+
+    g_hash_table_replace(cvs->obj2filename, g_object_ref(file), g_strdup(filename));
+    g_hash_table_replace(cvs->filename2obj, g_strdup(filename), g_object_ref(file));
+
+    g_hash_table_remove(cvs->filename2obj, filename2);
+    g_free(filename2);
+
+    reset_file(file);
+  }
+  
+  g_free(filename);
 }
 
 static NautilusOperationResult
@@ -80,21 +110,36 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
                                   GClosure                 *update_complete,
                                   NautilusOperationHandle **handle) {
   NautilusDropbox *cvs;
-  gchar *filename;
-  
-  filename = g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL);
-  if (filename == NULL) {
-    g_free(filename);
-    return NAUTILUS_OPERATION_COMPLETE;
-  }
 
-  g_free(filename);
-  
+
   cvs = NAUTILUS_DROPBOX(provider);
 
-  if (g_list_index(cvs->file_store, file) == -1) {
-    cvs->file_store = g_list_append(cvs->file_store, g_object_ref(file));
-    /*g_signal_connect(file, "changed", G_CALLBACK(test_cb), NULL); */
+  {
+    gchar *filename;
+
+    filename = g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL);
+    if (filename == NULL) {
+      return NAUTILUS_OPERATION_COMPLETE;
+    }
+    else {
+      gchar *filename2;
+      /* add the file to our two-way hash table, if it doesn't already exist */
+
+      if ((filename2 = g_hash_table_lookup(cvs->obj2filename, file)) != NULL) {
+	/* if this file does exist make sure the two filenames are equal */
+	g_assert(strcmp(filename2, filename) == 0);
+      }
+      else {
+	g_assert(g_hash_table_lookup(cvs->filename2obj, filename) == NULL);
+
+	g_hash_table_insert(cvs->filename2obj, g_strdup(filename), g_object_ref(file));
+	g_hash_table_insert(cvs->obj2filename, g_object_ref(file), g_strdup(filename));
+	
+	g_signal_connect(file, "changed", G_CALLBACK(test_cb), cvs);
+      }
+
+      g_free(filename);
+    }
   }
 
   if (nautilus_dropbox_command_is_connected(cvs) == FALSE) {
@@ -125,16 +170,11 @@ handle_shell_touch(GHashTable *args, NautilusDropbox *cvs) {
   //  debug_enter();
 
   if ((path = g_hash_table_lookup(args, "path")) != NULL) {
-    GList *li;
-  
-    for (li = cvs->file_store; li != NULL; li = g_list_next(li)) {
-      if (strcmp(g_filename_from_uri(nautilus_file_info_get_uri(NAUTILUS_FILE_INFO(li->data)),
-				     NULL, NULL),
-		 path[0]) == 0) {
-	/* found it */
-	nautilus_file_info_invalidate_extension_info(NAUTILUS_FILE_INFO(li->data));
-	break;
-      }
+    /* TODO: should normalize path name here */
+    NautilusFileInfo *file;
+    file = g_hash_table_lookup(cvs->filename2obj, path[0]);
+    if (file != NULL) {
+      reset_file(file);
     }
   }
 
@@ -404,6 +444,7 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
     /* if a single file isn't a dropbox file
        we don't want it */
     if (initialset == NULL) {
+      g_hash_table_unref(set);
       return NULL;
     }
 
@@ -446,6 +487,7 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
 
   /* if the hash table is empty, don't show options */
   if (g_hash_table_size(set) == 0) {
+    g_hash_table_unref(set);
     return NULL;
   }
 
@@ -500,7 +542,7 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
     }
 
     g_object_unref(root_menu);
-    g_hash_table_destroy(set);
+    g_hash_table_unref(set);
     
     return toret;
   }
@@ -521,10 +563,15 @@ nautilus_dropbox_on_connect(NautilusDropbox *cvs) {
 
 void
 nautilus_dropbox_on_disconnect(NautilusDropbox *cvs) {
-  GList *li;
+  GHashTableIter iter;
+  NautilusFileInfo *file;
+  gchar *filename;
   
-  for (li = cvs->file_store; li != NULL; li = g_list_next(li)) {
-    nautilus_file_info_invalidate_extension_info(NAUTILUS_FILE_INFO(li->data));
+  /* invalidate all files */
+  g_hash_table_iter_init(&iter, cvs->obj2filename);
+  while (g_hash_table_iter_next(&iter, (gpointer *) &file,
+				(gpointer *) &filename)) {
+    reset_file(file);
   }
 }
 
@@ -546,7 +593,14 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
   /* this data is shared by all submodules */
   cvs->ca.user_quit = FALSE;
   cvs->ca.dropbox_starting = FALSE;
-  cvs->file_store = NULL;
+  cvs->filename2obj = g_hash_table_new_full((GHashFunc) g_str_hash,
+					    (GEqualFunc) g_str_equal,
+					    (GDestroyNotify) g_free,
+					    (GDestroyNotify) g_object_ref);
+  cvs->obj2filename = g_hash_table_new_full((GHashFunc) g_direct_hash,
+					    (GEqualFunc) g_direct_equal,
+					    (GDestroyNotify) g_object_ref,
+					    (GDestroyNotify) g_free);
 
   /* setup our server submodules first */
   nautilus_dropbox_hooks_setup(&(cvs->hookserv));

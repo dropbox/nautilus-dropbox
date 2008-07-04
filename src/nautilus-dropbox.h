@@ -60,7 +60,8 @@ typedef struct {
 struct _NautilusDropbox {
   GObject parent_slot;
   GAsyncQueue *command_queue;
-  GList *file_store;
+  GHashTable *filename2obj;
+  GHashTable *obj2filename;
   GMutex *command_connected_mutex;
   gboolean command_connected;
   NautilusDropboxTray ndt;
