@@ -118,6 +118,83 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
   }
 }
 
+static void
+handle_shell_touch(GHashTable *args, NautilusDropbox *cvs) {
+  gchar **path;
+
+  //  debug_enter();
+
+  if ((path = g_hash_table_lookup(args, "path")) != NULL) {
+    GList *li;
+  
+    for (li = cvs->file_store; li != NULL; li = g_list_next(li)) {
+      if (strcmp(g_filename_from_uri(nautilus_file_info_get_uri(NAUTILUS_FILE_INFO(li->data)),
+				     NULL, NULL),
+		 path[0]) == 0) {
+	/* found it */
+	nautilus_file_info_invalidate_extension_info(NAUTILUS_FILE_INFO(li->data));
+	break;
+      }
+    }
+  }
+
+  return;
+}
+
+static void
+handle_copy_to_clipboard(GHashTable *args, NautilusDropbox *cvs) {
+  gchar **text;
+
+  if ((text = g_hash_table_lookup(args, "text")) != NULL) {
+    GtkClipboard *clip;
+    clip = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+    gtk_clipboard_set_text(clip, text[0], -1);
+  }
+  
+  return;
+}
+
+static void
+handle_launch_url(GHashTable *args, NautilusDropbox *cvs) {
+  gchar **url;;
+  
+  //  debug_enter();
+
+  if ((url = g_hash_table_lookup(args, "url")) != NULL) {
+    gchar *command_line;
+
+    command_line = g_strdup_printf("gnome-open %s", url[0]);
+
+    if (!g_util_execute_command_line(command_line)) {
+      gchar *msg;
+      msg = g_strdup_printf("Couldn't start 'gnome-open %s'. Please check "
+			    "and see if you have the 'gnome-open' program "
+			    "installed.", url[0]);
+      nautilus_dropbox_tray_bubble(cvs, "Couldn't launch browser", msg, NULL);
+      g_free(msg);
+    }
+
+    g_free(command_line);
+  }
+}
+
+static void
+handle_launch_folder(GHashTable *args, NautilusDropbox *cvs) {
+  gchar **path;
+
+  if ((path = g_hash_table_lookup(args, "path")) != NULL) {
+    gchar *command_line, *escaped_string;
+
+    escaped_string = g_strescape(path[0], NULL);
+    command_line = g_strdup_printf("nautilus \"%s\"", escaped_string);
+
+    g_util_execute_command_line(command_line);
+
+    g_free(escaped_string);
+    g_free(command_line);
+  }
+}
+
 
 gboolean
 nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr) {
@@ -470,16 +547,32 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
   cvs->ca.user_quit = FALSE;
   cvs->ca.dropbox_starting = FALSE;
   cvs->file_store = NULL;
-  cvs->dispatch_table = g_hash_table_new((GHashFunc) g_str_hash,
-					 (GEqualFunc) g_str_equal);
 
-  /* setup our different submodules */
-  nautilus_dropbox_hooks_setup(cvs);
+  /* setup our server submodules first */
+  nautilus_dropbox_hooks_setup(&(cvs->hookserv));
   nautilus_dropbox_command_setup(cvs);
+  
+  /* then the tray */
   nautilus_dropbox_tray_setup(cvs);
 
+  /* our hooks */
+  nautilus_dropbox_hooks_add(&(cvs->hookserv), "shell_touch",
+			     (DropboxUpdateHook) handle_shell_touch, cvs);
+  nautilus_dropbox_hooks_add(&(cvs->hookserv), "copy_to_clipboard",
+			     (DropboxUpdateHook) handle_copy_to_clipboard, cvs);
+  nautilus_dropbox_hooks_add(&(cvs->hookserv), "launch_folder",
+			     (DropboxUpdateHook) handle_launch_folder, cvs);
+  nautilus_dropbox_hooks_add(&(cvs->hookserv), "launch_url",
+			     (DropboxUpdateHook) handle_launch_url, cvs);
+
+  /* put together connection hooks */
+  /* TODO: abstract both connections into one connect */
+  nautilus_dropbox_hooks_add_on_disconnect_hook(&(cvs->hookserv), 
+						(DropboxHookClientDisconnectHook)
+						nautilus_dropbox_command_force_reconnect, cvs);
+
   /* now start up the two connections */
-  nautilus_dropbox_hooks_start(cvs);
+  nautilus_dropbox_hooks_start(&(cvs->hookserv));
   nautilus_dropbox_command_start(cvs);
 
   return;

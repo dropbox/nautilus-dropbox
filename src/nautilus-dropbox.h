@@ -30,6 +30,8 @@
 
 #include <libnautilus-extension/nautilus-info-provider.h>
 
+#include "nautilus-dropbox-hooks.h"
+
 G_BEGIN_DECLS
 
 /* Declarations for the dropbox extension object.  This object will be
@@ -55,25 +57,9 @@ typedef struct {
   gboolean last_active;
 } NautilusDropboxTray;
 
-typedef struct {
-  GIOChannel *chan;
-  int socket;
-  struct {
-    int line;
-    gchar *command_name;
-    GHashTable *command_args;
-    int numargs;
-  } hhsi;
-  GCond *connected_cond;
-  GMutex *connected_mutex;
-  gboolean connected;
-  guint event_source;
-} NautilusDropboxHookserv;
-
 struct _NautilusDropbox {
   GObject parent_slot;
   GAsyncQueue *command_queue;
-  GHashTable *dispatch_table;
   GList *file_store;
   GMutex *command_connected_mutex;
   gboolean command_connected;

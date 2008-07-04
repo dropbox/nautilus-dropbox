@@ -270,7 +270,7 @@ nautilus_dropbox_tray_bubble(NautilusDropbox *cvs, const gchar *caption,
 }
 
 static void
-handle_bubble(NautilusDropbox *cvs, GHashTable *args) {
+handle_bubble(GHashTable *args, NautilusDropbox *cvs) {
   gchar **message, **caption;
   
   message = g_hash_table_lookup(args, "message");
@@ -301,7 +301,7 @@ get_dropbox_globals_cb(gchar **arr, NautilusDropbox *cvs, gpointer ud) {
 }
 
 static void
-handle_change_to_menu(NautilusDropbox *cvs, GHashTable *args) {
+handle_change_to_menu(GHashTable *args, NautilusDropbox *cvs) {
   gchar **value;
 
   if ((value = g_hash_table_lookup(args, "active")) != NULL) {
@@ -320,7 +320,7 @@ handle_change_to_menu(NautilusDropbox *cvs, GHashTable *args) {
 }
 
 static void
-handle_change_state(NautilusDropbox *cvs, GHashTable *args) {
+handle_change_state(GHashTable *args, NautilusDropbox *cvs) {
   /* great got the menu options, now build the menu and show the tray icon*/
   gchar **value;
 
@@ -331,7 +331,7 @@ handle_change_state(NautilusDropbox *cvs, GHashTable *args) {
 }
 
 static void
-handle_refresh_tray_menu(NautilusDropbox *cvs, GHashTable *args) {
+handle_refresh_tray_menu(GHashTable *args, NautilusDropbox *cvs) {
   create_menu(cvs, cvs->ndt.last_active);
 }
 
@@ -445,87 +445,96 @@ static gboolean
 handle_incoming_http_data(GIOChannel *chan,
 			  GIOCondition cond,
 			  HttpDownloadCtx *ctx) {
-  g_assert((cond & G_IO_IN) || (cond & G_IO_PRI));
+  GIOStatus iostat;
+  gchar buf[4096];
+  gsize bytes_read;
+  while ((iostat = g_io_channel_read_chars(chan, buf, 4096,
+					   &bytes_read, NULL)) ==
+	 G_IO_STATUS_NORMAL) {
+    ctx->bytes_downloaded += bytes_read;
+    
+    /* TODO: this blocks, should put buffesr to write on a queue
+       that gets read whenever ctx->tmpfilechan is ready to write,
+       we should be okay for now since it shouldn't block except
+       only in EXTREME circumstances */
+    if (g_io_channel_write_chars(ctx->tmpfilechan, buf,
+				 bytes_read, NULL, NULL) != G_IO_STATUS_NORMAL) {
+      /* TODO: error condition, ignore for now */
+    }
+  }
   
-  {
-    GIOStatus iostat;
-    gchar buf[4096];
-    gsize bytes_read;
-    while ((iostat = g_io_channel_read_chars(chan, buf, 4096,
-					     &bytes_read, NULL)) ==
-	   G_IO_STATUS_NORMAL) {
-      ctx->bytes_downloaded += bytes_read;
-
-      /* TODO: this blocks, should put buffesr to write on a queue
-	 that gets read whenever ctx->tmpfilechan is ready to write,
-	 we should be okay for now since it shouldn't block except
-	 only in EXTREME circumstances */
-      if (g_io_channel_write_chars(ctx->tmpfilechan, buf,
-				   bytes_read, NULL, NULL) != G_IO_STATUS_NORMAL) {
-	/* TODO: error condition, ignore for now */
-      }
+  /* now update the gtk label */
+  if (ctx->filesize != -1) {
+    gchar *percent_done;
+    
+    percent_done =
+      g_strdup_printf("Downloading Dropbox... %d%% Done",
+		      ctx->bytes_downloaded * 100 / ctx->filesize);
+    
+    gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), percent_done);
+    g_free(percent_done);
+  }
+  else {
+    switch (ctx->bytes_downloaded % 4) {
+    case 0:
+      gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), "Downloading Dropbox");
+      break;
+    case 1:
+      gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), "Downloading Dropbox.");
+      break;
+    case 2:
+      gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), "Downloading Dropbox..");
+      break;
+    default:
+      gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), "Downloading Dropbox...");
+      break;
     }
-
-    /* now update the gtk label */
-    if (ctx->filesize != -1) {
-      gchar *percent_done;
-      
-      percent_done =
-	g_strdup_printf("Downloading Dropbox... %d%% Done",
-			ctx->bytes_downloaded * 100 / ctx->filesize);
-      
-      gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), percent_done);
-      g_free(percent_done);
-    }
-    else {
-      switch (ctx->bytes_downloaded % 4) {
-      case 0:
-	gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), "Downloading Dropbox");
-	break;
-      case 1:
-	gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), "Downloading Dropbox.");
-	break;
-      case 2:
-	gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), "Downloading Dropbox..");
-	break;
-      default:
-	gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), "Downloading Dropbox...");
-	break;
-      }
+  }
+  
+  switch (iostat) {
+  case G_IO_STATUS_EOF: {
+    GPid pid;
+    gchar **argv;
+    /* completed download, untar the archive and run */
+    ctx->download_finished = TRUE;
+    
+    argv = g_new(gchar *, 6);
+    argv[0] = g_strdup("tar");
+    argv[1] = g_strdup("-C");
+    argv[2] = g_strdup(g_get_home_dir());
+    argv[3] = g_strdup("-xjf");
+    argv[4] = g_strdup(ctx->tmpfilename);
+    argv[5] = NULL;
+    
+    g_spawn_async(NULL, argv, NULL,
+		  G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
+		  NULL, NULL, &pid, NULL);
+    g_strfreev(argv);
+    
+    {
+      gpointer *ud2;
+      ud2 = g_new(gpointer, 2);
+      ud2[0] = g_strdup(ctx->tmpfilename);
+      ud2[1] = ctx->cvs;
+      g_child_watch_add(pid, (GChildWatchFunc) handle_tar_dying, ud2);
     }
     
-    if (iostat == G_IO_STATUS_EOF) {
-      GPid pid;
-      gchar **argv;
-      /* completed download, untar the archive and run */
-      ctx->download_finished = TRUE;
-
-      argv = g_new(gchar *, 6);
-      argv[0] = g_strdup("tar");
-      argv[1] = g_strdup("-C");
-      argv[2] = g_strdup(g_get_home_dir());
-      argv[3] = g_strdup("-xjf");
-      argv[4] = g_strdup(ctx->tmpfilename);
-      argv[5] = NULL;
-
-      g_spawn_async(NULL, argv, NULL,
-		    G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
-		    NULL, NULL, &pid, NULL);
-      g_strfreev(argv);
-      
-      {
-	gpointer *ud2;
-	ud2 = g_new(gpointer, 2);
-	ud2[0] = g_strdup(ctx->tmpfilename);
-	ud2[1] = ctx->cvs;
-	g_child_watch_add(pid, (GChildWatchFunc) handle_tar_dying, ud2);
-      }
-      
-      return FALSE;
-    }
-    else {
-      return TRUE;
-    }
+    return FALSE;
+  }
+    break;
+  case G_IO_STATUS_ERROR: {
+    /* just an error, return false to stop the download without setting download
+       finished*/
+    return FALSE;
+  }
+    break;
+  case G_IO_STATUS_AGAIN:
+    return TRUE;
+    break;
+  default:
+    g_assert_not_reached();
+    return FALSE;      
+    break;
   }
 }
 
@@ -629,9 +638,10 @@ handle_dropbox_download_response(gint response_code,
   ctx->user_cancelled = FALSE;
   ctx->bytes_downloaded = 0;
   ctx->download_finished = FALSE;
-  ctx->ev_id = g_util_dependable_io_read_watch(chan, G_PRIORITY_DEFAULT,
-					       (GIOFunc) handle_incoming_http_data,
-					       ctx, (GDestroyNotify) kill_hihd_ud);
+  ctx->ev_id = g_io_add_watch_full(chan, G_PRIORITY_DEFAULT,
+				   G_IO_IN | G_IO_PRI | G_IO_ERR | G_IO_HUP | G_IO_NVAL,
+				   (GIOFunc) handle_incoming_http_data,
+				   ctx, (GDestroyNotify) kill_hihd_ud);
 
   /* great we got here, now set downloading menu */
   {
@@ -657,7 +667,6 @@ handle_dropbox_download_response(gint response_code,
 
       g_signal_connect(G_OBJECT(item), "activate",
 		       G_CALLBACK(activate_cancel_download), ctx);
-      
     }
 
     menu_refresh(&(ctx->cvs->ndt));
@@ -726,14 +735,14 @@ animate_icon(NautilusDropbox *cvs) {
 void
 nautilus_dropbox_tray_setup(NautilusDropbox *cvs) {
   /* register hooks from the daemon */
-  g_hash_table_insert(cvs->dispatch_table, "bubble",
-		      (DropboxUpdateHook) handle_bubble);
-  g_hash_table_insert(cvs->dispatch_table, "change_to_menu",
-		      (DropboxUpdateHook) handle_change_to_menu);
-  g_hash_table_insert(cvs->dispatch_table, "change_state",
-		      (DropboxUpdateHook) handle_change_state);
-  g_hash_table_insert(cvs->dispatch_table, "refresh_tray_menu",
-		      (DropboxUpdateHook) handle_refresh_tray_menu);
+  nautilus_dropbox_hooks_add(&(cvs->hookserv), "bubble",
+			     (DropboxUpdateHook) handle_bubble, cvs);
+  nautilus_dropbox_hooks_add(&(cvs->hookserv), "change_to_menu",
+			     (DropboxUpdateHook) handle_change_to_menu, cvs);
+  nautilus_dropbox_hooks_add(&(cvs->hookserv), "change_state",
+			     (DropboxUpdateHook) handle_change_state, cvs);
+  nautilus_dropbox_hooks_add(&(cvs->hookserv), "refresh_tray_menu",
+			     (DropboxUpdateHook) handle_refresh_tray_menu, cvs);
 
   cvs->ndt.icon_state = 0;
   cvs->ndt.busy_frame = 0;

@@ -32,6 +32,7 @@
 #include <glib.h>
 
 #include "g-util.h"
+#include "dropbox-client-util.h"
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
 #include "nautilus-dropbox-command.h"
@@ -55,8 +56,6 @@ typedef struct {
   NautilusDropbox *cvs;
   guint connect_attempt;
 } ConnectionAttempt;
-
-static gchar chars_not_to_escape[256];
 
 static gboolean
 on_connect(NautilusDropbox *cvs) {
@@ -113,53 +112,6 @@ nautilus_dropbox_command_is_connected(NautilusDropbox *cvs) {
   return command_connected;
 }
 
-gchar *nautilus_dropbox_command_sanitize(const gchar *a) {
-  /* this function escapes teh following utf-8 characters:
-   * '\\', '\n', '\t'
-   */
-  return g_strescape(a, chars_not_to_escape);
-}
-
-gchar *nautilus_dropbox_command_desanitize(const gchar *a) {
-  return g_strcompress(a);
-}
-
-gboolean
-nautilus_dropbox_command_parse_arg(const gchar *line, GHashTable *return_table) {
-  gchar **argval;
-  guint len;
-  gboolean retval;
-  
-  argval = g_strsplit(line, "\t", 0);
-  len = g_strv_length(argval);
-
-  /*  debug("parsed: (%d) %s", len, line); */
-  
-  if (len > 1) {
-    int i;
-    gchar **vals;
-    
-    vals = g_new(gchar *, len);
-    vals[len - 1] = NULL;
-    
-    for (i = 1; argval[i] != NULL; i++) {
-      vals[i-1] = nautilus_dropbox_command_desanitize(argval[i]);
-      
-    }
-    
-    g_hash_table_insert(return_table,
-			nautilus_dropbox_command_desanitize(argval[0]),
-			vals);
-    retval = TRUE;
-  }
-  else {
-    retval = FALSE;
-  }
-
-  g_strfreev(argval);
-  return retval;
-}
-
 static gboolean
 receive_args_until_done(GIOChannel *chan, GHashTable *return_table,
 			GError **err) {
@@ -204,7 +156,7 @@ receive_args_until_done(GIOChannel *chan, GHashTable *return_table,
     else {
       gboolean parse_result;
 
-      parse_result = nautilus_dropbox_command_parse_arg(line, return_table);
+      parse_result = dropbox_client_util_command_parse_arg(line, return_table);
       g_free(line);
 
       if (FALSE == parse_result) {
@@ -242,7 +194,7 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
   
 #define WRITE_OR_DIE_SANI(s,l) {					\
     gchar *sani_s;							\
-    sani_s = nautilus_dropbox_command_sanitize(s);						\
+    sani_s = dropbox_client_util_sanitize(s);				\
     iostat = g_io_channel_write_chars(chan, sani_s,l, &bytes_trans,	\
 				      &tmp_error);			\
     g_free(sani_s);							\
@@ -624,7 +576,7 @@ nautilus_dropbox_command_thread(gpointer data) {
     g_io_channel_set_close_on_unref(chan, TRUE);
     g_io_channel_set_line_term(chan, "\n", -1);
 
-    nautilus_dropbox_hooks_wait_until_connected(cvs, TRUE);
+    nautilus_dropbox_hooks_wait_until_connected(&(cvs->hookserv), TRUE);
     
 #define SET_CONNECTED_STATE(s)     {			\
       g_mutex_lock(cvs->command_connected_mutex);	\
@@ -732,22 +684,6 @@ nautilus_dropbox_command_setup(NautilusDropbox *cvs) {
 
   cvs->command_connected_mutex = g_mutex_new();
   cvs->command_connected = FALSE;
-
-  /* build list of characters to not escape */
-  {
-    guchar c;
-    unsigned int i = 0;
-
-    for (c = 0x01; c <= 0x1f; c++) {
-      if (c != '\n' && c != '\t') {
-	chars_not_to_escape[i++] = c;
-      }
-    }
-    for (c = 0x7f; c != 0x0; c++) {
-      chars_not_to_escape[i++] = c;
-    }
-    chars_not_to_escape[i++] = '\0';
-  }
 }
 
 /* should only be called once on initialization */

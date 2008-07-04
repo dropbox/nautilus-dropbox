@@ -83,13 +83,13 @@ handle_wget_stderr(GIOChannel *stderr_chan,
                    GIOCondition cond,
                    WgetAsyncHttpRequest *wahp) {
   CRBEGIN(wahp->readctx.codepos);
-    
+  
   /* read line until we get the first line that starts with "  " */
   while (1) {
     gchar *line;
-
+    
     CRREADLINE(wahp->readctx.codepos, stderr_chan, line);
-      
+    
     /* first response line is the HTTP response code */
     /* we can character manipulation like this because
        wget should be pumping only 7-bit ascii to us
@@ -106,7 +106,7 @@ handle_wget_stderr(GIOChannel *stderr_chan,
       g_free(line);
     }
   }
-
+  
   /* the rest of the lines are headers, until the first line that
      doesn't start with "  " */
   while (1) {
@@ -124,15 +124,15 @@ handle_wget_stderr(GIOChannel *stderr_chan,
       break;
     }
   }
-
+  
   /* great got all the response headers and the response code
      we are basically just, just call our callback */
   wahp->cb(wahp->readctx.response_code,
 	   wahp->readctx.response_headers,
 	   wahp->stdout_chan, wahp->ud);
-
+  
   wahp->called_cb = TRUE;
-
+  
   CREND;
 }
 
@@ -216,9 +216,10 @@ make_async_http_get_request(const char *host, const char *path,
     wahp->readctx.codepos = 0;
     wahp->readctx.response_code = -1;
     wahp->readctx.response_headers = NULL;
-    g_util_dependable_io_read_watch(stderr_chan, G_PRIORITY_DEFAULT,
-				    (GIOFunc) handle_wget_stderr, wahp,
-				    (GDestroyNotify) free_wahp);
+    g_io_add_watch_full(stderr_chan, G_PRIORITY_DEFAULT,
+			G_IO_IN | G_IO_PRI | G_IO_ERR | G_IO_HUP | G_IO_NVAL,			
+			(GIOFunc) handle_wget_stderr, wahp,
+			(GDestroyNotify) free_wahp);
     g_io_channel_unref(stderr_chan);
   }
 

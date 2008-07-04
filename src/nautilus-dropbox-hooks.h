@@ -24,23 +24,50 @@
 #ifndef NAUTILUS_DROPBOX_HOOKS_H
 #define NAUTILUS_DROPBOX_HOOKS_H
 
-#include "nautilus-dropbox.h"
+#include <glib.h>
 
 G_BEGIN_DECLS
 
-typedef void (*DropboxUpdateHook)(NautilusDropbox *, GHashTable *);
+typedef void (*DropboxUpdateHook)(GHashTable *, gpointer);
+typedef void (*DropboxHookClientDisconnectHook)(gpointer);
+
+typedef struct {
+  GIOChannel *chan;
+  int socket;
+  struct {
+    int line;
+    gchar *command_name;
+    GHashTable *command_args;
+    int numargs;
+  } hhsi;
+  GCond *connected_cond;
+  GMutex *connected_mutex;
+  gboolean connected;
+  guint event_source;
+  GHashTable *dispatch_table;
+  GHookList ondisconnect_hooklist;
+} NautilusDropboxHookserv;
 
 void
-nautilus_dropbox_hooks_setup(NautilusDropbox *cvs);
+nautilus_dropbox_hooks_setup(NautilusDropboxHookserv *);
 
 void
-nautilus_dropbox_hooks_start(NautilusDropbox *cvs);
+nautilus_dropbox_hooks_start(NautilusDropboxHookserv *);
 
 void
-nautilus_dropbox_hooks_wait_until_connected(NautilusDropbox *cvs, gboolean val);
+nautilus_dropbox_hooks_wait_until_connected(NautilusDropboxHookserv *, gboolean);
 
 gboolean
-nautilus_dropbox_hooks_force_reconnect(NautilusDropbox *cvs);
+nautilus_dropbox_hooks_force_reconnect(NautilusDropboxHookserv *);
+
+void
+nautilus_dropbox_hooks_add(NautilusDropboxHookserv *ndhs,
+			   const gchar *hook_name,
+			   DropboxUpdateHook hook, gpointer ud);
+void
+nautilus_dropbox_hooks_add_on_disconnect_hook(NautilusDropboxHookserv *hookserv,
+					      DropboxHookClientDisconnectHook dhcch,
+					      gpointer ud);
 
 G_END_DECLS
 
