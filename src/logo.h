@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * logo.h
  * GdkPixbuf of logo icon.
  *

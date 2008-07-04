@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * async-http-downloader.c
  * Asynchronous HTTP client using glib io channels
  *

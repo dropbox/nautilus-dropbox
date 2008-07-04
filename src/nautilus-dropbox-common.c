@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * nautilus-dropbox-common.c
  * Utility functions for nautilus-dropbox
  *

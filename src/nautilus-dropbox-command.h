@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * nautilus-dropbox-command.h
  * Header file for nautilus-dropbox-command.c
  *

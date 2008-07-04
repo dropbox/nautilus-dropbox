@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * idle.h
  * GdkPixbuf of idle icon.
  *

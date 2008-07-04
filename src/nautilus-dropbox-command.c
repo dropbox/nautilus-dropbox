@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * nautilus-dropbox-command.c
  * Implements connection handling and C interface for the Dropbox command socket.
  *

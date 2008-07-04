@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * async-io-coroutine.h
  * Macros to simplify writing coroutines for the glib main loop.
  *

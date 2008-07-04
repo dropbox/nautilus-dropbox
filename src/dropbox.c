@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * dropbox.c
  * Nautilus module registering functions for the Dropbox extension.
  *

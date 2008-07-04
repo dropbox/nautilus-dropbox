@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * nautilus-dropbox.c
  * Implements the Nautilus extension API for Dropbox. 
  *

@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * busy.h
  * GdkPixbuf of busy icon.
  *

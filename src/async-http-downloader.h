@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * async-http-downloader.h
  * Header file for async-http-downloader.c
  *

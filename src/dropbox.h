@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * dropbox.h
  * Header file for dropbox.c
  *

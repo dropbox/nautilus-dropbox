@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * g-util.c
  * glib/gdk/gtk dependent utility functions.
  *

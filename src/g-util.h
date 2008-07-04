@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * g-util.h
  * Header file for g-util.c
  *

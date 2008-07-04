@@ -1,4 +1,6 @@
 /*
+ * Copyright 2008 Evenflow, Inc.
+ *
  * nautilus-dropbox-tray.c
  * Tray icon manager code for nautilus-dropbox
  *

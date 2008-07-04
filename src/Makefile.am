@@ -5,7 +5,9 @@ INCLUDES =						\
 	$(WARN_CFLAGS)                                  \
 	-Wall                                           \
 	$(DISABLE_DEPRECATED_CFLAGS)			\
-	$(NAUTILUS_CFLAGS)
+	$(NAUTILUS_CFLAGS)                              \
+	$(GLIB_CFLAGS)                                  \
+	$(LIBNOTIFY_CFLAGS)
 
 nautilus_extensiondir=$(NAUTILUS_EXTENSION_DIR)
 
@@ -30,4 +32,4 @@ libnautilus_dropbox_la_SOURCES = \
 	dropbox.c
 
 libnautilus_dropbox_la_LDFLAGS = -module -avoid-version
-libnautilus_dropbox_la_LIBADD  = $(NAUTILUS_LIBS)
+libnautilus_dropbox_la_LIBADD  = $(NAUTILUS_LIBS) $(GLIB_LIBS) $(LIBNOTIFY_LIBS)
