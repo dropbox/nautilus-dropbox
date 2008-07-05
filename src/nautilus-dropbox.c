@@ -91,14 +91,14 @@ test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
      the file's path has changed */
   if (strcmp(filename, filename2) != 0) {
     debug("shifty old: %s, new %s", filename2, filename);
-    /* the original filename 2 is freed by the next g_hash_table_replace call */
-    filename2 = g_strdup(filename2);
 
-    g_hash_table_replace(cvs->obj2filename, g_object_ref(file), g_strdup(filename));
-    g_hash_table_replace(cvs->filename2obj, g_strdup(filename), g_object_ref(file));
-
+    /* gotta do this first, the call after this frees filename2 */
     g_hash_table_remove(cvs->filename2obj, filename2);
-    g_free(filename2);
+    g_hash_table_replace(cvs->obj2filename, file, g_strdup(filename));
+
+    /* we shouldn't have another mapping from filename to an object */
+    g_assert(g_hash_table_lookup(cvs->filename2obj, filename) == NULL);
+    g_hash_table_insert(cvs->filename2obj, g_strdup(filename), file);
 
     reset_file(file);
   }
@@ -140,14 +140,28 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
       return NAUTILUS_OPERATION_COMPLETE;
     }
     else {
-      gchar *filename2;
+      gchar *stored_filename;
 
-      if ((filename2 = g_hash_table_lookup(cvs->obj2filename, file)) != NULL) {
+      if ((stored_filename = g_hash_table_lookup(cvs->obj2filename, file)) != NULL) {
 	/* if this file does exist make sure the two filenames are equal */
-	g_assert(strcmp(filename2, filename) == 0);
+	g_assert(strcmp(stored_filename, filename) == 0);
       }
       else {
-	g_assert(g_hash_table_lookup(cvs->filename2obj, filename) == NULL);
+	{
+	  NautilusFileInfo *f2;
+	  if ((f2 = g_hash_table_lookup(cvs->filename2obj, filename)) != NULL) {
+	    gchar *filename3;
+	    filename3 = g_filename_from_uri(nautilus_file_info_get_uri(f2), NULL, NULL);
+	    g_assert(filename3 != NULL);
+	    
+	    g_printf("file object not stored, yet filename was\n"
+		     "event on: 0x%x, stored: 0x%x\n"
+		     "event on: %s, stored: %s", file, f2, filename, filename3);
+	    g_free(filename3);
+	    
+	    g_assert_not_reached();
+	  }
+	}
 
 	g_object_weak_ref(file, (GWeakNotify) when_file_dies, cvs);
 	g_hash_table_replace(cvs->filename2obj, g_strdup(filename), file);
@@ -160,7 +174,8 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
     }
   }
 
-  if (nautilus_dropbox_command_is_connected(cvs) == FALSE) {
+  if (nautilus_dropbox_command_is_connected(cvs) == FALSE ||
+      nautilus_file_info_is_gone(file)) {
     return NAUTILUS_OPERATION_COMPLETE;
   }
 
@@ -327,6 +342,8 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 
 	for (i = 0; options[i] != NULL; i++) {
 	  gchar **option_info;
+
+	  /*debug("option string %d: %s", i, options[i]);*/
 	  
 	  option_info = g_strsplit(options[i], "~", 3);
 	  /* if this is a valid string */
@@ -337,13 +354,14 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 	    dcmi->title = g_strdup(option_info[0]);	  
 	    dcmi->tooltip = g_strdup(option_info[1]);
 	    dcmi->verb = g_strdup(option_info[2]);
-	    
+    
 	    g_hash_table_insert(context_option_hash, g_strdup(dcmi->verb), dcmi);
 	  }
 	  
 	  g_strfreev(option_info);
 	}
 	
+	/*debug("setting nautilus_dropbox_menu_item"); */
 	g_object_set_data_full(G_OBJECT(dficr->dfic->file),
 			       "nautilus_dropbox_menu_item",
 			       context_option_hash,
