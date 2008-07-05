@@ -1,4 +1,17 @@
-This is a dummy ChangeLog to satisfy Automake
+This file isn't a real ChangeLog, we use our code commits for details on technical changes.
+This changelog is a list of logical changes and bug fixes.
 
-This project does not use a ChangeLog file.
-Please write descriptive commit messages instead.
+Version 0.2.0 (7/9/08):
+-----------------------	
+	* Fixed slow startup time due to handle_shell_touch being O(n) operation
+	it's now an O(1) operation on average.
+	* Fixed issue where auto download of dropbox would "fail" sometimes.
+	* Dragging and dropping now works (no outdated dropbox status).
+	* Tray icon is now more accurate regarding the current state of Dropbox.
+	* Folder tags (Photos/Public/Shared) are now implemented.
+	* Used nautilus workaround to always show dropbox status emblems.
+
+Version 0.1.0 (7/3/08):
+-----------------------
+	* Initial Release!
+	
