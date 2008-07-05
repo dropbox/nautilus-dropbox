@@ -167,7 +167,7 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 	       just remove our association to the old file object
 	    */
 	    g_object_weak_unref(f2, (GWeakNotify) when_file_dies, cvs);
-	    g_handlers_disconnect_by_func(f2, G_CALLBACK(test_cb), cvs);
+	    g_signal_handlers_disconnect_by_func(f2, G_CALLBACK(test_cb), cvs);
 	    g_hash_table_remove(cvs->filename2obj, filename);
 
 	    /*g_assert_not_reached(); */
