@@ -158,14 +158,25 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 		     "event on: 0x%x, stored: 0x%x\n"
 		     "event on: %s, stored: %s", file, f2, filename, filename3);
 	    g_free(filename3);
-	    
-	    g_assert_not_reached();
+	
+	    /* sometimes nautilus allocates another NautilusFileInfo object
+	       for a file without killing the other one? 
+	       
+	       this is not good for our reverse hash table
+
+	       just remove our association to the old file object
+	    */
+	    g_object_weak_unref(f2, (GWeakNotify) when_file_dies, cvs);
+	    g_handlers_disconnect_by_func(f2, G_CALLBACK(test_cb), cvs);
+	    g_hash_table_remove(cvs->filename2obj, filename);
+
+	    /*g_assert_not_reached(); */
 	  }
 	}
 
 	g_object_weak_ref(file, (GWeakNotify) when_file_dies, cvs);
-	g_hash_table_replace(cvs->filename2obj, g_strdup(filename), file);
-	g_hash_table_replace(cvs->obj2filename, file, g_strdup(filename));
+	g_hash_table_insert(cvs->filename2obj, g_strdup(filename), file);
+	g_hash_table_insert(cvs->obj2filename, file, g_strdup(filename));
 	
 	g_signal_connect(file, "changed", G_CALLBACK(test_cb), cvs);
       }
