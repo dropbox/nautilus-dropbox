@@ -320,13 +320,36 @@ handle_change_to_menu(GHashTable *args, NautilusDropbox *cvs) {
 }
 
 static void
+set_icon(NautilusDropboxTray *ndt) {
+  GdkPixbuf *toset = NULL;
+
+  switch (ndt->icon_state) {
+  case NOT_CONNECTED:
+    toset = ndt->logo;
+    break;
+  case SYNCING:
+    toset = ndt->busy_frame ? ndt->busy : ndt->busy2;
+    break;
+  case UPTODATE:
+    toset = ndt->idle;
+    break;
+  default:
+    g_assert_not_reached();
+    break;
+  }
+
+  gtk_status_icon_set_from_pixbuf(ndt->status_icon, toset);
+}
+
+static void
 handle_change_state(GHashTable *args, NautilusDropbox *cvs) {
   /* great got the menu options, now build the menu and show the tray icon*/
   gchar **value;
 
   if ((value = g_hash_table_lookup(args, "new_state")) != NULL) {
     debug("dropbox asking us to change our state to %s", value[0]);
-    cvs->ndt.icon_state = (strcmp(value[0], "1") == 0);
+    cvs->ndt.icon_state = atoi(value[0]) ? SYNCING : UPTODATE;
+    set_icon(&(cvs->ndt));
   }
 }
 
@@ -362,8 +385,10 @@ get_active_setting_cb(gchar **arr, NautilusDropbox *cvs,
 
   /* convert active argument */
   cvs->ndt.last_active = strcmp(arr[0], "True") == 0;
-  /* set icon state */
-  cvs->ndt.icon_state = atoi(arr[3]);
+
+  /* set icon state, 0 means IDLE, 1 means BUSY*/
+  cvs->ndt.icon_state = atoi(arr[3]) ? SYNCING : UPTODATE;
+  set_icon(&(cvs->ndt));
 
   /* set tooltip */
   {
@@ -404,6 +429,9 @@ nautilus_dropbox_tray_on_disconnect(NautilusDropbox *cvs) {
     menu_refresh(&(cvs->ndt));
     gtk_status_icon_set_tooltip(cvs->ndt.status_icon, "Reconnecting to Dropbox...");
   }
+  
+  cvs->ndt.icon_state = NOT_CONNECTED;
+  set_icon(&(cvs->ndt));
 }
 
 typedef struct {
@@ -568,10 +596,23 @@ handle_dropbox_download_response(gint response_code,
 				 HttpDownloadCtx *ctx) {
   int filesize = -1;
 
-  if (response_code != 200) {
-    fail_dropbox_download(ctx->cvs, "");
+  switch (response_code) {
+  case -1:
+    fail_dropbox_download(ctx->cvs, NULL);
     g_free(ctx);
-    return;
+    break;
+  case 200:
+    break;
+  default: {
+    gchar *msg;
+
+    msg = g_strdup_printf("Couldn't download Dropbox. Server returned "
+			  "%d.", response_code);
+    fail_dropbox_download(ctx->cvs, msg);
+    g_free(msg);
+    g_free(ctx);
+  }
+    break;
   }
 
   /* find out the file size, -1 if unknown */
@@ -707,27 +748,15 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropbox *cvs) {
   }
 }
 
+/* TODO: needs cleanup, notion of icon_state separate from animation frame */
 static gboolean
-animate_icon(NautilusDropbox *cvs) {
-  if (nautilus_dropbox_command_is_connected(cvs)) {
-    if (cvs->ndt.icon_state == 0) {
-      gtk_status_icon_set_from_pixbuf(cvs->ndt.status_icon,
-				      cvs->ndt.idle);
-    }
-    else {
-      gtk_status_icon_set_from_pixbuf(cvs->ndt.status_icon,
-				      cvs->ndt.busy_frame
-				      ? cvs->ndt.busy
-				      : cvs->ndt.busy2);
-      cvs->ndt.busy_frame = !cvs->ndt.busy_frame;
-    }
+animate_icon(NautilusDropboxTray *ndt) {
+  if (ndt->icon_state == SYNCING) {
+    ndt->busy_frame = !ndt->busy_frame;
+    set_icon(ndt);
   }
-  else {
-    gtk_status_icon_set_from_pixbuf(cvs->ndt.status_icon,
-				    cvs->ndt.logo);
-  }
-    
-  g_timeout_add(100, (GSourceFunc)animate_icon, cvs);
+
+  g_timeout_add(500, (GSourceFunc)animate_icon, ndt);
 
   return FALSE;
 }
@@ -744,7 +773,7 @@ nautilus_dropbox_tray_setup(NautilusDropbox *cvs) {
   nautilus_dropbox_hooks_add(&(cvs->hookserv), "refresh_tray_menu",
 			     (DropboxUpdateHook) handle_refresh_tray_menu, cvs);
 
-  cvs->ndt.icon_state = 0;
+  cvs->ndt.icon_state = NOT_CONNECTED;
   cvs->ndt.busy_frame = 0;
   cvs->ndt.idle = gdk_pixbuf_new_from_inline(-1, idle, FALSE, NULL);
   cvs->ndt.busy = gdk_pixbuf_new_from_inline(-1, busy, FALSE, NULL);
@@ -772,5 +801,5 @@ nautilus_dropbox_tray_setup(NautilusDropbox *cvs) {
 
   notify_init("Dropbox");
 
-  animate_icon(cvs);
+  animate_icon(&(cvs->ndt));
 }

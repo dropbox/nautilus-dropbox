@@ -47,6 +47,7 @@ nautilus_module_initialize (GTypeModule *module) {
   dropbox_use_nautilus_submenu_workaround
     = (NAUTILUS_VERSION_MAJOR < 2 ||
        (NAUTILUS_VERSION_MAJOR == 2 && NAUTILUS_VERSION_MINOR <= 22));
+  dropbox_use_operation_in_progress_workaround = TRUE;
 }
 
 void

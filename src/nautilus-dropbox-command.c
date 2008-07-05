@@ -321,12 +321,14 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
      file status, and context options */
   GError *tmp_gerr = NULL;
   DropboxFileInfoCommandResponse *dficr;
-  GHashTable *file_status_response, *context_options_response, *args;
+  GHashTable *file_status_response, *context_options_response, *args, *folder_tag_response;
   gchar *filename;
 
   /* TODO: might be thread-unsafe */
   filename = g_filename_from_uri(nautilus_file_info_get_uri(dfic->file),
 				 NULL, NULL);
+
+  /* TODO: do magic to get info for linked files */
 
   args = g_hash_table_new_full((GHashFunc) g_str_hash,
 			       (GEqualFunc) g_str_equal,
@@ -365,8 +367,6 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
     g_hash_table_insert(args, g_strdup("paths"), paths_arg);
   }
 
-  g_free(filename);
-
   /* send context options command to server */
   context_options_response =
     send_command_to_db(chan, "icon_overlay_context_options",
@@ -380,14 +380,44 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
     g_propagate_error(gerr, tmp_gerr);
     return;
   }
+
+  args = g_hash_table_new_full((GHashFunc) g_str_hash,
+			       (GEqualFunc) g_str_equal,
+			       (GDestroyNotify) g_free,
+			       (GDestroyNotify) g_strfreev);
+  {
+    gchar **paths_arg;
+    paths_arg = g_new(gchar *, 2);
+    paths_arg[0] = g_strdup(filename);
+    paths_arg[1] = NULL;
+    g_hash_table_insert(args, g_strdup("path"), paths_arg);
+  }
+
+  folder_tag_response =
+    send_command_to_db(chan, "get_folder_tag", args, &tmp_gerr);
+  g_hash_table_unref(args);
+  args = NULL;
+  if (tmp_gerr != NULL) {
+    if (file_status_response != NULL)
+      g_hash_table_destroy(file_status_response);
+    if (context_options_response != NULL)
+      g_hash_table_destroy(context_options_response);      
+    g_assert(folder_tag_response == NULL);
+    g_propagate_error(gerr, tmp_gerr);
+    return;
+  }
   
   /* great server responded perfectly,
-     now let's get this request done */
+     now let's get this request done,
+     ...in the glib main loop */
   dficr = g_new0(DropboxFileInfoCommandResponse, 1);
   dficr->dfic = dfic;
+  dficr->folder_tag_response = folder_tag_response;
   dficr->file_status_response = file_status_response;
   dficr->context_options_response = context_options_response;
   g_idle_add((GSourceFunc) nautilus_dropbox_finish_file_info_command, dficr);
+
+  g_free(filename);
   
   return;
 }
@@ -427,33 +457,6 @@ do_general_command(GIOChannel *chan, DropboxGeneralCommand *dcac,
     return;
   }
 
-  /* debug general responses */
-  if (FALSE) {
-    GHashTableIter iter;
-    gchar *key, *val;
-    debug("general command: %s", dcac->command_name);
-
-    g_hash_table_iter_init(&iter, dcac->command_args);
-    while (g_hash_table_iter_next(&iter,
-				  (gpointer) &key,
-				  (gpointer) &val)) {
-      debug("arg: %s, val: %s", key, val);
-    }
-
-
-    if (response != NULL) {
-      g_hash_table_iter_init(&iter, response);
-      while (g_hash_table_iter_next(&iter,
-				    (gpointer) &key,
-				    (gpointer) &val)) {
-	debug("response: %s, val: %s", key, val);
-      }
-    }
-    else {
-      debug("response was null");
-    }
-  }
-  
   /* great, the server did the command perfectly,
      now call the handler with the response */
   {
@@ -495,7 +498,7 @@ check_connection(GIOChannel *chan) {
 
   /* this makes us disconnect from bad servers
      (those that send us information without us asking for it) */
-  if (iostat == G_IO_STATUS_AGAIN && bytes_read == 0) {
+  if (iostat == G_IO_STATUS_AGAIN) {
     return TRUE;
   }
   else {

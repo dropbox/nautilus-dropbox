@@ -47,6 +47,7 @@ typedef struct {
   DropboxFileInfoCommand *dfic;
   GHashTable *file_status_response;
   GHashTable *context_options_response;
+  GHashTable *folder_tag_response;
 } DropboxFileInfoCommandResponse;
 
 typedef void (*NautilusDropboxCommandResponseHandler)(GHashTable *, gpointer);

@@ -44,6 +44,8 @@ G_BEGIN_DECLS
 typedef struct _NautilusDropbox      NautilusDropbox;
 typedef struct _NautilusDropboxClass NautilusDropboxClass;
 
+typedef enum {NOT_CONNECTED, SYNCING, UPTODATE} DropboxIconState;
+
 typedef struct {
   GtkStatusIcon *status_icon;
   GtkMenu *context_menu;
@@ -52,7 +54,7 @@ typedef struct {
   GdkPixbuf *busy;
   GdkPixbuf *busy2;
   GdkPixbuf *logo;
-  gint icon_state;
+  DropboxIconState icon_state;
   gint busy_frame;
   gboolean last_active;
 } NautilusDropboxTray;
@@ -80,6 +82,7 @@ GType nautilus_dropbox_get_type(void);
 void  nautilus_dropbox_register_type(GTypeModule *module);
 
 extern gboolean dropbox_use_nautilus_submenu_workaround;
+extern gboolean dropbox_use_operation_in_progress_workaround;
 
 void nautilus_dropbox_on_connect(NautilusDropbox *cvs);
 

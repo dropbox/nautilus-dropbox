@@ -55,6 +55,7 @@ typedef struct {
 static char *emblems[] = {"dropbox-uptodate", "dropbox-syncing"};
 
 gboolean dropbox_use_nautilus_submenu_workaround;
+gboolean dropbox_use_operation_in_progress_workaround;
 
 static GType dropbox_type = 0;
 
@@ -89,6 +90,7 @@ test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
   /* this is a hack, because nautilus doesn't do this for us, for some reason
      the file's path has changed */
   if (strcmp(filename, filename2) != 0) {
+    debug("shifty old: %s, new %s", filename2, filename);
     /* the original filename 2 is freed by the next g_hash_table_replace call */
     filename2 = g_strdup(filename2);
 
@@ -104,6 +106,21 @@ test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
   g_free(filename);
 }
 
+static void
+when_file_dies(NautilusDropbox *cvs, NautilusFileInfo *address) {
+  gchar *filename;
+
+  filename = g_hash_table_lookup(cvs->obj2filename, address);
+  
+  /* we never got a change to view this file */
+  if (filename == NULL) {
+    return;
+  }
+
+  g_hash_table_remove(cvs->filename2obj, filename);
+  g_hash_table_remove(cvs->obj2filename, address);
+}
+
 static NautilusOperationResult
 nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
                                   NautilusFileInfo         *file,
@@ -111,9 +128,10 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
                                   NautilusOperationHandle **handle) {
   NautilusDropbox *cvs;
 
-
   cvs = NAUTILUS_DROPBOX(provider);
 
+  /* this code adds this file object to our two-way hash of file objects
+     so we can shell touch these files later */
   {
     gchar *filename;
 
@@ -123,7 +141,6 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
     }
     else {
       gchar *filename2;
-      /* add the file to our two-way hash table, if it doesn't already exist */
 
       if ((filename2 = g_hash_table_lookup(cvs->obj2filename, file)) != NULL) {
 	/* if this file does exist make sure the two filenames are equal */
@@ -132,8 +149,9 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
       else {
 	g_assert(g_hash_table_lookup(cvs->filename2obj, filename) == NULL);
 
-	g_hash_table_insert(cvs->filename2obj, g_strdup(filename), g_object_ref(file));
-	g_hash_table_insert(cvs->obj2filename, g_object_ref(file), g_strdup(filename));
+	g_object_weak_ref(file, (GWeakNotify) when_file_dies, cvs);
+	g_hash_table_replace(cvs->filename2obj, g_strdup(filename), file);
+	g_hash_table_replace(cvs->obj2filename, file, g_strdup(filename));
 	
 	g_signal_connect(file, "changed", G_CALLBACK(test_cb), cvs);
       }
@@ -145,7 +163,7 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
   if (nautilus_dropbox_command_is_connected(cvs) == FALSE) {
     return NAUTILUS_OPERATION_COMPLETE;
   }
-  
+
   {
     DropboxFileInfoCommand *dfic = g_new0(DropboxFileInfoCommand, 1);
 
@@ -159,7 +177,9 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
     
     *handle = (NautilusOperationHandle *) dfic;
     
-    return NAUTILUS_OPERATION_IN_PROGRESS;
+    return dropbox_use_operation_in_progress_workaround
+      ? NAUTILUS_OPERATION_COMPLETE
+      : NAUTILUS_OPERATION_IN_PROGRESS;
   }
 }
 
@@ -248,9 +268,24 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 	(dficr->context_options_response != NULL &&
 	 (options =
 	  g_hash_table_lookup(dficr->context_options_response,
-			      "options")) != NULL)) {
-	
-      /* set the emblem */
+			      "options")) != NULL) &&
+	dficr->folder_tag_response != NULL) {
+      gchar **tag = NULL;
+
+      /* set the tag emblem */
+      if ((tag = g_hash_table_lookup(dficr->folder_tag_response, "tag")) != NULL) {
+	if (strcmp("public", tag[0]) == 0) {
+	  nautilus_file_info_add_emblem(dficr->dfic->file, "web");
+	}
+	else if (strcmp("shared", tag[0]) == 0) {
+	  nautilus_file_info_add_emblem(dficr->dfic->file, "people");
+	}
+	else if (strcmp("photos", tag[0]) == 0) {
+	  nautilus_file_info_add_emblem(dficr->dfic->file, "photos");
+	}
+      }
+
+      /* set the status emblem */
       {
 	int emblem_code = 0;
 	
@@ -270,7 +305,15 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 	  nautilus_file_info_add_emblem(dficr->dfic->file, emblems[emblem_code-1]);
 	}
       }
-      
+
+      /* complete the info request */
+      if (!dropbox_use_operation_in_progress_workaround) {
+	nautilus_info_provider_update_complete_invoke(dficr->dfic->update_complete,
+						      dficr->dfic->provider,
+						      (NautilusOperationHandle*) dficr->dfic,
+						      NAUTILUS_OPERATION_COMPLETE);
+      }
+
       /* save the context menu options */
       {
 	/* great now we have to parse these freaking optionssss also make the menu items */
@@ -304,23 +347,19 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 	g_object_set_data_full(G_OBJECT(dficr->dfic->file),
 			       "nautilus_dropbox_menu_item",
 			       context_option_hash,
-			       (GDestroyNotify) g_hash_table_destroy);
+			       (GDestroyNotify) g_hash_table_unref);
 	
 	/* lol that wasn't so bad, glib is a big help */
       }    
-
-      /* finally complete the request */
-      nautilus_info_provider_update_complete_invoke(dficr->dfic->update_complete,
-						    dficr->dfic->provider,
-						    (NautilusOperationHandle*) dficr->dfic,
-						    NAUTILUS_OPERATION_COMPLETE);
     }
     else {
-      /* operation failed, for some reason... */
-      nautilus_info_provider_update_complete_invoke(dficr->dfic->update_complete,
-						    dficr->dfic->provider,
-						    (NautilusOperationHandle*) dficr->dfic,
-						    NAUTILUS_OPERATION_FAILED);
+      /* operation failed, for some reason..., just complete the invoke */
+      if (!dropbox_use_operation_in_progress_workaround) {
+	nautilus_info_provider_update_complete_invoke(dficr->dfic->update_complete,
+						      dficr->dfic->provider,
+						      (NautilusOperationHandle*) dficr->dfic,
+						      NAUTILUS_OPERATION_FAILED);
+      }
     }
   }
 
@@ -596,10 +635,10 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
   cvs->filename2obj = g_hash_table_new_full((GHashFunc) g_str_hash,
 					    (GEqualFunc) g_str_equal,
 					    (GDestroyNotify) g_free,
-					    (GDestroyNotify) g_object_ref);
+					    (GDestroyNotify) NULL);
   cvs->obj2filename = g_hash_table_new_full((GHashFunc) g_direct_hash,
 					    (GEqualFunc) g_direct_equal,
-					    (GDestroyNotify) g_object_ref,
+					    (GDestroyNotify) NULL,
 					    (GDestroyNotify) g_free);
 
   /* setup our server submodules first */
