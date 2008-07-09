@@ -117,6 +117,8 @@ when_file_dies(NautilusDropbox *cvs, NautilusFileInfo *address) {
     return;
   }
 
+  debug("killing %s", filename);
+  
   g_hash_table_remove(cvs->filename2obj, filename);
   g_hash_table_remove(cvs->obj2filename, address);
 }
@@ -143,8 +145,25 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
       gchar *stored_filename;
 
       if ((stored_filename = g_hash_table_lookup(cvs->obj2filename, file)) != NULL) {
-	/* if this file does exist make sure the two filenames are equal */
-	g_assert(strcmp(stored_filename, filename) == 0);
+	/* if this file does exist make sure the two filenames are equal,
+	   if they aren't we got inconsistent somehow... just fix the inconsistency
+	 */
+	if (strcmp(stored_filename, filename) != 0) {
+	  g_printf("file object in two way hash, yet stored filename\n"
+		   "is not the same as the one we have stored:\n"
+		   "stored: %s, new: %s\n"
+		   "stored file: 0x%x, new file: 0x%x\n",
+		   stored_filename, filename,
+		   g_hash_table_lookup(cvs->filename2obj, stored_filename), file);
+
+	  g_object_weak_unref(file, (GWeakNotify) when_file_dies, cvs);
+	  g_hash_table_remove(cvs->obj2filename, file);
+	  g_hash_table_remove(cvs->filename2obj, stored_filename);
+	  g_signal_handlers_disconnect_by_func(file, G_CALLBACK(test_cb), cvs);
+
+	  /* dirty for now, until i figure out what is causing these inconsistencies */
+	  goto CREATE_ASSOC;
+	}
       }
       else {
 	{
@@ -156,7 +175,7 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 	    
 	    g_printf("file object not stored, yet filename was\n"
 		     "event on: 0x%x, stored: 0x%x\n"
-		     "event on: %s, stored: %s", file, f2, filename, filename3);
+		     "event on: %s, stored: %s\n", file, f2, filename, filename3);
 	    g_free(filename3);
 	
 	    /* sometimes nautilus allocates another NautilusFileInfo object
@@ -173,7 +192,7 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 	    /*g_assert_not_reached(); */
 	  }
 	}
-
+      CREATE_ASSOC:	
 	g_object_weak_ref(file, (GWeakNotify) when_file_dies, cvs);
 	g_hash_table_insert(cvs->filename2obj, g_strdup(filename), file);
 	g_hash_table_insert(cvs->obj2filename, file, g_strdup(filename));
