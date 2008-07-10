@@ -588,7 +588,7 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
 
     root_menu = nautilus_menu_new();
     root_item = nautilus_menu_item_new("NautilusDropbox::root_item",
-				       "Dropbox", "Dropbox Options", NULL);
+				       "Dropbox", "Dropbox Options", "dropbox");
     nautilus_menu_item_set_submenu(root_item, root_menu);
 
     toret = g_list_append(toret, root_item);
