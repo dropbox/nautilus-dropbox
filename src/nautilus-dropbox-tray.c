@@ -453,8 +453,8 @@ fail_dropbox_download(NautilusDropbox *cvs, const gchar *msg) {
 
   nautilus_dropbox_tray_bubble(cvs, "Couldn't download Dropbox",
 			       msg == NULL
-			       ? "Failed to download Dropbox, try again "
-			       "later."
+			       ? "Failed to download Dropbox, Are you connected "
+			       " to the internet? Are your proxy settings correct?"
 			       : msg, NULL);
 }
 
@@ -600,17 +600,19 @@ handle_dropbox_download_response(gint response_code,
   case -1:
     fail_dropbox_download(ctx->cvs, NULL);
     g_free(ctx);
+    return;
     break;
   case 200:
     break;
   default: {
     gchar *msg;
-
+    
     msg = g_strdup_printf("Couldn't download Dropbox. Server returned "
 			  "%d.", response_code);
     fail_dropbox_download(ctx->cvs, msg);
     g_free(msg);
     g_free(ctx);
+    return;
   }
     break;
   }
