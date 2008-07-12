@@ -637,15 +637,44 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
 
 void
 nautilus_dropbox_on_connect(NautilusDropbox *cvs) {
-  DropboxGeneralCommand *dgc = g_new(DropboxGeneralCommand, 1);
-  
-  dgc->dc.request_type = GENERAL_COMMAND;
-  dgc->command_name = g_strdup("icon_overlay_init");
-  dgc->command_args = NULL;
-  dgc->handler = NULL;
-  dgc->handler_ud = NULL;
-  
-  nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
+  /* gotta initialize icon overlays */
+  {
+    DropboxGeneralCommand *dgc = g_new(DropboxGeneralCommand, 1);
+    
+    dgc->dc.request_type = GENERAL_COMMAND;
+    dgc->command_name = g_strdup("icon_overlay_init");
+    dgc->command_args = NULL;
+    dgc->handler = NULL;
+    dgc->handler_ud = NULL;
+    
+    nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
+  }
+
+  /* and tell dropbox what X server we're on */
+  {
+    DropboxGeneralCommand *dgc = g_new(DropboxGeneralCommand, 1);
+    
+    dgc->dc.request_type = GENERAL_COMMAND;
+    dgc->command_name = g_strdup("on_x_server");
+
+    dgc->command_args = g_hash_table_new_full((GHashFunc) g_str_hash,
+					      (GEqualFunc) g_str_equal,
+					      /* key is static data */
+					      (GDestroyNotify) NULL,
+					      (GDestroyNotify) g_strfreev);
+    {
+      gchar **args = g_new(gchar *, 2);
+      args[0] = g_strdup(g_getenv("DISPLAY"));
+      args[1] = NULL;
+      
+      g_hash_table_insert(dgc->command_args, "display", args);
+    }
+
+    dgc->handler = NULL;
+    dgc->handler_ud = NULL;
+    
+    nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
+  }
 }
 
 void
