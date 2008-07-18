@@ -85,7 +85,13 @@ test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
   
   filename = g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL);
   filename2 =  g_hash_table_lookup(cvs->obj2filename, file);
+
+  /* keep assertion but handle production code */
   g_assert(filename2 != NULL);
+  if (filename2 == NULL) {
+    g_free(filename);
+    return;
+  }
 
   /* this is a hack, because nautilus doesn't do this for us, for some reason
      the file's path has changed */
@@ -96,10 +102,19 @@ test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
     g_hash_table_remove(cvs->filename2obj, filename2);
     g_hash_table_replace(cvs->obj2filename, file, g_strdup(filename));
 
-    /* we shouldn't have another mapping from filename to an object */
-    g_assert(g_hash_table_lookup(cvs->filename2obj, filename) == NULL);
-    g_hash_table_insert(cvs->filename2obj, g_strdup(filename), file);
+    {
+      NautilusFileInfo *f2;
+      /* we shouldn't have another mapping from filename to an object */
+      f2 = g_hash_table_lookup(cvs->filename2obj, filename);
+      g_assert(f2 == NULL);
+      if (f2 != NULL) {
+	/* lets fix it if it's true, just remove the mapping */
+	g_hash_table_remove(cvs->filename2obj, filename);
+	g_hash_table_remove(cvs->obj2filename, f2);
+      }
+    }
 
+    g_hash_table_insert(cvs->filename2obj, g_strdup(filename), file);
     reset_file(file);
   }
   
@@ -117,7 +132,8 @@ when_file_dies(NautilusDropbox *cvs, NautilusFileInfo *address) {
     return;
   }
 
-  debug("killing %s", filename);
+  /* too chatty */
+  /* debug("killing %s", filename); */
   
   g_hash_table_remove(cvs->filename2obj, filename);
   g_hash_table_remove(cvs->obj2filename, address);
@@ -148,15 +164,18 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 	/* if this file does exist make sure the two filenames are equal,
 	   if they aren't we got inconsistent somehow... just fix the inconsistency
 	 */
-	if (strcmp(stored_filename, filename) != 0) {
+	gboolean assertion;
+	assertion = strcmp(stored_filename, filename) == 0;
+	g_assert(assertion);
+	if (assertion == FALSE) {
 	  g_printf("file object in two way hash, yet stored filename\n"
 		   "is not the same as the one we have stored:\n"
 		   "stored: %s, new: %s\n"
-		   "stored file: 0x%x, new file: 0x%x\n",
+		   "stored file: 0x%p, new file: 0x%p\n",
 		   stored_filename, filename,
-		   g_hash_table_lookup(cvs->filename2obj, stored_filename), file);
+		   (gpointer)g_hash_table_lookup(cvs->filename2obj, stored_filename), file);
 
-	  g_object_weak_unref(file, (GWeakNotify) when_file_dies, cvs);
+	  g_object_weak_unref(G_OBJECT(file), (GWeakNotify) when_file_dies, cvs);
 	  g_hash_table_remove(cvs->obj2filename, file);
 	  g_hash_table_remove(cvs->filename2obj, stored_filename);
 	  g_signal_handlers_disconnect_by_func(file, G_CALLBACK(test_cb), cvs);
@@ -167,14 +186,19 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
       }
       else {
 	{
+	  gboolean assertion;
 	  NautilusFileInfo *f2;
-	  if ((f2 = g_hash_table_lookup(cvs->filename2obj, filename)) != NULL) {
+	  assertion = (f2 = g_hash_table_lookup(cvs->filename2obj, filename)) == NULL;
+	  /* doesn't need to be assertion, this is nautilus behavior
+	     g_assert(assertion);
+	  */
+	  if (assertion == FALSE) {
 	    gchar *filename3;
 	    filename3 = g_filename_from_uri(nautilus_file_info_get_uri(f2), NULL, NULL);
 	    g_assert(filename3 != NULL);
 	    
 	    g_printf("file object not stored, yet filename was\n"
-		     "event on: 0x%x, stored: 0x%x\n"
+		     "event on: 0x%p, stored: 0x%p\n"
 		     "event on: %s, stored: %s\n", file, f2, filename, filename3);
 	    g_free(filename3);
 	
@@ -185,15 +209,13 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 
 	       just remove our association to the old file object
 	    */
-	    g_object_weak_unref(f2, (GWeakNotify) when_file_dies, cvs);
+	    g_object_weak_unref(G_OBJECT(f2), (GWeakNotify) when_file_dies, cvs);
 	    g_signal_handlers_disconnect_by_func(f2, G_CALLBACK(test_cb), cvs);
 	    g_hash_table_remove(cvs->filename2obj, filename);
-
-	    /*g_assert_not_reached(); */
 	  }
 	}
       CREATE_ASSOC:	
-	g_object_weak_ref(file, (GWeakNotify) when_file_dies, cvs);
+	g_object_weak_ref(G_OBJECT(file), (GWeakNotify) when_file_dies, cvs);
 	g_hash_table_insert(cvs->filename2obj, g_strdup(filename), file);
 	g_hash_table_insert(cvs->obj2filename, file, g_strdup(filename));
 	
@@ -261,25 +283,25 @@ handle_copy_to_clipboard(GHashTable *args, NautilusDropbox *cvs) {
 
 static void
 handle_launch_url(GHashTable *args, NautilusDropbox *cvs) {
-  gchar **url;;
+  gchar **url;
   
-  //  debug_enter();
-
   if ((url = g_hash_table_lookup(args, "url")) != NULL) {
-    gchar *command_line;
+    gchar *command_line, *escaped_string;
 
-    command_line = g_strdup_printf("gnome-open %s", url[0]);
-
-    if (!g_util_execute_command_line(command_line)) {
-      gchar *msg;
-      msg = g_strdup_printf("Couldn't start 'gnome-open %s'. Please check "
-			    "and see if you have the 'gnome-open' program "
-			    "installed.", url[0]);
-      nautilus_dropbox_tray_bubble(cvs, "Couldn't launch browser", msg, NULL);
-      g_free(msg);
-    }
-
+    gchar *msg;
+    escaped_string = g_strescape(url[0], NULL);
+    command_line = g_strdup_printf("gnome-open \"%s\"", url[0]);
+    msg = g_strdup_printf("Couldn't start your browser using gnome-open. "
+			  "Please check "
+			  "and see if you have the 'gnome-open' program "
+			  "installed.", command_line);
+    
+    nautilus_dropbox_common_launch_command_with_error(cvs, command_line,
+						      "Couldn't start your browser",
+						      msg);
+    g_free(msg);
     g_free(command_line);
+    g_free(escaped_string);
   }
 }
 
@@ -288,15 +310,7 @@ handle_launch_folder(GHashTable *args, NautilusDropbox *cvs) {
   gchar **path;
 
   if ((path = g_hash_table_lookup(args, "path")) != NULL) {
-    gchar *command_line, *escaped_string;
-
-    escaped_string = g_strescape(path[0], NULL);
-    command_line = g_strdup_printf("nautilus \"%s\"", escaped_string);
-
-    g_util_execute_command_line(command_line);
-
-    g_free(escaped_string);
-    g_free(command_line);
+    nautilus_dropbox_common_launch_folder(cvs, path[0]);
   }
 }
 
@@ -754,6 +768,7 @@ nautilus_dropbox_class_init (NautilusDropboxClass *class) {
 
 static void
 nautilus_dropbox_class_finalize (NautilusDropboxClass *class) {
+  debug("just checking");
   /* kill threads here? */
 }
 

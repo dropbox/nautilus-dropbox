@@ -62,6 +62,7 @@ nautilus_dropbox_common_get_globals(NautilusDropbox *cvs,
 				    NautilusDropboxGlobalCB cb, gpointer ud) {
   DropboxGeneralCommand *dgc;
 
+  /* TODO: change to g_return_if_fail */
   g_assert(cvs != NULL);
   g_assert(cb != NULL);
   g_assert(tabbed_keys != NULL);
@@ -175,3 +176,66 @@ nautilus_dropbox_common_get_platform() {
      platforms yet, so we don't need great platform detection */
   return g_strdup_printf("lnx-%s", sizeof(long) == 8 ? "x86_64" : "x86");
 }
+
+
+static void
+handle_launch_command_dying(GPid pid, gint status, gpointer *ud) {
+  if (status != 0) {
+    nautilus_dropbox_tray_bubble(ud[0], ud[1], ud[2], NULL, NULL, NULL, NULL);
+  }
+
+  g_free(ud[1]);
+  g_free(ud[2]);
+  g_free(ud);
+}
+
+void
+nautilus_dropbox_common_launch_command_with_error(NautilusDropbox * cvs,
+						  const gchar *command_line,
+						  const gchar *caption,
+						  const gchar *msg) {
+  GPid childpid;
+  gint argc;
+  gchar **argv;
+  
+  g_shell_parse_argv(command_line, &argc, &argv, NULL);
+  
+  if (!gdk_spawn_on_screen(gdk_screen_get_default(),
+			   NULL, argv, NULL,
+			   G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL |
+			   G_SPAWN_STDERR_TO_DEV_NULL | G_SPAWN_DO_NOT_REAP_CHILD,
+			   NULL, NULL,
+			   &childpid, NULL)) {
+    nautilus_dropbox_tray_bubble(&(cvs->ndt), caption, msg, NULL, NULL, NULL, NULL);
+  }
+  else {
+    /* undefined data struct (i.e. dynamic) */
+    gpointer *ud;
+    ud = g_new(gpointer, 3);
+    ud[0] = &(cvs->ndt);
+    ud[1] = g_strdup(caption);
+    ud[2] = g_strdup(msg);
+    g_child_watch_add(childpid,
+		      (GChildWatchFunc) handle_launch_command_dying, ud);
+  }
+}
+
+void
+nautilus_dropbox_common_launch_folder(NautilusDropbox *cvs,
+				      const gchar *folder_path) {
+  gchar *command_line, *escaped_string;
+  gchar *msg;
+  
+  escaped_string = g_strescape(folder_path, NULL);
+  command_line = g_strdup_printf("nautilus \"%s\"", escaped_string);
+  msg = g_strdup_printf("Couldn't start '%s'. Is nautilus in your PATH?",
+			command_line);
+  
+  nautilus_dropbox_common_launch_command_with_error(cvs, command_line,
+						    "Couldn't open folder", msg);
+  
+  g_free(msg);
+  g_free(escaped_string);
+  g_free(command_line);
+}
+

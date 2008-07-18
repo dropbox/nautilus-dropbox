@@ -531,7 +531,7 @@ end_request(DropboxCommand *dc) {
     }
       break;
     default: 
-      g_assert(FALSE);
+      g_assert_not_reached();
       break;
     }
   }
@@ -629,7 +629,7 @@ nautilus_dropbox_command_thread(gpointer data) {
       }
 	break;
       default: 
-	g_assert(FALSE);
+	g_assert_not_reached();
 	break;
       }
       

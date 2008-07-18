@@ -36,6 +36,7 @@
 
 #include "g-util.h"
 #include "nautilus-dropbox.h"
+#include "nautilus-dropbox-tray.h"
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox-command.h"
 #include "nautilus-dropbox-hooks.h"
@@ -73,13 +74,13 @@ gtk_container_remove_all(GtkContainer *c) {
 }
 
 static void
-activate_open_my_dropbox(GtkStatusIcon *status_icon,
-			 NautilusDropbox *cvs) {
+send_simple_command_if_connected(NautilusDropbox *cvs,
+				 const gchar *command) {
   if (nautilus_dropbox_command_is_connected(cvs) == TRUE) {
     DropboxGeneralCommand *dgc = g_new(DropboxGeneralCommand, 1);
     
     dgc->dc.request_type = GENERAL_COMMAND;
-    dgc->command_name = g_strdup("tray_action_open_dropbox");
+    dgc->command_name = g_strdup(command);
     dgc->command_args = NULL;
     dgc->handler = NULL;
     dgc->handler_ud = NULL;
@@ -89,23 +90,16 @@ activate_open_my_dropbox(GtkStatusIcon *status_icon,
 }
 
 static void
+activate_open_my_dropbox(GtkStatusIcon *status_icon,
+			 NautilusDropbox *cvs) {
+  send_simple_command_if_connected(cvs, "tray_action_open_dropbox");
+}
+
+static void
 activate_stop_dropbox(GtkMenuItem *mi,
 		      NautilusDropbox *cvs) {
-  if (nautilus_dropbox_command_is_connected(cvs) == TRUE) {
-    DropboxGeneralCommand *dgc;
-
-    cvs->ca.user_quit = TRUE;
-
-    dgc = g_new(DropboxGeneralCommand, 1);
-    
-    dgc->dc.request_type = GENERAL_COMMAND;
-    dgc->command_name = g_strdup("tray_action_hard_exit");
-    dgc->command_args = NULL;
-    dgc->handler = NULL;
-    dgc->handler_ud = NULL;
-    
-    nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
-  }
+  cvs->ca.user_quit = TRUE;
+  send_simple_command_if_connected(cvs, "tray_action_hard_exit");
 }
 
 static void
@@ -117,17 +111,7 @@ activate_start_dropbox(GtkMenuItem *mi,
 static void
 activate_menu_item(GtkStatusIcon *status_icon,
 		   MenuItemData *mid) {
-  if (nautilus_dropbox_command_is_connected(mid->cvs) == TRUE) {
-    DropboxGeneralCommand *dgc = g_new(DropboxGeneralCommand, 1);
-    
-    dgc->dc.request_type = GENERAL_COMMAND;
-    dgc->command_name = g_strdup(mid->command);
-    dgc->command_args = NULL;
-    dgc->handler = NULL;
-    dgc->handler_ud = NULL;
-    
-    nautilus_dropbox_command_request(mid->cvs, (DropboxCommand *) dgc);
-  }
+  send_simple_command_if_connected(mid->cvs, mid->command);
 }
 
 static void
@@ -245,28 +229,104 @@ create_menu(NautilusDropbox *cvs, gboolean active) {
   nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
 }
 
+void notify_closed_cb(NotifyNotification *nn, gpointer ud) {
+  g_object_unref(G_OBJECT(nn));
+}
 
+void notifycb(NotifyNotification *nn, gchar *label, gpointer *mud) {
+  if (mud[0] != NULL) {
+    ((DropboxTrayBubbleActionCB)mud[0])(mud[1]);
+  }
+}
+
+void notifyfreefunc(gpointer *mud) {
+  if (mud[2] != NULL) {
+    ((GFreeFunc)mud[2])(mud[1]);
+  }
+  g_free(mud);
+}
+
+/**
+ * nautilus_dropbox_tray_bubble
+ * @ndt: DropboxTray structure
+ * @caption: caption for the bubble
+ * @message: message for the bubble
+ * @cb: optional function to call when the bubble is clicked
+ * @ud: optional user data for the callback
+ * @free_func: optional function to call when the bubble is destroyed
+ * @gerr: optional pointer to set an error
+ * 
+ * Bubbles a message above the Dropbox tray icon. Returns false and sets
+ * gerr if an error occured.
+ */
 gboolean
-nautilus_dropbox_tray_bubble(NautilusDropbox *cvs, const gchar *caption,
-			     const gchar *message, GError **gerr) {
+nautilus_dropbox_tray_bubble(NautilusDropboxTray *ndt,
+			     const gchar *caption,
+			     const gchar *message,
+			     DropboxTrayBubbleActionCB cb,
+			     gpointer ud,
+			     GFreeFunc free_func,
+			     GError **gerr) {
   gboolean toret;
   GdkRectangle area;
-  NotifyNotification *n =
-    notify_notification_new(caption, message,
-			    NULL, NULL);
+  NotifyNotification *n;
+  gpointer *mud;
   
-  gtk_status_icon_get_geometry(cvs->ndt.status_icon,
+#if GTK_CHECK_VERSION(2, 9, 2)
+  n = notify_notification_new_with_status_icon(caption, message,
+					       NULL, ndt->status_icon);
+#else
+  n = notify_notification_new(caption, message,
+			      NULL, ndt->status_icon);
+  gtk_status_icon_get_geometry(ndt->status_icon,
 			       NULL, &area, NULL);
   
   notify_notification_set_hint_int32 (n, "x", area.x+area.width/2);
-  notify_notification_set_hint_int32 (n, "y", area.y+area.height);
-  
+  notify_notification_set_hint_int32 (n, "y", area.y+area.height - 5);
+#endif
+
+  mud = g_new(gpointer, 3);
+  mud[0] = cb;
+  mud[1] = ud;
+  mud[2] = free_func;
+  notify_notification_add_action(n, "default", "Show Changed Files",
+				 (NotifyActionCallback) notifycb, mud,
+				 (GFreeFunc) notifyfreefunc);
+
+  g_signal_connect(n, "closed", G_CALLBACK(notify_closed_cb), NULL);
+
   if ((toret = notify_notification_show(n, gerr)) == FALSE) {
     debug("couldn't show notification: %s", (*gerr)->message);
+    g_free(mud);
+  }
+
+  return toret;
+}
+
+void bubble_clicked_cb(gpointer *ud) {
+  debug_enter();
+
+  if (g_file_test((const gchar *) ud[1], G_FILE_TEST_EXISTS) == FALSE) {
+    return;
   }
   
-  g_object_unref(G_OBJECT(n));
-  return toret;
+  if (g_file_test((const gchar *) ud[1], G_FILE_TEST_IS_DIR) == FALSE) {
+    gchar *base;
+    base = g_path_get_dirname(ud[1]);
+    nautilus_dropbox_common_launch_folder((NautilusDropbox *) ud[0],
+					  (const gchar *) base);
+    g_free(base);
+  }
+  else {
+    nautilus_dropbox_common_launch_folder((NautilusDropbox *) ud[0],
+					  (const gchar *) ud[1]);
+  }
+
+}
+
+void bubble_clicked_free(gpointer *ud) {
+  g_free(ud[1]);
+  g_free(ud);
 }
 
 static void
@@ -277,7 +337,22 @@ handle_bubble(GHashTable *args, NautilusDropbox *cvs) {
   caption = g_hash_table_lookup(args, "caption");
 
   if (message != NULL && caption != NULL) {
-    nautilus_dropbox_tray_bubble(cvs, caption[0], message[0], NULL);
+    gchar **location;
+
+    location = g_hash_table_lookup(args, "location");
+    if (location != NULL) {
+      gpointer *ud;
+      ud = g_new(gpointer, 2);
+      ud[0] = cvs;
+      ud[1] = g_strdup(location[0]);
+      nautilus_dropbox_tray_bubble(&(cvs->ndt), caption[0], message[0],
+				   (DropboxTrayBubbleActionCB) bubble_clicked_cb, ud,
+				   (GFreeFunc) bubble_clicked_free, NULL);      
+    }
+    else {
+      nautilus_dropbox_tray_bubble(&(cvs->ndt), caption[0], message[0],
+				   NULL,NULL,NULL,NULL);      
+    }
   }
 }
 
@@ -335,6 +410,8 @@ set_icon(NautilusDropboxTray *ndt) {
     break;
   default:
     g_assert_not_reached();
+    /* but fail transparently on production */
+    toset = ndt->logo;
     break;
   }
 
@@ -446,24 +523,34 @@ typedef struct {
   gboolean download_finished;
 } HttpDownloadCtx;
 
-
 static void
 fail_dropbox_download(NautilusDropbox *cvs, const gchar *msg) {
   install_start_dropbox_menu(cvs);
 
-  nautilus_dropbox_tray_bubble(cvs, "Couldn't download Dropbox",
+  nautilus_dropbox_tray_bubble(&(cvs->ndt), "Couldn't download Dropbox",
 			       msg == NULL
 			       ? "Failed to download Dropbox, Are you connected "
 			       " to the internet? Are your proxy settings correct?"
-			       : msg, NULL);
+			       : msg, NULL, NULL, NULL, NULL);
 }
 
 static void
 handle_tar_dying(GPid pid, gint status, gpointer *ud) {
-  /* TODO: probably check status */
-  nautilus_dropbox_common_start_dropbox(ud[1], FALSE);
+  if (status == 0) {
+    g_unlink(ud[0]);
+    nautilus_dropbox_common_start_dropbox(ud[1], FALSE);
+  }
+  else {
+    gchar *msg;
+    msg = g_strdup_printf("The Dropbox archive located at \"%s\" failed to unpack.",
+			  (gchar *) ud[0]);
+    nautilus_dropbox_tray_bubble(&(((NautilusDropbox *) ud[1])->ndt),
+				 "Couldn't download Dropbox.",
+				 msg, NULL, NULL, NULL, NULL);
+    g_free(msg);
+  }
+
   /* delete tmp file */
-  g_unlink(ud[0]);
   g_spawn_close_pid(pid);
   g_free(ud[0]);
   g_free(ud);

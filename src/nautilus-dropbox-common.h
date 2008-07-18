@@ -44,6 +44,16 @@ nautilus_dropbox_common_start_dropbox(NautilusDropbox *cvs, gboolean download);
 gchar *
 nautilus_dropbox_common_get_platform();
 
+void
+nautilus_dropbox_common_launch_command_with_error(NautilusDropbox * cvs,
+						  const gchar *command_line,
+						  const gchar *caption,
+						  const gchar *msg);
+
+void
+nautilus_dropbox_common_launch_folder(NautilusDropbox *cvs,
+				      const gchar *folder_path);
+
 G_END_DECLS
 
 #endif

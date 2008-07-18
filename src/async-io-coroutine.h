@@ -56,6 +56,7 @@ G_BEGIN_DECLS
     }								\
     else {							\
       g_assert_not_reached();					\
+      CRHALT;							\
     }								\
   }
 

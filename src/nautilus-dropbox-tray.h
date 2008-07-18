@@ -29,6 +29,8 @@
 
 G_BEGIN_DECLS
 
+typedef void (*DropboxTrayBubbleActionCB)(gpointer);
+
 void
 nautilus_dropbox_tray_setup(NautilusDropbox *cvs);
 
@@ -42,9 +44,13 @@ void
 nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropbox *cvs);
 
 gboolean
-nautilus_dropbox_tray_bubble(NautilusDropbox *cvs, const gchar *caption,
-			     const gchar *message, GError **gerr);
-
+nautilus_dropbox_tray_bubble(NautilusDropboxTray *ndt,
+			     const gchar *caption,
+			     const gchar *message,
+			     DropboxTrayBubbleActionCB cb,
+			     gpointer ud,
+			     GFreeFunc free_func,
+			     GError **gerr);
 
 G_END_DECLS
 

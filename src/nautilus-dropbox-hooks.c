@@ -249,9 +249,6 @@ gboolean nautilus_dropbox_hooks_force_reconnect(NautilusDropboxHookserv *hookser
   else if (hookserv->event_source == 0) {
     debug("event source was zero!!!!!");
   }
-  else {
-    g_assert_not_reached();
-  }
 	 
   return FALSE;
 }
