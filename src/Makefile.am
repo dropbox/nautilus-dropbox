@@ -1,17 +1,23 @@
 INCLUDES =						\
-	-DDATADIR=\"$(datadir)\"			\
 	-I$(top_srcdir)					\
-	-I$(top_builddir)				\
-	$(WARN_CFLAGS)                                  \
+	-I$(top_builddir)				
+
+nautilus_extensiondir=$(NAUTILUS_EXTENSION_DIR)
+
+nautilus_extension_LTLIBRARIES=libnautilus-dropbox.la
+
+libnautilus_dropbox_la_CFLAGS = 	                \
+	-DDATADIR=\"$(datadir)\"			\
 	-Wall                                           \
+	$(WARN_CFLAGS)                                  \
 	$(DISABLE_DEPRECATED_CFLAGS)			\
 	$(NAUTILUS_CFLAGS)                              \
 	$(GLIB_CFLAGS)                                  \
 	$(LIBNOTIFY_CFLAGS)
 
-nautilus_extensiondir=$(NAUTILUS_EXTENSION_DIR)
-
-nautilus_extension_LTLIBRARIES=libnautilus-dropbox.la
+if !DEBUG
+libnautilus_dropbox_la_CFLAGS += -DG_DISABLE_ASSERT -DG_DISABLE_CHECKS
+endif
 
 libnautilus_dropbox_la_SOURCES = \
 	nautilus-dropbox.c       \

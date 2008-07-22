@@ -424,7 +424,7 @@ handle_change_state(GHashTable *args, NautilusDropbox *cvs) {
   gchar **value;
 
   if ((value = g_hash_table_lookup(args, "new_state")) != NULL) {
-    debug("dropbox asking us to change our state to %s", value[0]);
+    /*    debug("dropbox asking us to change our state to %s", value[0]);*/
     cvs->ndt.icon_state = atoi(value[0]) ? SYNCING : UPTODATE;
     set_icon(&(cvs->ndt));
   }

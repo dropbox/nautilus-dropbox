@@ -86,8 +86,7 @@ test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
   filename = g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL);
   filename2 =  g_hash_table_lookup(cvs->obj2filename, file);
 
-  /* keep assertion but handle production code */
-  g_assert(filename2 != NULL);
+  /* if filename2 is NULL we've never seen this file in update_file_info */
   if (filename2 == NULL) {
     g_free(filename);
     return;
@@ -106,7 +105,6 @@ test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
       NautilusFileInfo *f2;
       /* we shouldn't have another mapping from filename to an object */
       f2 = g_hash_table_lookup(cvs->filename2obj, filename);
-      g_assert(f2 == NULL);
       if (f2 != NULL) {
 	/* lets fix it if it's true, just remove the mapping */
 	g_hash_table_remove(cvs->filename2obj, filename);
@@ -133,8 +131,8 @@ when_file_dies(NautilusDropbox *cvs, NautilusFileInfo *address) {
   }
 
   /* too chatty */
-  /* debug("killing %s", filename); */
-  
+  /*  debug("removing %s <-> 0x%p", filename, address); */
+
   g_hash_table_remove(cvs->filename2obj, filename);
   g_hash_table_remove(cvs->obj2filename, address);
 }
@@ -158,67 +156,48 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
       return NAUTILUS_OPERATION_COMPLETE;
     }
     else {
+      int cmp;
       gchar *stored_filename;
 
-      if ((stored_filename = g_hash_table_lookup(cvs->obj2filename, file)) != NULL) {
-	/* if this file does exist make sure the two filenames are equal,
-	   if they aren't we got inconsistent somehow... just fix the inconsistency
-	 */
-	gboolean assertion;
-	assertion = strcmp(stored_filename, filename) == 0;
-	g_assert(assertion);
-	if (assertion == FALSE) {
-	  g_printf("file object in two way hash, yet stored filename\n"
-		   "is not the same as the one we have stored:\n"
-		   "stored: %s, new: %s\n"
-		   "stored file: 0x%p, new file: 0x%p\n",
-		   stored_filename, filename,
-		   (gpointer)g_hash_table_lookup(cvs->filename2obj, stored_filename), file);
+      stored_filename = g_hash_table_lookup(cvs->obj2filename, file);
 
+      /* don't worry about the dup checks, gcc is smart enough to optimize this
+	 GCSE ftw */
+      if (stored_filename != NULL && (cmp = strcmp(stored_filename, filename)) != 0 ||
+	  stored_filename == NULL) {
+	
+	if (stored_filename != NULL && cmp != 0) {
+	  /* this happens when the filename changes name on a file obj 
+	     but test_cb isn't called */
 	  g_object_weak_unref(G_OBJECT(file), (GWeakNotify) when_file_dies, cvs);
 	  g_hash_table_remove(cvs->obj2filename, file);
 	  g_hash_table_remove(cvs->filename2obj, stored_filename);
 	  g_signal_handlers_disconnect_by_func(file, G_CALLBACK(test_cb), cvs);
-
-	  /* dirty for now, until i figure out what is causing these inconsistencies */
-	  goto CREATE_ASSOC;
 	}
-      }
-      else {
-	{
-	  gboolean assertion;
+	else if (stored_filename == NULL) {
 	  NautilusFileInfo *f2;
-	  assertion = (f2 = g_hash_table_lookup(cvs->filename2obj, filename)) == NULL;
-	  /* doesn't need to be assertion, this is nautilus behavior
-	     g_assert(assertion);
-	  */
-	  if (assertion == FALSE) {
-	    gchar *filename3;
-	    filename3 = g_filename_from_uri(nautilus_file_info_get_uri(f2), NULL, NULL);
-	    g_assert(filename3 != NULL);
-	    
-	    g_printf("file object not stored, yet filename was\n"
-		     "event on: 0x%p, stored: 0x%p\n"
-		     "event on: %s, stored: %s\n", file, f2, filename, filename3);
-	    g_free(filename3);
-	
-	    /* sometimes nautilus allocates another NautilusFileInfo object
-	       for a file without killing the other one? 
-	       
-	       this is not good for our reverse hash table
 
-	       just remove our association to the old file object
+	  if ((f2 = g_hash_table_lookup(cvs->filename2obj, filename)) != NULL) {
+	    /* if the filename exists in the filename2obj hash
+	       but the file obj doesn't exist in the obj2filename hash:
+	       
+	       this happens when nautilus allocates another file object
+	       for a filename without first deleting the original file object
+	       
+	       just remove the association to the older file object, it's obsolete
 	    */
 	    g_object_weak_unref(G_OBJECT(f2), (GWeakNotify) when_file_dies, cvs);
 	    g_signal_handlers_disconnect_by_func(f2, G_CALLBACK(test_cb), cvs);
 	    g_hash_table_remove(cvs->filename2obj, filename);
+	    g_hash_table_remove(cvs->obj2filename, f2);
 	  }
 	}
-      CREATE_ASSOC:	
+	
+	/* too chatty */
+	/* debug("adding %s <-> 0x%p", filename, file);*/
 	g_object_weak_ref(G_OBJECT(file), (GWeakNotify) when_file_dies, cvs);
 	g_hash_table_insert(cvs->filename2obj, g_strdup(filename), file);
 	g_hash_table_insert(cvs->obj2filename, file, g_strdup(filename));
-	
 	g_signal_connect(file, "changed", G_CALLBACK(test_cb), cvs);
       }
 
