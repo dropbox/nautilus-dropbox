@@ -156,14 +156,14 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
       return NAUTILUS_OPERATION_COMPLETE;
     }
     else {
-      int cmp;
+      int cmp = 0;
       gchar *stored_filename;
 
       stored_filename = g_hash_table_lookup(cvs->obj2filename, file);
 
       /* don't worry about the dup checks, gcc is smart enough to optimize this
 	 GCSE ftw */
-      if (stored_filename != NULL && (cmp = strcmp(stored_filename, filename)) != 0 ||
+      if ((stored_filename != NULL && (cmp = strcmp(stored_filename, filename)) != 0) ||
 	  stored_filename == NULL) {
 	
 	if (stored_filename != NULL && cmp != 0) {
@@ -273,7 +273,7 @@ handle_launch_url(GHashTable *args, NautilusDropbox *cvs) {
     msg = g_strdup_printf("Couldn't start your browser using gnome-open. "
 			  "Please check "
 			  "and see if you have the 'gnome-open' program "
-			  "installed.", command_line);
+			  "installed.");
     
     nautilus_dropbox_common_launch_command_with_error(cvs, command_line,
 						      "Couldn't start your browser",
@@ -672,16 +672,9 @@ nautilus_dropbox_on_connect(NautilusDropbox *cvs) {
 
 void
 nautilus_dropbox_on_disconnect(NautilusDropbox *cvs) {
-  GHashTableIter iter;
-  NautilusFileInfo *file;
-  gchar *filename;
-  
-  /* invalidate all files */
-  g_hash_table_iter_init(&iter, cvs->obj2filename);
-  while (g_hash_table_iter_next(&iter, (gpointer *) &file,
-				(gpointer *) &filename)) {
-    reset_file(file);
-  }
+  /* this works because you can call a function pointer with
+     more arguments than it takes */
+  g_hash_table_foreach(cvs->obj2filename, (GHFunc) reset_file, NULL);
 }
 
 static void
