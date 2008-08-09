@@ -99,6 +99,8 @@ test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
 
     /* gotta do this first, the call after this frees filename2 */
     g_hash_table_remove(cvs->filename2obj, filename2);
+
+    /* XXX: normalize file name */
     g_hash_table_replace(cvs->obj2filename, file, g_strdup(filename));
 
     {
@@ -192,6 +194,8 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 	    g_hash_table_remove(cvs->obj2filename, f2);
 	  }
 	}
+
+	/* XXX: normalize file name */
 	
 	/* too chatty */
 	/* debug("adding %s <-> 0x%p", filename, file);*/
@@ -238,6 +242,9 @@ handle_shell_touch(GHashTable *args, NautilusDropbox *cvs) {
   if ((path = g_hash_table_lookup(args, "path")) != NULL) {
     /* TODO: should normalize path name here */
     NautilusFileInfo *file;
+
+    /* XXX: normalize path name */
+
     file = g_hash_table_lookup(cvs->filename2obj, path[0]);
     if (file != NULL) {
       reset_file(file);
@@ -294,10 +301,26 @@ handle_launch_folder(GHashTable *args, NautilusDropbox *cvs) {
 }
 
 
+static void
+handle_highlight_file(GHashTable *args, NautilusDropbox *cvs) {
+  gchar **path;
+
+  if ((path = g_hash_table_lookup(args, "path")) != NULL) {
+    /* need to get dirname */
+    gchar *dir;
+    dir = g_path_get_dirname(path[0]);
+    nautilus_dropbox_common_launch_folder(cvs, dir);
+    g_free(dir);
+  }
+}
+
 gboolean
 nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr) {
   if (dficr->dfic->cancelled == FALSE) {
     gchar **status= NULL, **options=NULL;
+    gboolean isdir;
+
+    isdir = nautilus_file_info_is_directory(dficr->dfic->file) ;
     
     /* if the file status command went okay */
     if ((dficr->file_status_response != NULL &&
@@ -307,11 +330,13 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 	 (options =
 	  g_hash_table_lookup(dficr->context_options_response,
 			      "options")) != NULL) &&
-	dficr->folder_tag_response != NULL) {
+	(isdir == TRUE && dficr->folder_tag_response != NULL ||
+	 isdir == FALSE)) {
       gchar **tag = NULL;
 
       /* set the tag emblem */
-      if ((tag = g_hash_table_lookup(dficr->folder_tag_response, "tag")) != NULL) {
+      if (isdir &&
+	  (tag = g_hash_table_lookup(dficr->folder_tag_response, "tag")) != NULL) {
 	if (strcmp("public", tag[0]) == 0) {
 	  nautilus_file_info_add_emblem(dficr->dfic->file, "web");
 	}
@@ -720,6 +745,9 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
 			     (DropboxUpdateHook) handle_launch_folder, cvs);
   nautilus_dropbox_hooks_add(&(cvs->hookserv), "launch_url",
 			     (DropboxUpdateHook) handle_launch_url, cvs);
+  nautilus_dropbox_hooks_add(&(cvs->hookserv), "highlight_file",
+			     (DropboxUpdateHook) handle_highlight_file, cvs);
+
 
   /* put together connection hooks */
   /* TODO: abstract both connections into one connect */

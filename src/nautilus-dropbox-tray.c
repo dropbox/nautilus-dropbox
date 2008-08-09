@@ -138,30 +138,47 @@ void menu_item_data_destroy(MenuItemData *mid,
 }
 
 static void
-build_context_menu_from_list(NautilusDropbox *cvs, gchar **options) {
+build_context_menu_from_list(NautilusDropbox *cvs, 
+			     GtkMenu *menu, gchar **options, gint len, int depth) {
   int i;
 
   /* there should be more asserts */
-  g_assert(cvs != NULL);
+  g_assert(menu != NULL);
   g_assert(options != NULL);
-  g_assert(g_strv_length(options) % 2 == 0);
 
-  for (i = 0; options[i] != NULL; i += 2) {
+  /* too... much... recursion... */
+  if (depth > 2) {
+    return;
+  }
+
+  len = len * 2;
+  for (i = 0; len == -2 && options[i] != NULL || i < len; i += 2) {
     GtkWidget *item;
     
     if (strcmp(options[i], "") == 0) {
       item = gtk_separator_menu_item_new();
-      gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
     }
     else {
+      int num_submenu_entries;
       gchar *command;
       item = gtk_menu_item_new_with_label(options[i]);
-      gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
+      gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
 
       command = options[i+1];
 
       if (strcmp(command, "") == 0) {
 	g_object_set(item, "sensitive", FALSE, NULL);
+      }
+      else if ((num_submenu_entries = atoi(command)) != 0) {
+	GtkMenu *submenu = GTK_MENU(gtk_menu_new());
+
+	build_context_menu_from_list(cvs, submenu, &(options[i+2]),
+				     num_submenu_entries, depth+1);
+	gtk_menu_item_set_submenu(GTK_MENU_ITEM(item),
+				  GTK_WIDGET(submenu));
+
+	i += num_submenu_entries * 2;
       }
       else {
 	MenuItemData *mid = g_new0(MenuItemData, 1);
@@ -173,15 +190,6 @@ build_context_menu_from_list(NautilusDropbox *cvs, gchar **options) {
       }
     }
   }
-
-  /* now add the quit dropbox item */
-  {
-    GtkWidget *item;
-    item = gtk_menu_item_new_with_label("Stop Dropbox");
-    gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
-    g_signal_connect(G_OBJECT(item), "activate",
-		     G_CALLBACK(activate_stop_dropbox), cvs);
-  }
 }
 
 static void
@@ -192,10 +200,24 @@ get_menu_options_response_cb(GHashTable *response, NautilusDropbox *cvs) {
 
   gchar **options;
 
+  /* could happen if the call failed */
+  if (response == NULL) {
+    return;
+  }
+
   if ((options = g_hash_table_lookup(response, "options")) != NULL &&
       g_strv_length(options) % 2 == 0) {
     gtk_container_remove_all(GTK_CONTAINER(cvs->ndt.context_menu));
-    build_context_menu_from_list(cvs, options);
+    build_context_menu_from_list(cvs, cvs->ndt.context_menu, options,
+				 -1, 0);
+    /* now add the quit dropbox item */
+    {
+      GtkWidget *item;
+      item = gtk_menu_item_new_with_label("Stop Dropbox");
+      gtk_menu_shell_append(GTK_MENU_SHELL(cvs->ndt.context_menu), item);
+      g_signal_connect(G_OBJECT(item), "activate",
+		       G_CALLBACK(activate_stop_dropbox), cvs);
+    }
     menu_refresh(&(cvs->ndt));
     gtk_status_icon_set_visible(cvs->ndt.status_icon, TRUE); 
   }
@@ -268,9 +290,13 @@ nautilus_dropbox_tray_bubble(NautilusDropboxTray *ndt,
 			     GFreeFunc free_func,
 			     GError **gerr) {
   gboolean toret;
-  GdkRectangle area;
   NotifyNotification *n;
   gpointer *mud;
+
+  /* can't do this if libnotify couldn't initialize */
+  if (!ndt->notify_inited) {
+    return TRUE;
+  }
   
 #if GTK_CHECK_VERSION(2, 9, 2)
   n = notify_notification_new_with_status_icon(caption, message,
@@ -278,11 +304,14 @@ nautilus_dropbox_tray_bubble(NautilusDropboxTray *ndt,
 #else
   n = notify_notification_new(caption, message,
 			      NULL, ndt->status_icon);
-  gtk_status_icon_get_geometry(ndt->status_icon,
-			       NULL, &area, NULL);
-  
-  notify_notification_set_hint_int32 (n, "x", area.x+area.width/2);
-  notify_notification_set_hint_int32 (n, "y", area.y+area.height - 5);
+  {
+      GdkRectangle area;
+      gtk_status_icon_get_geometry(ndt->status_icon,
+				   NULL, &area, NULL);
+      
+      notify_notification_set_hint_int32 (n, "x", area.x+area.width/2);
+      notify_notification_set_hint_int32 (n, "y", area.y+area.height - 5);
+  }
 #endif
 
   mud = g_new(gpointer, 3);
@@ -425,7 +454,7 @@ handle_change_state(GHashTable *args, NautilusDropbox *cvs) {
 
   if ((value = g_hash_table_lookup(args, "new_state")) != NULL) {
     /*    debug("dropbox asking us to change our state to %s", value[0]);*/
-    cvs->ndt.icon_state = atoi(value[0]) ? SYNCING : UPTODATE;
+    cvs->ndt.icon_state = atoi(value[0]);
     set_icon(&(cvs->ndt));
   }
 }
@@ -463,8 +492,8 @@ get_active_setting_cb(gchar **arr, NautilusDropbox *cvs,
   /* convert active argument */
   cvs->ndt.last_active = strcmp(arr[0], "True") == 0;
 
-  /* set icon state, 0 means IDLE, 1 means BUSY*/
-  cvs->ndt.icon_state = atoi(arr[3]) ? SYNCING : UPTODATE;
+  /* set icon state, 0 means IDLE, 1 means BUSY, 2 means CONNECTING*/
+  cvs->ndt.icon_state = atoi(arr[3]);
   set_icon(&(cvs->ndt));
 
   /* set tooltip */
@@ -888,7 +917,8 @@ nautilus_dropbox_tray_setup(NautilusDropbox *cvs) {
   g_signal_connect (G_OBJECT (cvs->ndt.status_icon), "activate",
 		    G_CALLBACK (activate_open_my_dropbox), cvs);
 
-  notify_init("Dropbox");
+  /* TODO: do a popup notification if this failed */
+  cvs->ndt.notify_inited = notify_init("Dropbox");
 
   animate_icon(&(cvs->ndt));
 }

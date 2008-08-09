@@ -168,7 +168,11 @@ try_to_connect(NautilusDropboxHookserv *hookserv) {
     addr.sun_family = AF_UNIX;
     g_snprintf(addr.sun_path,
 	       sizeof(addr.sun_path),
+#ifdef ND_DEBUG
+	       "%s/.dropboxlocal/iface_socket",
+#else
 	       "%s/.dropbox/iface_socket",
+#endif
 	       g_get_home_dir());
     addr_len = sizeof(addr) - sizeof(addr.sun_path) + strlen(addr.sun_path);
 

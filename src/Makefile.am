@@ -15,7 +15,9 @@ libnautilus_dropbox_la_CFLAGS = 	                \
 	$(GLIB_CFLAGS)                                  \
 	$(LIBNOTIFY_CFLAGS)
 
-if !DEBUG
+if DEBUG
+libnautilus_dropbox_la_CFLAGS += -DND_DEBUG
+else
 libnautilus_dropbox_la_CFLAGS += -DG_DISABLE_ASSERT -DG_DISABLE_CHECKS
 endif
 

@@ -44,7 +44,7 @@ G_BEGIN_DECLS
 typedef struct _NautilusDropbox      NautilusDropbox;
 typedef struct _NautilusDropboxClass NautilusDropboxClass;
 
-typedef enum {NOT_CONNECTED, SYNCING, UPTODATE} DropboxIconState;
+typedef enum {UPTODATE, SYNCING, NOT_CONNECTED} DropboxIconState;
 
 typedef struct {
   GtkStatusIcon *status_icon;
@@ -57,6 +57,7 @@ typedef struct {
   DropboxIconState icon_state;
   gint busy_frame;
   gboolean last_active;
+  gboolean notify_inited;
 } NautilusDropboxTray;
 
 struct _NautilusDropbox {

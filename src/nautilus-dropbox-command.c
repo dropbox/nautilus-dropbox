@@ -95,7 +95,9 @@ connection_attempt(ConnectionAttempt *ca) {
       cvs->ca.dropbox_starting == FALSE) {
     cvs->ca.dropbox_starting = TRUE;
     debug("couldn't connect to dropbox, auto-starting");
+#ifndef ND_DEBUG    
     nautilus_dropbox_common_start_dropbox(cvs, TRUE);
+#endif
   }
 
   return FALSE;
@@ -321,7 +323,8 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
      file status, and context options */
   GError *tmp_gerr = NULL;
   DropboxFileInfoCommandResponse *dficr;
-  GHashTable *file_status_response, *context_options_response, *args, *folder_tag_response;
+  GHashTable *file_status_response = NULL,
+    *context_options_response = NULL, *args, *folder_tag_response = NULL;
   gchar *filename;
 
   /* TODO: might be thread-unsafe */
@@ -381,30 +384,32 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
     return;
   }
 
-  args = g_hash_table_new_full((GHashFunc) g_str_hash,
-			       (GEqualFunc) g_str_equal,
-			       (GDestroyNotify) g_free,
-			       (GDestroyNotify) g_strfreev);
-  {
-    gchar **paths_arg;
-    paths_arg = g_new(gchar *, 2);
-    paths_arg[0] = g_strdup(filename);
-    paths_arg[1] = NULL;
-    g_hash_table_insert(args, g_strdup("path"), paths_arg);
-  }
-
-  folder_tag_response =
-    send_command_to_db(chan, "get_folder_tag", args, &tmp_gerr);
-  g_hash_table_unref(args);
-  args = NULL;
-  if (tmp_gerr != NULL) {
-    if (file_status_response != NULL)
-      g_hash_table_destroy(file_status_response);
-    if (context_options_response != NULL)
-      g_hash_table_destroy(context_options_response);      
-    g_assert(folder_tag_response == NULL);
-    g_propagate_error(gerr, tmp_gerr);
-    return;
+  if (nautilus_file_info_is_directory(dfic->file)) {
+    args = g_hash_table_new_full((GHashFunc) g_str_hash,
+				 (GEqualFunc) g_str_equal,
+				 (GDestroyNotify) g_free,
+				 (GDestroyNotify) g_strfreev);
+    {
+      gchar **paths_arg;
+      paths_arg = g_new(gchar *, 2);
+      paths_arg[0] = g_strdup(filename);
+      paths_arg[1] = NULL;
+      g_hash_table_insert(args, g_strdup("path"), paths_arg);
+    }
+    
+    folder_tag_response =
+      send_command_to_db(chan, "get_folder_tag", args, &tmp_gerr);
+    g_hash_table_unref(args);
+    args = NULL;
+    if (tmp_gerr != NULL) {
+      if (file_status_response != NULL)
+	g_hash_table_destroy(file_status_response);
+      if (context_options_response != NULL)
+	g_hash_table_destroy(context_options_response);      
+      g_assert(folder_tag_response == NULL);
+      g_propagate_error(gerr, tmp_gerr);
+      return;
+    }
   }
   
   /* great server responded perfectly,
@@ -549,7 +554,11 @@ nautilus_dropbox_command_thread(gpointer data) {
   addr.sun_family = AF_UNIX;
   g_snprintf(addr.sun_path,
 	     sizeof(addr.sun_path),
+#ifdef ND_DEBUG
+	     "%s/.dropboxlocal/command_socket",
+#else
 	     "%s/.dropbox/command_socket",
+#endif
 	     g_get_home_dir());
   addr_len = sizeof(addr) - sizeof(addr.sun_path) + strlen(addr.sun_path);
 
