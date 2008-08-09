@@ -39,7 +39,7 @@ static GType type_list[1];
 
 void
 nautilus_module_initialize (GTypeModule *module) {
-  g_print ("Initializing dropbox extension\n");
+  g_print ("Initializing %s\n", PACKAGE_STRING);
   
   nautilus_dropbox_register_type (module);
   type_list[0] = NAUTILUS_TYPE_DROPBOX;

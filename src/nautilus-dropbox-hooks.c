@@ -31,8 +31,8 @@
 
 #include <glib.h>
 
-#include "async-io-coroutine.h"
 #include "g-util.h"
+#include "async-io-coroutine.h"
 #include "dropbox-client-util.h"
 #include "nautilus-dropbox-hooks.h"
 

@@ -21,6 +21,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -250,6 +254,50 @@ create_menu(NautilusDropbox *cvs, gboolean active) {
   
   nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
 }
+
+static void
+is_out_of_date_cb(GHashTable *response, NautilusDropbox *cvs) {
+  gchar **outofdate;
+
+  if (response == NULL || 
+      ((outofdate = g_hash_table_lookup(response, "outofdate")) != NULL &&
+       strcmp(outofdate[0], "true") == 0)) {
+    nautilus_dropbox_tray_bubble(&(cvs->ndt), "Out of Date",
+				 "Your version of the dropbox extension for Nautilus appears "
+				 "to be out of date. It is highly recommended that you upgrade "
+				 "the nautilus-dropbox package for your system.", NULL,
+				 NULL, NULL, NULL);
+  }
+}
+
+static void
+is_out_of_date(NautilusDropbox *cvs) {
+  DropboxGeneralCommand *dgc = g_new(DropboxGeneralCommand, 1);
+  
+  dgc->dc.request_type = GENERAL_COMMAND;
+  dgc->command_name = g_strdup("is_out_of_date");
+
+  {
+    gchar **is_active_arg;
+
+    is_active_arg = g_new(gchar *, 2);
+    is_active_arg[0] = g_strdup(PACKAGE_VERSION);
+    is_active_arg[1] = NULL;
+
+    dgc->command_args = g_hash_table_new_full((GHashFunc) g_str_hash,
+					      (GEqualFunc) g_str_equal,
+					      (GDestroyNotify) g_free,
+					      (GDestroyNotify) g_strfreev);
+    g_hash_table_insert(dgc->command_args,
+			g_strdup("version"), is_active_arg);
+
+  }
+  dgc->handler = (NautilusDropboxCommandResponseHandler) is_out_of_date_cb;
+  dgc->handler_ud = (gpointer) cvs;
+  
+  nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
+}
+
 
 void notify_closed_cb(NotifyNotification *nn, gpointer ud) {
   g_object_unref(G_OBJECT(nn));
@@ -511,6 +559,8 @@ get_active_setting_cb(gchar **arr, NautilusDropbox *cvs,
 
   /* now just set the menu and activate the toolbar */
   create_menu(cvs, cvs->ndt.last_active);
+
+  is_out_of_date(cvs);
 }
 
 void

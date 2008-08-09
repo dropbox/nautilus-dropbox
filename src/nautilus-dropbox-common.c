@@ -30,7 +30,6 @@
 #include <glib.h>
 #include <gdk/gdk.h>
 
-#include "g-util.h"
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox-command.h"
 #include "nautilus-dropbox-tray.h"

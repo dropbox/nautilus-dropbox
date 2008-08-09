@@ -59,6 +59,35 @@ gboolean dropbox_use_operation_in_progress_workaround;
 
 static GType dropbox_type = 0;
 
+/* probably my favorite function */
+static gchar *
+canonicalize_path(gchar *path) {
+  int i, j = 0;
+  gchar *toret, **cpy, **elts;
+  
+  g_assert(path != NULL);
+  g_assert(path[0] == '/');
+
+  elts = g_strsplit(path, "/", 0);
+  cpy = g_new(gchar *, g_strv_length(elts)+1);
+  cpy[j++] = "/";
+  for (i = 0; elts[i] != NULL; i++) {
+    if (strcmp(elts[i], "..") == 0) {
+      j--;
+    }
+    else if (strcmp(elts[i], ".") != 0 && elts[i][0] != '\0') {
+      cpy[j++] = elts[i];
+    }
+  }
+  
+  cpy[j] = NULL;
+  toret = g_build_filenamev(cpy);
+  g_free(cpy);
+  g_strfreev(elts);
+  
+  return toret;
+}
+
 static void
 menu_item_free(gpointer data) {
   DropboxContextMenuItem *dcmi = (DropboxContextMenuItem *) data;
@@ -80,10 +109,12 @@ static void
 test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
   /* check if this file's path has changed, if so update the hash and invalidate
      the file */
-  gchar *filename;
+  gchar *filename, *pfilename;
   gchar *filename2;
   
-  filename = g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL);
+  pfilename = g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL);
+  filename = canonicalize_path(pfilename);
+  g_free(pfilename);
   filename2 =  g_hash_table_lookup(cvs->obj2filename, file);
 
   /* if filename2 is NULL we've never seen this file in update_file_info */
@@ -100,7 +131,6 @@ test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
     /* gotta do this first, the call after this frees filename2 */
     g_hash_table_remove(cvs->filename2obj, filename2);
 
-    /* XXX: normalize file name */
     g_hash_table_replace(cvs->obj2filename, file, g_strdup(filename));
 
     {
@@ -151,16 +181,19 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
   /* this code adds this file object to our two-way hash of file objects
      so we can shell touch these files later */
   {
-    gchar *filename;
+    gchar *pfilename;
 
-    filename = g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL);
-    if (filename == NULL) {
+    pfilename = g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL);
+    if (pfilename == NULL) {
       return NAUTILUS_OPERATION_COMPLETE;
     }
     else {
       int cmp = 0;
       gchar *stored_filename;
-
+      gchar *filename;
+      
+      filename = canonicalize_path(pfilename);
+      g_free(pfilename);
       stored_filename = g_hash_table_lookup(cvs->obj2filename, file);
 
       /* don't worry about the dup checks, gcc is smart enough to optimize this
@@ -195,8 +228,6 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 	  }
 	}
 
-	/* XXX: normalize file name */
-	
 	/* too chatty */
 	/* debug("adding %s <-> 0x%p", filename, file);*/
 	g_object_weak_ref(G_OBJECT(file), (GWeakNotify) when_file_dies, cvs);
@@ -239,16 +270,18 @@ handle_shell_touch(GHashTable *args, NautilusDropbox *cvs) {
 
   //  debug_enter();
 
-  if ((path = g_hash_table_lookup(args, "path")) != NULL) {
-    /* TODO: should normalize path name here */
+  if ((path = g_hash_table_lookup(args, "path")) != NULL &&
+      path[0][0] == '/') {
     NautilusFileInfo *file;
+    gchar *filename;
 
-    /* XXX: normalize path name */
+    filename = canonicalize_path(path[0]);
 
-    file = g_hash_table_lookup(cvs->filename2obj, path[0]);
+    file = g_hash_table_lookup(cvs->filename2obj, filename);
     if (file != NULL) {
       reset_file(file);
     }
+    g_free(filename);
   }
 
   return;
