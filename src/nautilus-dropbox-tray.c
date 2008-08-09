@@ -263,7 +263,7 @@ is_out_of_date_cb(GHashTable *response, NautilusDropbox *cvs) {
       ((outofdate = g_hash_table_lookup(response, "outofdate")) != NULL &&
        strcmp(outofdate[0], "true") == 0)) {
     nautilus_dropbox_tray_bubble(&(cvs->ndt), "Out of Date",
-				 "Your version of the dropbox extension for Nautilus appears "
+				 "Your version of the Dropbox extension for Nautilus appears "
 				 "to be out of date. It is highly recommended that you upgrade "
 				 "the nautilus-dropbox package for your system.", NULL,
 				 NULL, NULL, NULL);
