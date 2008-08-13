@@ -55,6 +55,7 @@ typedef struct {
     gboolean user_quit;
     gboolean dropbox_starting;
   } ca;
+  GTimeVal last_open;
 } NautilusDropboxTray;
 
 void

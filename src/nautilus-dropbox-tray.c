@@ -107,10 +107,42 @@ send_simple_command_if_connected(DropboxClient *dc,
   }
 }
 
+/* t1 must be larger than t2 */
+static void timediff(GTimeVal *t1, GTimeVal *t2, GTimeVal *store){
+  glong udiff, sdiff;
+
+  sdiff = t1->tv_sec - t2->tv_sec;
+  udiff = t1->tv_usec - t2->tv_usec;
+
+  if (udiff < 0) {
+    udiff += 1000000;
+    sdiff -= 1;
+  }
+
+  store->tv_sec = sdiff;
+  store->tv_usec = udiff;
+}
+
 static void
 activate_open_my_dropbox(GtkStatusIcon *status_icon,
 			 NautilusDropboxTray *ndt) {
-  send_simple_command_if_connected(ndt->dc, "tray_action_open_dropbox");
+  GTimeVal diff;
+  GTimeVal curtime;
+
+  g_get_current_time(&curtime);
+  timediff(&curtime, &(ndt->last_open), &diff);
+
+  /* if this activate is less than a half second from the last one, don't activat
+     but allow the next click to work
+   */
+  if (diff.tv_sec == 0 && diff.tv_usec < 500000) {
+    ndt->last_open.tv_sec = 0;
+    ndt->last_open.tv_usec = 0;
+  }
+  else {
+    g_get_current_time(&(ndt->last_open));
+    send_simple_command_if_connected(ndt->dc, "tray_action_open_dropbox");
+  }
 }
 
 static void
@@ -952,6 +984,7 @@ nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
   ndt->ca.dropbox_starting = FALSE;
 
   ndt->dc = dc;
+  ndt->last_open.tv_sec = ndt->last_open.tv_usec = 0;
  
   /* register connect handler */
   dropbox_client_add_on_connect_hook(dc,
@@ -961,7 +994,7 @@ nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
 					(DropboxClientConnectHook) on_disconnect, 
 					ndt);
   dropbox_client_add_connection_attempt_hook(dc,
-					     (DropboxClientConnectHook)
+					     (DropboxClientConnectionAttemptHook)
 					     connection_attempt, ndt);
 
   /* register hooks from the daemon */
