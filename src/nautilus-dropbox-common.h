@@ -31,27 +31,27 @@
 
 G_BEGIN_DECLS
 
-typedef void (*NautilusDropboxGlobalCB)(gchar **, NautilusDropbox *, gpointer);
+typedef void (*NautilusDropboxGlobalCB)(gchar **, gpointer);
 
 void
-nautilus_dropbox_common_get_globals(NautilusDropbox *cvs,
+nautilus_dropbox_common_get_globals(DropboxCommandClient *dcc,
 				    gchar *tabbed_keys,
 				    NautilusDropboxGlobalCB cb, gpointer ud);
 
 gboolean
-nautilus_dropbox_common_start_dropbox(NautilusDropbox *cvs, gboolean download);
+nautilus_dropbox_common_start_dropbox();
 
 gchar *
 nautilus_dropbox_common_get_platform();
 
 void
-nautilus_dropbox_common_launch_command_with_error(NautilusDropbox * cvs,
+nautilus_dropbox_common_launch_command_with_error(NautilusDropboxTray *ndt,
 						  const gchar *command_line,
 						  const gchar *caption,
 						  const gchar *msg);
 
 void
-nautilus_dropbox_common_launch_folder(NautilusDropbox *cvs,
+nautilus_dropbox_common_launch_folder(NautilusDropboxTray *ndt,
 				      const gchar *folder_path);
 
 G_END_DECLS

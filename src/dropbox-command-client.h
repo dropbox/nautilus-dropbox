@@ -1,7 +1,7 @@
 /*
  * Copyright 2008 Evenflow, Inc.
  *
- * nautilus-dropbox-command.h
+ * dropbox-command-client.h
  * Header file for nautilus-dropbox-command.c
  *
  * This file is part of nautilus-dropbox.
@@ -21,10 +21,11 @@
  *
  */
 
-#ifndef NAUTILUS_DROPBOX_COMMAND_H
-#define NAUTILUS_DROPBOX_COMMAND_H
+#ifndef DROPBOX_COMMAND_CLIENT_H
+#define DROPBOX_COMMAND_CLIENT_H
 
-#include "nautilus-dropbox.h"
+#include <libnautilus-extension/nautilus-info-provider.h>
+#include <libnautilus-extension/nautilus-file-info.h>
 
 G_BEGIN_DECLS
 
@@ -60,31 +61,52 @@ typedef struct {
   gpointer *handler_ud;
 } DropboxGeneralCommand;
 
+typedef void (*DropboxCommandClientConnectionAttemptHook)(guint, gpointer);
+typedef GHookFunc DropboxCommandClientConnectHook;
+
 typedef struct {
-  DropboxGeneralCommand *dgc;
-  GHashTable *response;
-} DropboxGeneralCommandResponse;
+  GMutex *command_connected_mutex;
+  gboolean command_connected;
+  GAsyncQueue *command_queue; 
+  GList *ca_hooklist;
+  GHookList onconnect_hooklist;
+  GHookList ondisconnect_hooklist;
+} DropboxCommandClient;
 
-gboolean nautilus_dropbox_command_is_connected(NautilusDropbox *cvs);
+gboolean dropbox_command_client_is_connected(DropboxCommandClient *dcc);
 
-void nautilus_dropbox_command_force_reconnect(NautilusDropbox *cvs);
-
-gboolean
-nautilus_dropbox_command_parse_arg(const gchar *line, GHashTable *return_table);
-
-gchar *nautilus_dropbox_command_sanitize(const gchar *a);
-
-gchar *nautilus_dropbox_command_desanitize(const gchar *a);
+void dropbox_command_client_force_reconnect(DropboxCommandClient *dcc);
 
 void
-nautilus_dropbox_command_request(NautilusDropbox *cvs, DropboxCommand *dc);
+dropbox_command_client_request(DropboxCommandClient *dcc, DropboxCommand *dc);
 
 void
-nautilus_dropbox_command_setup(NautilusDropbox *cvs);
+dropbox_command_client_setup(DropboxCommandClient *dcc);
 
 void
-nautilus_dropbox_command_start(NautilusDropbox *cvs);
+dropbox_command_client_start(DropboxCommandClient *dcc);
 
+void dropbox_command_client_send_simple_command(DropboxCommandClient *dcc,
+						const char *command);
+
+void dropbox_command_client_send_command(DropboxCommandClient *dcc, 
+					 NautilusDropboxCommandResponseHandler h,
+					 gpointer ud,
+					 const char *command, ...);
+void
+dropbox_command_client_add_on_connect_hook(DropboxCommandClient *dcc,
+					   DropboxCommandClientConnectHook dhcch,
+					   gpointer ud);
+
+void
+dropbox_command_client_add_on_disconnect_hook(DropboxCommandClient *dcc,
+					      DropboxCommandClientConnectHook dhcch,
+					      gpointer ud);
+
+void
+dropbox_command_client_add_connection_attempt_hook(DropboxCommandClient *dcc,
+						   DropboxCommandClientConnectionAttemptHook dhcch,
+						   gpointer ud);
 
 G_END_DECLS
 

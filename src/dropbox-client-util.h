@@ -34,5 +34,6 @@ gchar *dropbox_client_util_desanitize(const gchar *a);
 gboolean
 dropbox_client_util_command_parse_arg(const gchar *line, GHashTable *return_table);
 
+G_END_DECLS
 
 #endif

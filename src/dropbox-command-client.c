@@ -1,7 +1,7 @@
 /*
  * Copyright 2008 Evenflow, Inc.
  *
- * nautilus-dropbox-command.c
+ * dropbox-command-client.c
  * Implements connection handling and C interface for the Dropbox command socket.
  *
  * This file is part of nautilus-dropbox.
@@ -27,91 +27,69 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include <stdarg.h>
 #include <string.h>
 
 #include <glib.h>
 
 #include "g-util.h"
 #include "dropbox-client-util.h"
+#include "dropbox-command-client.h"
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
-#include "nautilus-dropbox-command.h"
 #include "nautilus-dropbox-tray.h"
 #include "nautilus-dropbox-hooks.h"
 
-/* this is a tiny hack, necessitated by the fact that
-   finish_file info command is in nautilus_dropbox,
-   this can be cleaned up once the file_info_command isn't a special
-   case anylonger
+/* TODO: make this asynchronous ;) */
+
+/*
+  this is a tiny hack, necessitated by the fact that
+  finish_file info command is in nautilus_dropbox,
+  this can be cleaned up once the file_info_command isn't a special
+  case anylonger
 */
 gboolean nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *);
 
-/* i put these up here so they can be modified simply,
-   in the future might want other modules to register their
-   own on_connect and on_disconnect hooks,
-   **they return a boolean because they are called by the glib main loop**
-*/
-
 typedef struct {
-  NautilusDropbox *cvs;
+  DropboxCommandClient *dcc;
   guint connect_attempt;
 } ConnectionAttempt;
 
+typedef struct {
+  DropboxCommandClientConnectionAttemptHook h;
+  gpointer ud;
+} DropboxCommandClientConnectionAttempt;
+
+typedef struct {
+  DropboxGeneralCommand *dgc;
+  GHashTable *response;
+} DropboxGeneralCommandResponse;
+
 static gboolean
-on_connect(NautilusDropbox *cvs) {
-  debug("command client connection");
-
-  cvs->ca.user_quit = FALSE;
-  cvs->ca.dropbox_starting = FALSE;
-
-  nautilus_dropbox_on_connect(cvs);
-  nautilus_dropbox_tray_on_connect(cvs);
-
+on_connect(DropboxCommandClient *dcc) {
+  g_hook_list_invoke(&(dcc->onconnect_hooklist), FALSE);
   return FALSE;
 }
 
 static gboolean
-on_disconnect(NautilusDropbox *cvs) {
-  debug("command client disconnected");
-
-  nautilus_dropbox_on_disconnect(cvs);
-  nautilus_dropbox_tray_on_disconnect(cvs);
-
+on_disconnect(DropboxCommandClient *dcc) {
+  g_hook_list_invoke(&(dcc->ondisconnect_hooklist), FALSE);
   return FALSE;
 }
 
 static gboolean
-connection_attempt(ConnectionAttempt *ca) {
-  NautilusDropbox *cvs = ca->cvs;
-  guint i = ca->connect_attempt;
+on_connection_attempt(ConnectionAttempt *ca) {
+  GList *ll;
+
+  for (ll = ca->dcc->ca_hooklist; ll != NULL; ll = g_list_next(ll)) {
+    DropboxCommandClientConnectionAttempt *dccca =
+      (DropboxCommandClientConnectionAttempt *)(ll->data);
+    dccca->h(ca->connect_attempt, dccca->ud);
+  }
 
   g_free(ca);
 
-  /* if the user hasn't quit us and this is the third time trying to 
-     reconnect, then dropbox is probably dead, we should start it
-   */
-  if (cvs->ca.user_quit == FALSE &&
-      i > 3 &&
-      cvs->ca.dropbox_starting == FALSE) {
-    cvs->ca.dropbox_starting = TRUE;
-    debug("couldn't connect to dropbox, auto-starting");
-#ifndef ND_DEBUG    
-    nautilus_dropbox_common_start_dropbox(cvs, TRUE);
-#endif
-  }
-
   return FALSE;
-}
-
-gboolean
-nautilus_dropbox_command_is_connected(NautilusDropbox *cvs) {
-  gboolean command_connected;
-
-  g_mutex_lock(cvs->command_connected_mutex);
-  command_connected = cvs->command_connected;
-  g_mutex_unlock(cvs->command_connected_mutex);
-
-  return command_connected;
 }
 
 static gboolean
@@ -331,8 +309,6 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
   filename = g_filename_from_uri(nautilus_file_info_get_uri(dfic->file),
 				 NULL, NULL);
 
-  /* TODO: do magic to get info for linked files */
-
   args = g_hash_table_new_full((GHashFunc) g_str_hash,
 			       (GEqualFunc) g_str_equal,
 			       (GDestroyNotify) g_free,
@@ -512,11 +488,11 @@ check_connection(GIOChannel *chan) {
 }
 
 static gpointer
-nautilus_dropbox_command_thread(gpointer data);
+dropbox_command_client_thread(DropboxCommandClient *data);
 
 static void
 end_request(DropboxCommand *dc) {
-  if ((gpointer (*)(gpointer data)) dc != &nautilus_dropbox_command_thread) {
+  if ((gpointer (*)(DropboxCommandClient *data)) dc != &dropbox_command_client_thread) {
     switch (dc->request_type) {
     case GET_FILE_INFO: {
       DropboxFileInfoCommand *dfic = (DropboxFileInfoCommand *) dc;
@@ -543,12 +519,9 @@ end_request(DropboxCommand *dc) {
 }
 
 static gpointer
-nautilus_dropbox_command_thread(gpointer data) {
-  NautilusDropbox *cvs;
+dropbox_command_client_thread(DropboxCommandClient *dcc) {
   struct sockaddr_un addr;
   socklen_t addr_len;
-
-  cvs = NAUTILUS_DROPBOX(data);
 
   /* intialize address structure */
   addr.sun_family = AF_UNIX;
@@ -570,14 +543,13 @@ nautilus_dropbox_command_thread(gpointer data) {
 
     sock = socket(PF_UNIX, SOCK_STREAM, 0);
 
-
     for (i = 1; ;i++) {
       /* first we have to connect to the dropbox command server */
       if (-1 == connect(sock, (struct sockaddr *) &addr, addr_len)) {
 	ConnectionAttempt *ca = g_new(ConnectionAttempt, 1);
-	ca->cvs = cvs;
+	ca->dcc = dcc;
 	ca->connect_attempt = i;
-	g_idle_add((GSourceFunc) connection_attempt, ca);
+	g_idle_add((GSourceFunc) on_connection_attempt, ca);
 	g_usleep(G_USEC_PER_SEC);
       }
       else break;
@@ -588,17 +560,15 @@ nautilus_dropbox_command_thread(gpointer data) {
     g_io_channel_set_close_on_unref(chan, TRUE);
     g_io_channel_set_line_term(chan, "\n", -1);
 
-    nautilus_dropbox_hooks_wait_until_connected(&(cvs->hookserv), TRUE);
-    
 #define SET_CONNECTED_STATE(s)     {			\
-      g_mutex_lock(cvs->command_connected_mutex);	\
-      cvs->command_connected = s;			\
-      g_mutex_unlock(cvs->command_connected_mutex);	\
+      g_mutex_lock(dcc->command_connected_mutex);	\
+      dcc->command_connected = s;			\
+      g_mutex_unlock(dcc->command_connected_mutex);	\
     }
     
     SET_CONNECTED_STATE(TRUE);
 
-    g_idle_add((GSourceFunc) on_connect, cvs);
+    g_idle_add((GSourceFunc) on_connect, dcc);
 
     while (1) {
       DropboxCommand *dc;
@@ -609,7 +579,7 @@ nautilus_dropbox_command_thread(gpointer data) {
 	g_get_current_time(&gtv);
 	g_time_val_add(&gtv, G_USEC_PER_SEC / 10);
 	/* get a request from nautilus */
-	dc = g_async_queue_timed_pop(cvs->command_queue, &gtv);
+	dc = g_async_queue_timed_pop(dcc->command_queue, &gtv);
 	if (dc != NULL) {
 	  break;
 	}
@@ -623,7 +593,7 @@ nautilus_dropbox_command_thread(gpointer data) {
       /* why this insures lexical module safety should be obvious,
 	 (this function is static)
        */
-      if ((gpointer (*)(gpointer data)) dc == &nautilus_dropbox_command_thread) {
+      if ((gpointer (*)(DropboxCommandClient *data)) dc == &dropbox_command_client_thread) {
 	debug("got a reset request");
 	goto BADCONNECTION;
       }
@@ -652,7 +622,7 @@ nautilus_dropbox_command_thread(gpointer data) {
       BADCONNECTION:
 	/* grab all the rest of the data off the async queue and mark it
 	   never to be completed, who knows how long we'll be disconnected */
-	while ((dc = g_async_queue_try_pop(cvs->command_queue)) != NULL) {
+	while ((dc = g_async_queue_try_pop(dcc->command_queue)) != NULL) {
 	  end_request(dc);
 	}
 
@@ -660,10 +630,8 @@ nautilus_dropbox_command_thread(gpointer data) {
 
 	SET_CONNECTED_STATE(FALSE);
 
-	/* and force the hook connection to restart */
-	g_idle_add((GSourceFunc) nautilus_dropbox_hooks_force_reconnect, cvs);
 	/* call the disconnect handler */
-	g_idle_add((GSourceFunc) on_disconnect, cvs);
+	g_idle_add((GSourceFunc) on_disconnect, dcc);
 
 	break;
       }
@@ -675,32 +643,141 @@ nautilus_dropbox_command_thread(gpointer data) {
   return NULL;
 }
 
-/* thread safe, i.e. can be called from any thread */
-void nautilus_dropbox_command_force_reconnect(NautilusDropbox *cvs) {
-  if (nautilus_dropbox_command_is_connected(cvs) == TRUE) {
+/* thread safe */
+gboolean
+dropbox_command_client_is_connected(DropboxCommandClient *dcc) {
+  gboolean command_connected;
+
+  g_mutex_lock(dcc->command_connected_mutex);
+  command_connected = dcc->command_connected;
+  g_mutex_unlock(dcc->command_connected_mutex);
+
+  return command_connected;
+}
+
+/* thread safe */
+void dropbox_command_client_force_reconnect(DropboxCommandClient *dcc) {
+  if (dropbox_command_client_is_connected(dcc) == TRUE) {
     debug("forcing command to reconnect");
-    nautilus_dropbox_command_request(cvs, (DropboxCommand *) &nautilus_dropbox_command_thread);
+    dropbox_command_client_request(dcc, (DropboxCommand *) &dropbox_command_client_thread);
   }
 }
 
-/* can be called from any thread */
+/* thread safe */
 void
-nautilus_dropbox_command_request(NautilusDropbox *cvs, DropboxCommand *dc) {
-  g_async_queue_push(cvs->command_queue, dc);
+dropbox_command_client_request(DropboxCommandClient *dcc, DropboxCommand *dc) {
+  g_async_queue_push(dcc->command_queue, dc);
 }
 
 /* should only be called once on initialization */
 void
-nautilus_dropbox_command_setup(NautilusDropbox *cvs) {
-  cvs->command_queue = g_async_queue_new();
+dropbox_command_client_setup(DropboxCommandClient *dcc) {
+  dcc->command_queue = g_async_queue_new();
+  dcc->command_connected_mutex = g_mutex_new();
+  dcc->command_connected = FALSE;
+  dcc->ca_hooklist = NULL;
 
-  cvs->command_connected_mutex = g_mutex_new();
-  cvs->command_connected = FALSE;
+  g_hook_list_init(&(dcc->ondisconnect_hooklist), sizeof(GHook));
+  g_hook_list_init(&(dcc->onconnect_hooklist), sizeof(GHook));
+}
+
+void
+dropbox_command_client_add_on_disconnect_hook(DropboxCommandClient *dcc,
+					      DropboxCommandClientConnectHook dhcch,
+					      gpointer ud) {
+  GHook *newhook;
+  
+  newhook = g_hook_alloc(&(dcc->ondisconnect_hooklist));
+  newhook->func = dhcch;
+  newhook->data = ud;
+  
+  g_hook_append(&(dcc->ondisconnect_hooklist), newhook);
+}
+
+void
+dropbox_command_client_add_on_connect_hook(DropboxCommandClient *dcc,
+					   DropboxCommandClientConnectHook dhcch,
+					   gpointer ud) {
+  GHook *newhook;
+  
+  newhook = g_hook_alloc(&(dcc->onconnect_hooklist));
+  newhook->func = dhcch;
+  newhook->data = ud;
+  
+  g_hook_append(&(dcc->onconnect_hooklist), newhook);
+}
+
+void
+dropbox_command_client_add_connection_attempt_hook(DropboxCommandClient *dcc,
+						   DropboxCommandClientConnectionAttemptHook dhcch,
+						   gpointer ud) {
+  DropboxCommandClientConnectionAttempt *newhook;
+  
+  newhook = g_new(DropboxCommandClientConnectionAttempt, 1);
+  newhook->h = dhcch;
+  newhook->ud = ud;
+
+  dcc->ca_hooklist = g_list_append(dcc->ca_hooklist, newhook);
 }
 
 /* should only be called once on initialization */
 void
-nautilus_dropbox_command_start(NautilusDropbox *cvs) {
+dropbox_command_client_start(DropboxCommandClient *dcc) {
   /* setup the connect to the command server */
-  g_thread_create(nautilus_dropbox_command_thread, cvs, FALSE, NULL);
+  g_thread_create((gpointer (*)(gpointer data)) dropbox_command_client_thread,
+		  dcc, FALSE, NULL);
+}
+
+/* thread safe */
+void dropbox_command_client_send_simple_command(DropboxCommandClient *dcc, 
+					 const char *command) {
+  DropboxGeneralCommand *dgc;
+  
+  dgc = g_new(DropboxGeneralCommand, 1);
+  
+  dgc->dc.request_type = GENERAL_COMMAND;
+  dgc->command_name = g_strdup(command);
+  dgc->command_args = NULL;
+  dgc->handler = NULL;
+  dgc->handler_ud = NULL;
+  
+  dropbox_command_client_request(dcc, (DropboxCommand *) dgc);
+}
+
+/* thread safe */
+/* this is the C API, there is another send_command_to_db
+   that is more the actual over the wire command */
+void dropbox_command_client_send_command(DropboxCommandClient *dcc, 
+					 NautilusDropboxCommandResponseHandler h,
+					 gpointer ud,
+					 const char *command, ...) {
+  va_list ap;
+  DropboxGeneralCommand *dgc;
+  gchar *na;
+  
+  dgc = g_new(DropboxGeneralCommand, 1);
+  dgc->dc.request_type = GENERAL_COMMAND;
+  dgc->command_name = g_strdup(command);
+  dgc->command_args = g_hash_table_new_full((GHashFunc) g_str_hash,
+					    (GEqualFunc) g_str_equal,
+					    (GDestroyNotify) g_free,
+					    (GDestroyNotify) g_strfreev);
+  dgc->handler = h;
+  dgc->handler_ud = ud;
+  
+  va_start(ap, command);
+  while ((na = va_arg(ap, char *)) != NULL) {
+    gchar **is_active_arg;
+
+    is_active_arg = g_new(gchar *, 2);
+
+    g_hash_table_insert(dgc->command_args,
+			g_strdup(na), is_active_arg);
+
+    is_active_arg[0] = g_strdup(va_arg(ap, char *));
+    is_active_arg[1] = NULL;
+  }
+  va_end(ap);
+
+  dropbox_command_client_request(dcc, (DropboxCommand *) dgc);
 }

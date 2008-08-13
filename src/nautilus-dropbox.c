@@ -40,9 +40,9 @@
 #include <libnautilus-extension/nautilus-info-provider.h>
 
 #include "g-util.h"
+#include "dropbox-command-client.h"
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
-#include "nautilus-dropbox-command.h"
 #include "nautilus-dropbox-hooks.h"
 #include "nautilus-dropbox-tray.h"
 
@@ -240,7 +240,7 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
     }
   }
 
-  if (nautilus_dropbox_command_is_connected(cvs) == FALSE ||
+  if (dropbox_client_is_connected(&(cvs->dc)) == FALSE ||
       nautilus_file_info_is_gone(file)) {
     return NAUTILUS_OPERATION_COMPLETE;
   }
@@ -254,7 +254,7 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
     dfic->update_complete = g_closure_ref(update_complete);
     dfic->file = g_object_ref(file);
     
-    nautilus_dropbox_command_request(cvs, (DropboxCommand *) dfic);
+    dropbox_command_client_request(&(cvs->dc.dcc), (DropboxCommand *) dfic);
     
     *handle = (NautilusOperationHandle *) dfic;
     
@@ -315,35 +315,12 @@ handle_launch_url(GHashTable *args, NautilusDropbox *cvs) {
 			  "and see if you have the 'gnome-open' program "
 			  "installed.");
     
-    nautilus_dropbox_common_launch_command_with_error(cvs, command_line,
+    nautilus_dropbox_common_launch_command_with_error(&(cvs->ndt), command_line,
 						      "Couldn't start your browser",
 						      msg);
     g_free(msg);
     g_free(command_line);
     g_free(escaped_string);
-  }
-}
-
-static void
-handle_launch_folder(GHashTable *args, NautilusDropbox *cvs) {
-  gchar **path;
-
-  if ((path = g_hash_table_lookup(args, "path")) != NULL) {
-    nautilus_dropbox_common_launch_folder(cvs, path[0]);
-  }
-}
-
-
-static void
-handle_highlight_file(GHashTable *args, NautilusDropbox *cvs) {
-  gchar **path;
-
-  if ((path = g_hash_table_lookup(args, "path")) != NULL) {
-    /* need to get dirname */
-    gchar *dir;
-    dir = g_path_get_dirname(path[0]);
-    nautilus_dropbox_common_launch_folder(cvs, dir);
-    g_free(dir);
   }
 }
 
@@ -363,8 +340,8 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 	 (options =
 	  g_hash_table_lookup(dficr->context_options_response,
 			      "options")) != NULL) &&
-	(isdir == TRUE && dficr->folder_tag_response != NULL ||
-	 isdir == FALSE)) {
+	((isdir == TRUE &&
+	  dficr->folder_tag_response != NULL) || isdir == FALSE)) {
       gchar **tag = NULL;
 
       /* set the tag emblem */
@@ -503,7 +480,9 @@ menu_item_cb(NautilusMenuItem *item,
 	     NautilusDropbox *cvs) {
   gchar *verb;
   GList *files;
-  DropboxGeneralCommand *dcac = g_new(DropboxGeneralCommand, 1);
+  DropboxGeneralCommand *dcac;
+
+  dcac = g_new(DropboxGeneralCommand, 1);
 
   /* maybe these would be better passed in a container
      struct used as the userdata pointer, oh well this
@@ -551,7 +530,7 @@ menu_item_cb(NautilusMenuItem *item,
   dcac->handler = NULL;
   dcac->handler_ud = NULL;
 
-  nautilus_dropbox_command_request(cvs, (DropboxCommand *) dcac);
+  dropbox_command_client_request(&(cvs->dc.dcc), (DropboxCommand *) dcac);
 }
 
 static GList *
@@ -686,50 +665,17 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
   }
 }
 
-void
-nautilus_dropbox_on_connect(NautilusDropbox *cvs) {
+static void
+on_connect(NautilusDropbox *cvs) {
   /* gotta initialize icon overlays */
-  {
-    DropboxGeneralCommand *dgc = g_new(DropboxGeneralCommand, 1);
-    
-    dgc->dc.request_type = GENERAL_COMMAND;
-    dgc->command_name = g_strdup("icon_overlay_init");
-    dgc->command_args = NULL;
-    dgc->handler = NULL;
-    dgc->handler_ud = NULL;
-    
-    nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
-  }
-
+  dropbox_command_client_send_simple_command(&(cvs->dc.dcc), "icon_overlay_init");
   /* and tell dropbox what X server we're on */
-  {
-    DropboxGeneralCommand *dgc = g_new(DropboxGeneralCommand, 1);
-    
-    dgc->dc.request_type = GENERAL_COMMAND;
-    dgc->command_name = g_strdup("on_x_server");
-
-    dgc->command_args = g_hash_table_new_full((GHashFunc) g_str_hash,
-					      (GEqualFunc) g_str_equal,
-					      /* key is static data */
-					      (GDestroyNotify) NULL,
-					      (GDestroyNotify) g_strfreev);
-    {
-      gchar **args = g_new(gchar *, 2);
-      args[0] = g_strdup(g_getenv("DISPLAY"));
-      args[1] = NULL;
-      
-      g_hash_table_insert(dgc->command_args, "display", args);
-    }
-
-    dgc->handler = NULL;
-    dgc->handler_ud = NULL;
-    
-    nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
-  }
+  dropbox_command_client_send_command(&(cvs->dc.dcc), NULL, NULL,
+				      "on_x_server", "display", g_getenv("DISPLAY"), NULL);
 }
 
-void
-nautilus_dropbox_on_disconnect(NautilusDropbox *cvs) {
+static void
+on_disconnect(NautilusDropbox *cvs) {
   /* this works because you can call a function pointer with
      more arguments than it takes */
   g_hash_table_foreach(cvs->obj2filename, (GHFunc) reset_file, NULL);
@@ -751,8 +697,6 @@ nautilus_dropbox_info_provider_iface_init (NautilusInfoProviderIface *iface) {
 static void
 nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
   /* this data is shared by all submodules */
-  cvs->ca.user_quit = FALSE;
-  cvs->ca.dropbox_starting = FALSE;
   cvs->filename2obj = g_hash_table_new_full((GHashFunc) g_str_hash,
 					    (GEqualFunc) g_str_equal,
 					    (GDestroyNotify) g_free,
@@ -762,35 +706,30 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
 					    (GDestroyNotify) NULL,
 					    (GDestroyNotify) g_free);
 
-  /* setup our server submodules first */
-  nautilus_dropbox_hooks_setup(&(cvs->hookserv));
-  nautilus_dropbox_command_setup(cvs);
-  
+  /* setup the connection obj*/
+  dropbox_client_setup(&(cvs->dc));
+
   /* then the tray */
-  nautilus_dropbox_tray_setup(cvs);
+  nautilus_dropbox_tray_setup(&(cvs->ndt), &(cvs->dc));
 
   /* our hooks */
-  nautilus_dropbox_hooks_add(&(cvs->hookserv), "shell_touch",
+  nautilus_dropbox_hooks_add(&(cvs->dc.hookserv), "shell_touch",
 			     (DropboxUpdateHook) handle_shell_touch, cvs);
-  nautilus_dropbox_hooks_add(&(cvs->hookserv), "copy_to_clipboard",
+  nautilus_dropbox_hooks_add(&(cvs->dc.hookserv), "copy_to_clipboard",
 			     (DropboxUpdateHook) handle_copy_to_clipboard, cvs);
-  nautilus_dropbox_hooks_add(&(cvs->hookserv), "launch_folder",
-			     (DropboxUpdateHook) handle_launch_folder, cvs);
-  nautilus_dropbox_hooks_add(&(cvs->hookserv), "launch_url",
+  nautilus_dropbox_hooks_add(&(cvs->dc.hookserv), "launch_url",
 			     (DropboxUpdateHook) handle_launch_url, cvs);
-  nautilus_dropbox_hooks_add(&(cvs->hookserv), "highlight_file",
-			     (DropboxUpdateHook) handle_highlight_file, cvs);
 
-
-  /* put together connection hooks */
-  /* TODO: abstract both connections into one connect */
-  nautilus_dropbox_hooks_add_on_disconnect_hook(&(cvs->hookserv), 
-						(DropboxHookClientDisconnectHook)
-						nautilus_dropbox_command_force_reconnect, cvs);
-
-  /* now start up the two connections */
-  nautilus_dropbox_hooks_start(&(cvs->hookserv));
-  nautilus_dropbox_command_start(cvs);
+  /* add connect handlers */
+  dropbox_client_add_on_connect_hook(&(cvs->dc),
+				     (DropboxClientConnectHook) on_connect, 
+				     cvs);
+  dropbox_client_add_on_disconnect_hook(&(cvs->dc),
+					(DropboxClientConnectHook) on_disconnect, 
+					cvs);
+  
+  /* now start the connection */
+  dropbox_client_start(&(cvs->dc));
 
   return;
 }

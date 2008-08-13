@@ -125,10 +125,7 @@ static void
 watch_killer(NautilusDropboxHookserv *hookserv) {
   debug("hook client disconnected");
 
-  g_mutex_lock(hookserv->connected_mutex);
   hookserv->connected = FALSE;
-  g_cond_signal(hookserv->connected_cond);
-  g_mutex_unlock(hookserv->connected_mutex);
 
   g_hook_list_invoke(&(hookserv->ondisconnect_hooklist), FALSE);
   
@@ -187,15 +184,6 @@ try_to_connect(NautilusDropboxHookserv *hookserv) {
     }
   }
 
-  /*debug("hook client connected"); */
-
-  g_mutex_lock(hookserv->connected_mutex);
-  hookserv->connected = TRUE;
-  g_cond_signal(hookserv->connected_cond);
-  g_mutex_unlock(hookserv->connected_mutex);
-
-  /*debug("set mutex"); */
-
   /* great we connected!, let's create the channel and wait on it */
   hookserv->chan = g_io_channel_unix_new(hookserv->socket);
   g_io_channel_set_line_term(hookserv->chan, "\n", -1);
@@ -230,6 +218,10 @@ try_to_connect(NautilusDropboxHookserv *hookserv) {
 			(GIOFunc) handle_hook_server_input, hookserv,
 			(GDestroyNotify) watch_killer);
 
+  /* debug("hook client connected");*/
+  hookserv->connected = TRUE;
+  g_hook_list_invoke(&(hookserv->onconnect_hooklist), FALSE);
+
   /*debug("added watch");*/
   return FALSE;
 }
@@ -257,18 +249,9 @@ gboolean nautilus_dropbox_hooks_force_reconnect(NautilusDropboxHookserv *hookser
   return FALSE;
 }
 
-/* can be called from any thread*/
-void
-nautilus_dropbox_hooks_wait_until_connected(NautilusDropboxHookserv *hookserv, gboolean val) {
-  /*debug_enter();*/
-
-  /* now we have to wait until the hook client gets connected */
-  g_mutex_lock(hookserv->connected_mutex);
-  while (hookserv->connected == !val) {
-    g_cond_wait(hookserv->connected_cond,
-		hookserv->connected_mutex);
-  }
-  g_mutex_unlock(hookserv->connected_mutex);
+gboolean
+nautilus_dropbox_hooks_is_connected(NautilusDropboxHookserv *hookserv) {
+  return hookserv->connected;
 }
 
 void
@@ -276,16 +259,15 @@ nautilus_dropbox_hooks_setup(NautilusDropboxHookserv *hookserv) {
   hookserv->dispatch_table = g_hash_table_new_full((GHashFunc) g_str_hash,
 						   (GEqualFunc) g_str_equal,
 						   g_free, g_free);
-  hookserv->connected_mutex = g_mutex_new();
-  hookserv->connected_cond = g_cond_new();
   hookserv->connected = FALSE;
 
   g_hook_list_init(&(hookserv->ondisconnect_hooklist), sizeof(GHook));
+  g_hook_list_init(&(hookserv->onconnect_hooklist), sizeof(GHook));
 }
 
 void
 nautilus_dropbox_hooks_add_on_disconnect_hook(NautilusDropboxHookserv *hookserv,
-					      DropboxHookClientDisconnectHook dhcch,
+					      DropboxHookClientConnectHook dhcch,
 					      gpointer ud) {
   GHook *newhook;
   
@@ -294,6 +276,19 @@ nautilus_dropbox_hooks_add_on_disconnect_hook(NautilusDropboxHookserv *hookserv,
   newhook->data = ud;
   
   g_hook_append(&(hookserv->ondisconnect_hooklist), newhook);
+}
+
+void
+nautilus_dropbox_hooks_add_on_connect_hook(NautilusDropboxHookserv *hookserv,
+					   DropboxHookClientConnectHook dhcch,
+					   gpointer ud) {
+  GHook *newhook;
+  
+  newhook = g_hook_alloc(&(hookserv->onconnect_hooklist));
+  newhook->func = dhcch;
+  newhook->data = ud;
+  
+  g_hook_append(&(hookserv->onconnect_hooklist), newhook);
 }
 
 void nautilus_dropbox_hooks_add(NautilusDropboxHookserv *ndhs,

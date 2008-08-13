@@ -31,11 +31,10 @@
 #include <gdk/gdk.h>
 
 #include "nautilus-dropbox-common.h"
-#include "nautilus-dropbox-command.h"
+#include "dropbox-command-client.h"
 #include "nautilus-dropbox-tray.h"
 
 typedef struct {
-  NautilusDropbox *cvs;
   NautilusDropboxGlobalCB cb;
   gpointer ud;
 } GetGlobalsData;
@@ -46,53 +45,52 @@ get_dropbox_globals_cb(GHashTable *response, GetGlobalsData *ggd) {
   
   if (response != NULL &&
       (value = g_hash_table_lookup(response, "values")) != NULL) {
-    ggd->cb(value, ggd->cvs, ggd->ud);
+    ggd->cb(value, ggd->ud);
   }
   else {
-    ggd->cb(NULL, ggd->cvs, ggd->ud);
+    ggd->cb(NULL, ggd->ud);
   }
   
   g_free(ggd);
 }
 
 void
-nautilus_dropbox_common_get_globals(NautilusDropbox *cvs,
+nautilus_dropbox_common_get_globals(DropboxCommandClient *dcc,
 				    gchar *tabbed_keys,
 				    NautilusDropboxGlobalCB cb, gpointer ud) {
   DropboxGeneralCommand *dgc;
-
+  
   /* TODO: change to g_return_if_fail */
-  g_assert(cvs != NULL);
+  g_assert(dcc != NULL);
   g_assert(cb != NULL);
   g_assert(tabbed_keys != NULL);
-
-  dgc = g_new(DropboxGeneralCommand, 1);
   
+  dgc = g_new(DropboxGeneralCommand, 1);
+   
   dgc->dc.request_type = GENERAL_COMMAND;
   dgc->command_name = g_strdup("get_dropbox_globals");
-
+  
   /* build command args */
   {
     dgc->command_args = g_hash_table_new_full((GHashFunc) g_str_hash,
 					      (GEqualFunc) g_str_equal,
 					      (GDestroyNotify) g_free,
 					      (GDestroyNotify) g_strfreev);
-
+    
     g_hash_table_insert(dgc->command_args, g_strdup("keys"),
 			g_strsplit(tabbed_keys, "\t", 0));
   }
-  
+   
   dgc->handler = (NautilusDropboxCommandResponseHandler) get_dropbox_globals_cb;
   {
     GetGlobalsData *ggd;
     ggd = g_new0(GetGlobalsData, 1);
-    ggd->cvs = cvs;
     ggd->cb = cb;
     ggd->ud = ud;
     dgc->handler_ud = (gpointer) ggd;
   }
-
-  nautilus_dropbox_command_request(cvs, (DropboxCommand *) dgc);
+  
+  dropbox_command_client_request(dcc, (DropboxCommand *) dgc);
 }
 
 static 
@@ -102,7 +100,7 @@ void dropboxd_setup(gpointer ud) {
 }
 
 gboolean
-nautilus_dropbox_common_start_dropbox(NautilusDropbox *cvs, gboolean download) {
+nautilus_dropbox_common_start_dropbox() {
   gchar *dropboxd_path;
 
   /* first kill any pre-existing instances of dropbox */
@@ -140,24 +138,12 @@ nautilus_dropbox_common_start_dropbox(NautilusDropbox *cvs, gboolean download) {
       
       g_free(delete_dropbox_cmdline);
 
-      if (download) {
-	nautilus_dropbox_tray_start_dropbox_transfer(cvs);
-	goto OUTTRUE;
-      }
-      else {
-	goto OUTFALSE;
-      }
+      goto OUTFALSE;
     }
   }
   /* else we have to download it */
   else {
-    if (download) {
-      nautilus_dropbox_tray_start_dropbox_transfer(cvs);
-      goto OUTTRUE;
-    }
-    else {
-      goto OUTFALSE;
-    }
+    goto OUTFALSE;
   }
 
  OUTTRUE:
@@ -189,7 +175,7 @@ handle_launch_command_dying(GPid pid, gint status, gpointer *ud) {
 }
 
 void
-nautilus_dropbox_common_launch_command_with_error(NautilusDropbox * cvs,
+nautilus_dropbox_common_launch_command_with_error(NautilusDropboxTray * ndt,
 						  const gchar *command_line,
 						  const gchar *caption,
 						  const gchar *msg) {
@@ -205,36 +191,16 @@ nautilus_dropbox_common_launch_command_with_error(NautilusDropbox * cvs,
 			   G_SPAWN_STDERR_TO_DEV_NULL | G_SPAWN_DO_NOT_REAP_CHILD,
 			   NULL, NULL,
 			   &childpid, NULL)) {
-    nautilus_dropbox_tray_bubble(&(cvs->ndt), caption, msg, NULL, NULL, NULL, NULL);
+    nautilus_dropbox_tray_bubble(ndt, caption, msg, NULL, NULL, NULL, NULL);
   }
   else {
     /* undefined data struct (i.e. dynamic) */
     gpointer *ud;
     ud = g_new(gpointer, 3);
-    ud[0] = &(cvs->ndt);
+    ud[0] = ndt;
     ud[1] = g_strdup(caption);
     ud[2] = g_strdup(msg);
     g_child_watch_add(childpid,
 		      (GChildWatchFunc) handle_launch_command_dying, ud);
   }
 }
-
-void
-nautilus_dropbox_common_launch_folder(NautilusDropbox *cvs,
-				      const gchar *folder_path) {
-  gchar *command_line, *escaped_string;
-  gchar *msg;
-  
-  escaped_string = g_strescape(folder_path, NULL);
-  command_line = g_strdup_printf("nautilus \"%s\"", escaped_string);
-  msg = g_strdup_printf("Couldn't start '%s'. Is nautilus in your PATH?",
-			command_line);
-  
-  nautilus_dropbox_common_launch_command_with_error(cvs, command_line,
-						    "Couldn't open folder", msg);
-  
-  g_free(msg);
-  g_free(escaped_string);
-  g_free(command_line);
-}
-

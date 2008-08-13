@@ -30,9 +30,10 @@ libnautilus_dropbox_la_SOURCES = \
 	nautilus-dropbox-common.c \
 	nautilus-dropbox-hooks.h \
 	nautilus-dropbox-hooks.c \
-	nautilus-dropbox-command.h \
-	nautilus-dropbox-command.c \
+	dropbox-command-client.h \
+	dropbox-command-client.c \
 	busy2.h busy.h idle.h logo.h \
+	dropbox-client.c dropbox-client.h \
 	g-util.h g-util.c \
 	async-http-downloader.h \
 	async-http-downloader.c \

@@ -25,23 +25,40 @@
 #define NAUTILUS_DROPBOX_TRAY_H
 
 #include <glib.h>
-#include "nautilus-dropbox.h"
+#include <gdk/gdk.h>
+#include <gtk/gtk.h>
+
+#include <libnotify/notify.h>
+
+#include "dropbox-client.h"
 
 G_BEGIN_DECLS
 
 typedef void (*DropboxTrayBubbleActionCB)(gpointer);
 
-void
-nautilus_dropbox_tray_setup(NautilusDropbox *cvs);
+typedef enum {UPTODATE, SYNCING, NOT_CONNECTED} DropboxIconState;
+
+typedef struct {
+  GtkStatusIcon *status_icon;
+  GtkMenu *context_menu;
+  NotifyNotification *bubble;
+  GdkPixbuf *idle;
+  GdkPixbuf *busy;
+  GdkPixbuf *busy2;
+  GdkPixbuf *logo;
+  DropboxIconState icon_state;
+  gint busy_frame;
+  gboolean last_active;
+  gboolean notify_inited;
+  DropboxClient *dc;
+  struct {
+    gboolean user_quit;
+    gboolean dropbox_starting;
+  } ca;
+} NautilusDropboxTray;
 
 void
-nautilus_dropbox_tray_on_connect(NautilusDropbox *cvs);
-
-void
-nautilus_dropbox_tray_on_disconnect(NautilusDropbox *cvs);
-
-void
-nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropbox *cvs);
+nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc);
 
 gboolean
 nautilus_dropbox_tray_bubble(NautilusDropboxTray *ndt,

@@ -26,11 +26,13 @@
 
 #include <glib.h>
 #include <glib-object.h>
-#include <libnotify/notification.h>
 
 #include <libnautilus-extension/nautilus-info-provider.h>
 
+#include "dropbox-command-client.h"
 #include "nautilus-dropbox-hooks.h"
+#include "dropbox-client.h"
+#include "nautilus-dropbox-tray.h"
 
 G_BEGIN_DECLS
 
@@ -44,35 +46,12 @@ G_BEGIN_DECLS
 typedef struct _NautilusDropbox      NautilusDropbox;
 typedef struct _NautilusDropboxClass NautilusDropboxClass;
 
-typedef enum {UPTODATE, SYNCING, NOT_CONNECTED} DropboxIconState;
-
-typedef struct {
-  GtkStatusIcon *status_icon;
-  GtkMenu *context_menu;
-  NotifyNotification *bubble;
-  GdkPixbuf *idle;
-  GdkPixbuf *busy;
-  GdkPixbuf *busy2;
-  GdkPixbuf *logo;
-  DropboxIconState icon_state;
-  gint busy_frame;
-  gboolean last_active;
-  gboolean notify_inited;
-} NautilusDropboxTray;
-
 struct _NautilusDropbox {
   GObject parent_slot;
-  GAsyncQueue *command_queue;
   GHashTable *filename2obj;
   GHashTable *obj2filename;
-  GMutex *command_connected_mutex;
-  gboolean command_connected;
+  DropboxClient dc;
   NautilusDropboxTray ndt;
-  NautilusDropboxHookserv hookserv;
-  struct {
-    gboolean user_quit;
-    gboolean dropbox_starting;
-  } ca;
 };
 
 struct _NautilusDropboxClass {
@@ -84,10 +63,6 @@ void  nautilus_dropbox_register_type(GTypeModule *module);
 
 extern gboolean dropbox_use_nautilus_submenu_workaround;
 extern gboolean dropbox_use_operation_in_progress_workaround;
-
-void nautilus_dropbox_on_connect(NautilusDropbox *cvs);
-
-void nautilus_dropbox_on_disconnect(NautilusDropbox *cvs);
 
 G_END_DECLS
 
