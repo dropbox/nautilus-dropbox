@@ -205,9 +205,9 @@ build_context_menu_from_list(NautilusDropboxTray *ndt,
 
   len = len * 2;
   for (i = 0; ((len == -2 && options[i] != NULL) || 
-	       (len != 2 && i < len)); i += 2) {
+	       (len != -2 && i < len)); i += 2) {
     GtkWidget *item;
-    
+
     if (strcmp(options[i], "") == 0) {
       item = gtk_separator_menu_item_new();
       gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
@@ -307,7 +307,8 @@ void notifyfreefunc(gpointer *mud) {
  * @ndt: DropboxTray structure
  * @caption: caption for the bubble
  * @message: message for the bubble
- * @cb: optional function to call when the bubble is clicked
+ * @cb: optional callback when the bubble is clicked
+ * @cb_desc: optional description of the what the callback does
  * @ud: optional user data for the callback
  * @free_func: optional function to call when the bubble is destroyed
  * @gerr: optional pointer to set an error
@@ -320,6 +321,7 @@ nautilus_dropbox_tray_bubble(NautilusDropboxTray *ndt,
 			     const gchar *caption,
 			     const gchar *message,
 			     DropboxTrayBubbleActionCB cb,
+			     const gchar *cb_desc,
 			     gpointer ud,
 			     GFreeFunc free_func,
 			     GError **gerr) {
@@ -352,7 +354,7 @@ nautilus_dropbox_tray_bubble(NautilusDropboxTray *ndt,
   mud[0] = cb;
   mud[1] = ud;
   mud[2] = free_func;
-  notify_notification_add_action(n, "default", "Show Changed Files",
+  notify_notification_add_action(n, "default", cb_desc == NULL ? "default" : cb_desc,
 				 (NotifyActionCallback) notifycb, mud,
 				 (GFreeFunc) notifyfreefunc);
 
@@ -387,6 +389,13 @@ void bubble_clicked_cb(gpointer *ud) {
 
 }
 
+void bubble_clicked_callback_cb(gpointer *ud) {
+  debug_enter();
+
+  dropbox_command_client_send_simple_command(&(((NautilusDropboxTray *) ud[0])->dc->dcc),
+					     ud[1]);
+}
+
 void bubble_clicked_free(gpointer *ud) {
   g_free(ud[1]);
   g_free(ud);
@@ -400,21 +409,34 @@ handle_bubble(GHashTable *args, NautilusDropboxTray *ndt) {
   caption = g_hash_table_lookup(args, "caption");
 
   if (message != NULL && caption != NULL) {
-    gchar **location;
+    gchar **location, **callback;
 
     location = g_hash_table_lookup(args, "location");
+    callback = g_hash_table_lookup(args, "callback");
     if (location != NULL) {
       gpointer *ud;
       ud = g_new(gpointer, 2);
       ud[0] = ndt;
       ud[1] = g_strdup(location[0]);
       nautilus_dropbox_tray_bubble(ndt, caption[0], message[0],
-				   (DropboxTrayBubbleActionCB) bubble_clicked_cb, ud,
+				   (DropboxTrayBubbleActionCB) bubble_clicked_cb,
+				   "Show Changed Files",
+				   ud,
+				   (GFreeFunc) bubble_clicked_free, NULL);      
+    }
+    else if (callback != NULL) {
+      gpointer *ud;
+      ud = g_new(gpointer, 2);
+      ud[0] = ndt;
+      ud[1] = g_strdup(callback[0]);
+      nautilus_dropbox_tray_bubble(ndt, caption[0], message[0],
+				   (DropboxTrayBubbleActionCB) bubble_clicked_callback_cb,
+				   NULL, ud,
 				   (GFreeFunc) bubble_clicked_free, NULL);      
     }
     else {
       nautilus_dropbox_tray_bubble(ndt, caption[0], message[0],
-				   NULL,NULL,NULL,NULL);      
+				   NULL,NULL,NULL,NULL,NULL);      
     }
   }
 }
@@ -550,7 +572,7 @@ is_out_of_date_cb(GHashTable *response, NautilusDropboxTray *ndt) {
 				 "Your version of the Dropbox extension for Nautilus appears "
 				 "to be out of date. It is highly recommended that you upgrade "
 				 "the nautilus-dropbox package for your system.", NULL,
-				 NULL, NULL, NULL);
+				 NULL, NULL, NULL, NULL);
   }
 }
 
@@ -612,7 +634,7 @@ fail_dropbox_download(NautilusDropboxTray *ndt, const gchar *msg) {
 			       msg == NULL
 			       ? "Failed to download Dropbox, Are you connected "
 			       " to the internet? Are your proxy settings correct?"
-			       : msg, NULL, NULL, NULL, NULL);
+			       : msg, NULL, NULL, NULL, NULL, NULL);
 }
 
 static void
@@ -627,7 +649,7 @@ handle_tar_dying(GPid pid, gint status, gpointer *ud) {
 			  (gchar *) ud[0]);
     nautilus_dropbox_tray_bubble(&(((NautilusDropbox *) ud[1])->ndt),
 				 "Couldn't download Dropbox.",
-				 msg, NULL, NULL, NULL, NULL);
+				 msg, NULL, NULL, NULL, NULL, NULL);
     g_free(msg);
   }
 
@@ -644,6 +666,7 @@ handle_incoming_http_data(GIOChannel *chan,
   GIOStatus iostat;
   gchar buf[4096];
   gsize bytes_read;
+
   while ((iostat = g_io_channel_read_chars(chan, buf, 4096,
 					   &bytes_read, NULL)) ==
 	 G_IO_STATUS_NORMAL) {
@@ -656,6 +679,7 @@ handle_incoming_http_data(GIOChannel *chan,
     if (g_io_channel_write_chars(ctx->tmpfilechan, buf,
 				 bytes_read, NULL, NULL) != G_IO_STATUS_NORMAL) {
       /* TODO: error condition, ignore for now */
+      return FALSE;
     }
   }
   
@@ -769,6 +793,46 @@ handle_dropbox_download_response(gint response_code,
     fail_dropbox_download(ctx->ndt, NULL);
     g_free(ctx);
     return;
+    break;
+  case 300: case 301: case 302: case 303: case 304: case 305: case 306: case 307:
+    {
+      /* find the location header */
+      GList *li;
+      
+      for (li = headers; li != NULL; li = g_list_next(li)) {
+	if (g_str_has_prefix((gchar *) li->data, "Location:")) {
+	  gchar *location;
+
+	  location = g_strstrip(g_strdup((gchar *) li->data + sizeof("Location:")-1));
+
+	  if (g_str_has_prefix(location, "http://")) {
+	    gchar *host, *webpath;
+
+	    host = location + sizeof("http://") - 1;
+	    webpath = strchr(host, '/');
+	    
+	    host = g_strndup(host, webpath - host);
+	    webpath = g_strdup(webpath);
+
+	    if (make_async_http_get_request(host, webpath,
+					    NULL, (HttpResponseHandler)
+					    handle_dropbox_download_response,
+					    (gpointer) ctx)) {
+	      /* made a successful request, stop this iteration */
+	      break;
+	    }
+	  }
+	}
+      }
+
+      if (li == NULL) {
+	fail_dropbox_download(ctx->ndt, NULL);
+	g_free(ctx);
+      }
+
+      return;
+    }
+    
     break;
   case 200:
     break;
@@ -937,6 +1001,10 @@ on_connect(NautilusDropboxTray *ndt) {
   /* reset these vars */
   ndt->ca.user_quit = FALSE;
   ndt->ca.dropbox_starting = FALSE;
+
+  /* tell dropbox what X server we're on */
+  dropbox_command_client_send_command(&(ndt->dc->dcc), NULL, NULL,
+				      "on_x_server", "display", g_getenv("DISPLAY"), NULL);
 
   /* first get active, with version and email setting */
   nautilus_dropbox_common_get_globals(&(ndt->dc->dcc), "active\tversion\temail\ticon_state",

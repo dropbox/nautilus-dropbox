@@ -166,7 +166,7 @@ nautilus_dropbox_common_get_platform() {
 static void
 handle_launch_command_dying(GPid pid, gint status, gpointer *ud) {
   if (status != 0) {
-    nautilus_dropbox_tray_bubble(ud[0], ud[1], ud[2], NULL, NULL, NULL, NULL);
+    nautilus_dropbox_tray_bubble(ud[0], ud[1], ud[2], NULL, NULL, NULL, NULL, NULL);
   }
 
   g_free(ud[1]);
@@ -191,7 +191,7 @@ nautilus_dropbox_common_launch_command_with_error(NautilusDropboxTray * ndt,
 			   G_SPAWN_STDERR_TO_DEV_NULL | G_SPAWN_DO_NOT_REAP_CHILD,
 			   NULL, NULL,
 			   &childpid, NULL)) {
-    nautilus_dropbox_tray_bubble(ndt, caption, msg, NULL, NULL, NULL, NULL);
+    nautilus_dropbox_tray_bubble(ndt, caption, msg, NULL, NULL, NULL, NULL, NULL);
   }
   else {
     /* undefined data struct (i.e. dynamic) */

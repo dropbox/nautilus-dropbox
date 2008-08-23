@@ -83,7 +83,7 @@ handle_wget_stderr(GIOChannel *stderr_chan,
                    GIOCondition cond,
                    WgetAsyncHttpRequest *wahp) {
   CRBEGIN(wahp->readctx.codepos);
-  
+
   /* read line until we get the first line that starts with "  " */
   while (1) {
     gchar *line;

@@ -667,15 +667,6 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
 
 static void
 on_connect(NautilusDropbox *cvs) {
-  /* gotta initialize icon overlays */
-  dropbox_command_client_send_simple_command(&(cvs->dc.dcc), "icon_overlay_init");
-  /* and tell dropbox what X server we're on */
-  dropbox_command_client_send_command(&(cvs->dc.dcc), NULL, NULL,
-				      "on_x_server", "display", g_getenv("DISPLAY"), NULL);
-}
-
-static void
-on_disconnect(NautilusDropbox *cvs) {
   /* this works because you can call a function pointer with
      more arguments than it takes */
   g_hash_table_foreach(cvs->obj2filename, (GHFunc) reset_file, NULL);
@@ -696,7 +687,6 @@ nautilus_dropbox_info_provider_iface_init (NautilusInfoProviderIface *iface) {
 
 static void
 nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
-  /* this data is shared by all submodules */
   cvs->filename2obj = g_hash_table_new_full((GHashFunc) g_str_hash,
 					    (GEqualFunc) g_str_equal,
 					    (GDestroyNotify) g_free,
@@ -720,12 +710,12 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
   nautilus_dropbox_hooks_add(&(cvs->dc.hookserv), "launch_url",
 			     (DropboxUpdateHook) handle_launch_url, cvs);
 
-  /* add connect handlers */
+  /* add connection handlers */
   dropbox_client_add_on_connect_hook(&(cvs->dc),
 				     (DropboxClientConnectHook) on_connect, 
 				     cvs);
   dropbox_client_add_on_disconnect_hook(&(cvs->dc),
-					(DropboxClientConnectHook) on_disconnect, 
+					(DropboxClientConnectHook) on_connect, 
 					cvs);
   
   /* now start the connection */

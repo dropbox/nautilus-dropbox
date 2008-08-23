@@ -66,6 +66,7 @@ nautilus_dropbox_tray_bubble(NautilusDropboxTray *ndt,
 			     const gchar *caption,
 			     const gchar *message,
 			     DropboxTrayBubbleActionCB cb,
+			     const gchar *cb_desc,
 			     gpointer ud,
 			     GFreeFunc free_func,
 			     GError **gerr);
