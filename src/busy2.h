@@ -1,23 +1,8 @@
 /*
- * Copyright 2008 Evenflow, Inc.
+ * Copyright 2008 Evenflow, Inc. DO NOT USE WITHOUT PERMISSION
  *
  * busy2.h
  * GdkPixbuf of busy2 icon.
- *
- * This file is part of nautilus-dropbox.
- *
- * nautilus-dropbox is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * nautilus-dropbox is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with nautilus-dropbox.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
 
@@ -27,9 +12,9 @@
 #pragma align 4 (busy2)
 #endif
 #ifdef __GNUC__
-static const guint8 busy2[] __attribute__ ((__aligned__ (4))) = 
+static const unsigned char busy2[] __attribute__ ((__aligned__ (4))) = 
 #else
-static const guint8 busy2[] = 
+static const unsigned char busy2[] = 
 #endif
 { ""
   /* Pixbuf magic (0x47646b50) */

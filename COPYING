@@ -1,5 +1,23 @@
 nautilus-dropbox is copyright 2008 Evenflow, Inc.
 
+All images included in this package constitute data and are not licensed
+for you to use under the terms of the GPL. You may not use the images
+included in this package for any reason without first obtaining permission from
+Evenflow, Inc. This includes the files:
+
+* emblem-dropbox-syncing.icon
+* emblem-dropbox-syncing.png
+* emblem-dropbox-uptodate.icon
+* emblem-dropbox-uptodate.png
+* busy2.h
+* busy.h
+* idle.h
+* logo.h
+
+All program source in this package is released under the terms of the
+GNU GPL below.
+
+
 		    GNU GENERAL PUBLIC LICENSE
 		       Version 2, June 1991
 
