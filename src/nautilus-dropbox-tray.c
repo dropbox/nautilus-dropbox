@@ -970,7 +970,7 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropboxTray *ndt) {
     ctx->ndt = ndt;
     
     dropbox_platform = nautilus_dropbox_common_get_platform();
-    webpath = g_strdup_printf("/linux/%s", dropbox_platform);
+    webpath = g_strdup_printf("/get_client/%s", dropbox_platform);
     
     if (make_async_http_get_request("www.getdropbox.com", webpath,
 				    NULL, (HttpResponseHandler) handle_dropbox_download_response,
