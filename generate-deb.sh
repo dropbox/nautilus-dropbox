@@ -132,4 +132,4 @@ Description: Dropbox integration for Nautilus
 Homepage: http://www.getdropbox.com/
 EOF
 
-dpkg-buildpackage -b -j4
+dpkg-buildpackage -j4
