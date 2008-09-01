@@ -1,6 +1,7 @@
 # Initialization
 
 AC_INIT([nautilus-dropbox],0.4.0)
+
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 
 AM_CONFIG_HEADER(config.h)
@@ -10,7 +11,7 @@ AM_CONFIG_HEADER(config.h)
 
 # Dependency checks
 NAUTILUS_REQUIRED=2.20.0
-GLIB_REQUIRED=2.4.0
+GLIB_REQUIRED=2.16.0
 LIBNOTIFY_REQUIRED=0.4.4
 
 # Used programs
