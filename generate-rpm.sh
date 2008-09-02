@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# you should run this script on fedora
+# you need to have the following packages:
+# rpmdevtools, rpm-build, gawk, nautilus-devel, libnotify-devel, automake,
+# autoconf, gnome-common, libtool, gcc
+
 if [ $(basename $(pwd)) != 'nautilus-dropbox' ]; then
     echo "This script must be run from the nautilus-dropbox folder"
     exit -1
@@ -9,7 +14,7 @@ fi
 set -e
 
 # get version
-if [ -x $(which gawk) ]; then
+if which gawk; then
     CURVER=$(gawk '/^AC_INIT/{sub("AC_INIT\\(\\[nautilus-dropbox\\],", ""); sub("\\)", ""); print $0}' configure.in)
 else
     CURVER=$(awk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\],", ""); sub("\)", ""); print $0}' configure.in)    
@@ -35,6 +40,14 @@ mkdir rpmbuild
 for I in BUILD RPMS SOURCES SPECS SRPMS; do
     mkdir rpmbuild/$I
 done;
+
+if [ ! -x configure ]; then
+    ./autogen.sh
+fi
+
+if [ ! -e Makefile ]; then
+    ./configure
+fi
 
 # generate package
 make dist
