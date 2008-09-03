@@ -814,6 +814,8 @@ handle_dropbox_download_response(gint response_code,
 	    host = g_strndup(host, webpath - host);
 	    webpath = g_strdup(webpath);
 
+	    printf("downloading dropbox from http://%s%s\n", host, webpath);
+
 	    if (make_async_http_get_request(host, webpath,
 					    NULL, (HttpResponseHandler)
 					    handle_dropbox_download_response,
@@ -972,6 +974,8 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropboxTray *ndt) {
     dropbox_platform = nautilus_dropbox_common_get_platform();
     webpath = g_strdup_printf("/download?plat=%s", dropbox_platform);
     
+    printf("downloading dropbox from http://www.getdropbox.com%s\n", webpath);
+
     if (make_async_http_get_request("www.getdropbox.com", webpath,
 				    NULL, (HttpResponseHandler) handle_dropbox_download_response,
 				    (gpointer) ctx) == FALSE) {

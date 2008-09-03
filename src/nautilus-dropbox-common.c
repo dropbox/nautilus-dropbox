@@ -159,7 +159,7 @@ gchar *
 nautilus_dropbox_common_get_platform() {
   /* this function is haxed, we don't support a plethora of
      platforms yet, so we don't need great platform detection */
-  return g_strdup_printf("lnx-%s", sizeof(long) == 8 ? "x86_64" : "x86");
+  return g_strdup_printf("lnx.%s", sizeof(long) == 8 ? "x86_64" : "x86");
 }
 
 
