@@ -722,7 +722,7 @@ handle_incoming_http_data(GIOChannel *chan,
     argv[0] = g_strdup("tar");
     argv[1] = g_strdup("-C");
     argv[2] = g_strdup(g_get_home_dir());
-    argv[3] = g_strdup("-xjf");
+    argv[3] = g_strdup("-xzf");
     argv[4] = g_strdup(ctx->tmpfilename);
     argv[5] = NULL;
     
@@ -798,10 +798,12 @@ handle_dropbox_download_response(gint response_code,
     {
       /* find the location header */
       GList *li;
-      
+
       for (li = headers; li != NULL; li = g_list_next(li)) {
-	if (g_str_has_prefix((gchar *) li->data, "Location:")) {
+
+	if (g_ascii_strncasecmp((gchar *) li->data, "location:", 9) == 0) {
 	  gchar *location;
+
 
 	  location = g_strstrip(g_strdup((gchar *) li->data + sizeof("Location:")-1));
 
