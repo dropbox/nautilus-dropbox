@@ -52,12 +52,25 @@ typedef struct {
   gchar *verb;
 } DropboxContextMenuItem;
 
-static char *emblems[] = {"dropbox-uptodate", "dropbox-syncing"};
+static char *emblems[] = {"dropbox-uptodate", "dropbox-syncing", "dropbox-unsyncable"};
 
 gboolean dropbox_use_nautilus_submenu_workaround;
 gboolean dropbox_use_operation_in_progress_workaround;
 
 static GType dropbox_type = 0;
+
+/* for old versions of glib */
+static void my_g_hash_table_get_keys_helper(gpointer key,
+					    gpointer value,
+					    GList **ud) {
+  *ud = g_list_append(*ud, key);
+}
+
+static GList *my_g_hash_table_get_keys(GHashTable *ght) {
+  GList *list = NULL;
+  g_hash_table_foreach(ght, (GHFunc) my_g_hash_table_get_keys_helper, &list);
+  return list;
+}
 
 /* probably my favorite function */
 static gchar *
@@ -368,6 +381,9 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 	else if (strcmp("syncing", status[0]) == 0) {
 	  emblem_code = 2;
 	}
+	else if (strcmp("unsyncable", status[0]) == 0) {
+	  emblem_code = 3;
+	}
 	
 	if (emblem_code > 0) {
 	  /*
@@ -537,8 +553,7 @@ static GList *
 nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
                                 GtkWidget            *window,
 				GList                *files) {
-  GList *toret = NULL;
-  GList *li;
+  GList *toret = NULL, *outer_li;
   GHashTable *set;
 
   /* we only do options for single files... for now */
@@ -551,10 +566,7 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
 
   /* first seed the set with the first items options */  
   {
-    GHashTableIter iter;
     GHashTable *initialset;
-    gchar *key;
-    DropboxContextMenuItem *dcmi;
     initialset = (GHashTable *) g_object_get_data(G_OBJECT(files->data),
 						  "nautilus_dropbox_menu_item");
 
@@ -565,38 +577,52 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
       return NULL;
     }
 
-    g_hash_table_iter_init(&iter, initialset);
-    while (g_hash_table_iter_next(&iter, (gpointer) &key,
-				  (gpointer) &dcmi)) {
-      g_hash_table_insert(set, key, dcmi);
+    {
+      GList *keys, *li;
+      keys = glib_check_version(2, 14, 0)
+	? my_g_hash_table_get_keys(initialset)
+	: g_hash_table_get_keys(initialset);
+      
+      for (li = keys; li != NULL; li = g_list_next(li)) {
+	g_hash_table_insert(set, li->data, g_hash_table_lookup(initialset, li->data));
+      }
+      g_list_free(keys);
     }
   }
 
   /* need to do the set intersection of all the menu options */
   /* THIS IS EFFECTIVELY IGNORED, we only do options for single files... for now */
-  for (li = g_list_next(files); li != NULL; li = g_list_next(li)) {
-    GHashTableIter iter;
+  for (outer_li = g_list_next(files); outer_li != NULL; outer_li = g_list_next(outer_li)) {
     GHashTable *fileset;
-    gchar *key;
-    DropboxContextMenuItem *dcmi;
-    GList *keys_to_remove = NULL, *li2;
+    GList *keys_to_remove = NULL;
     
-    fileset = (GHashTable *) g_object_get_data(G_OBJECT(li->data),
+    fileset = (GHashTable *) g_object_get_data(G_OBJECT(outer_li->data),
 					       "nautilus_dropbox_menu_item");
     /* check if all the values in set are in the
        this fileset, if they are then keep that file in the set
        if not, then remove that file from the set */
-    g_hash_table_iter_init(&iter, set);      
-    while (g_hash_table_iter_next(&iter, (gpointer) &key,
-				  (gpointer) &dcmi)) {
-      if (g_hash_table_lookup(fileset, key) == NULL) {
-	keys_to_remove = g_list_append(keys_to_remove, key);
+    {
+      GList *keys, *li;
+
+      keys = glib_check_version(2, 14, 0)
+	? my_g_hash_table_get_keys(set)
+	: g_hash_table_get_keys(set);
+
+      for (li = keys; li != NULL; li = g_list_next(li)) {
+	if (g_hash_table_lookup(fileset, li->data) == NULL) {
+	  keys_to_remove = g_list_append(keys_to_remove, li->data);
+	}
       }
+
+      g_list_free(keys);
     }
 
-    /* now actually remove, since we can't in the iterator */
-    for (li2 = keys_to_remove; li2 != NULL; li2 = g_list_next(li2)) {
-      g_hash_table_remove(set, li2->data);
+    {
+      GList *li;
+      /* now actually remove, since we can't in the iterator */
+      for (li = keys_to_remove; li != NULL; li = g_list_next(li)) {
+	g_hash_table_remove(set, li->data);
+      }
     }
 
     g_list_free(keys_to_remove);
@@ -612,9 +638,7 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
   {
     NautilusMenuItem *root_item;
     NautilusMenu *root_menu;
-    GHashTableIter iter;
-    gchar *key;
-    DropboxContextMenuItem *dcmi;
+    GList *keys, *li;
 
     root_menu = nautilus_menu_new();
     root_item = nautilus_menu_item_new("NautilusDropbox::root_item",
@@ -623,12 +647,19 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
 
     toret = g_list_append(toret, root_item);
 
-    g_hash_table_iter_init(&iter, set);      
-    while (g_hash_table_iter_next(&iter, (gpointer) &key,
-				  (gpointer) &dcmi)) {
+    keys = glib_check_version(2, 14, 0)
+      ? my_g_hash_table_get_keys(set)
+      : g_hash_table_get_keys(set);
+
+    for (li = keys; li != NULL; li = g_list_next(li)) {
+      gchar *key;
+      DropboxContextMenuItem *dcmi;
       NautilusMenuItem *item;
       GString *new_action_string;
       
+      key = li->data;
+      dcmi = g_hash_table_lookup(set, key);
+
       new_action_string = g_string_new("NautilusDropbox::");
       g_string_append(new_action_string, dcmi->verb);
 
@@ -658,6 +689,7 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
       g_string_free(new_action_string, TRUE);
     }
 
+    g_list_free(keys);
     g_object_unref(root_menu);
     g_hash_table_unref(set);
     

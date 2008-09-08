@@ -153,6 +153,19 @@ receive_args_until_done(GIOChannel *chan, GHashTable *return_table,
   return TRUE;
 }
 
+static void my_g_hash_table_get_keys_helper(gpointer key,
+					    gpointer value,
+					    GList **ud) {
+  *ud = g_list_append(*ud, key);
+}
+
+static GList *my_g_hash_table_get_keys(GHashTable *ght) {
+  GList *list = NULL;
+  g_hash_table_foreach(ght, (GHFunc) 
+		       my_g_hash_table_get_keys_helper, &list);
+  return list;
+}
+
 /*
   sends a command to the dropbox server
   returns an hash of the return values
@@ -172,6 +185,7 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
   g_assert(chan != NULL);
   g_assert(command_name != NULL);
   
+
 #define WRITE_OR_DIE_SANI(s,l) {					\
     gchar *sani_s;							\
     sani_s = dropbox_client_util_sanitize(s);				\
@@ -198,22 +212,30 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
   WRITE_OR_DIE("\n", -1);
 
   if (args != NULL) {
-    gchar *key;
-    gchar **value;
-    GHashTableIter iter;
+    GList *keys, *li;
 
-    g_hash_table_iter_init(&iter, args);
-    while (g_hash_table_iter_next(&iter, (gpointer) &key,
-				  (gpointer) &value)) {
+    /* oh god */
+    keys = glib_check_version(2, 14, 0)
+      ? my_g_hash_table_get_keys(args)
+      : g_hash_table_get_keys(args);
+
+    for (li = keys; li != NULL; li = g_list_next(li)) {
       int i;
-      WRITE_OR_DIE_SANI(key, -1);
+      gchar **value;
+      
+      WRITE_OR_DIE_SANI((gchar *) li->data, -1);
+      
+      value = g_hash_table_lookup(args, li->data);
       for (i = 0; value[i] != NULL; i++) {
 	WRITE_OR_DIE("\t", -1);
 	WRITE_OR_DIE_SANI(value[i], -1);
       }
       WRITE_OR_DIE("\n", -1);
     }
+
+    g_list_free(keys);
   }
+
 
   WRITE_OR_DIE("done\n", -1);
 

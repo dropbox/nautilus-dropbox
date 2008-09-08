@@ -1,6 +1,6 @@
 Hi Friend!
 
-This Dropbox extension for Nautilus!!!
+This is *the* Dropbox extension for Nautilus!!!
 
 Now you can use your favorite sync, versioning, and backup software with GNU/Linux!
 Yes!! Radical!!! Gnarly!!!!
@@ -22,25 +22,4 @@ In the nautilus-dropbox dir just do:
 $ ./configure
 $ make
 $ sudo make install
-
-Building Dropbox Nautilus Extension From Mercurial
---------------------------------------------------
-
-To compile you'll need the following packages (or equivalent):
-
-gnome-common
-libtool
-autoconf
-automake1.9
-autotools-dev
-libnautilus-extension-dev
-libnotify-dev
-
-In the nautilus-dropbox directory just do:
-
-$ ./autogen.sh
-$ make
-$ sudo make install
-
-should be good.
 
