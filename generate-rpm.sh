@@ -27,8 +27,11 @@ fi
 
 cat <<EOF > $HOME/.rpmmacros
 %_topdir      $(pwd)/rpmbuild
-%_tmppath              $(pwd)/rpmbuild
+%_tmppath              $(pwd)/r/pmbuild
 %_smp_mflags  -j3
+%_signature gpg
+%_gpg_name 3565780E
+%_gpgbin /usr/bin/gpg
 EOF
 
 # clean old package build
@@ -143,6 +146,9 @@ EOF
 
 cd rpmbuild
 rpmbuild -ba SPECS/nautilus-dropbox.spec
+
+# sign all rpms
+find . -name '*.rpm' | xargs rpm --addsign
 
 # restore old macros file
 if [ -e $HOME/.rpmmacros.old ]; then
