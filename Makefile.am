@@ -1,7 +1,8 @@
 AUTOMAKE_OPTIONS = dist-bzip2 no-dist-gzip
 
 EXTRA_DIST = emblem-dropbox-syncing.icon emblem-dropbox-syncing.png \
-emblem-dropbox-uptodate.icon emblem-dropbox-uptodate.png dropbox.png
+emblem-dropbox-uptodate.icon emblem-dropbox-uptodate.png dropbox.png \
+emblem-dropbox-unsyncable.icon emblem-dropbox-unsyncable.png
 
 emblemdir = $(datadir)/icons/hicolor/64x64/emblems
 

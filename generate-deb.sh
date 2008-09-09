@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# this script assumes u have already run ./configure
+# you will need dh-make, dpkg-dev, fakeroot
+
 if [ $(basename $(pwd)) != 'nautilus-dropbox' ]; then
     echo "This script must be run from the nautilus-dropbox folder"
     exit -1
@@ -25,7 +28,7 @@ tar xjf nautilus-dropbox-$CURVER.tar.bz2
 cd nautilus-dropbox-$CURVER
 
 # now run dh_make, please hit enter
-dh_make -c gpl -e rian@getdropbox.com -f ../nautilus-dropbox-0.4.0.tar.bz2 -s -p nautilus-dropbox
+dh_make -c gpl -e rian@getdropbox.com -f ../nautilus-dropbox-$CURVER.tar.bz2 -s -p nautilus-dropbox
 
 # now fill up all files
 cat > debian/copyright <<EOF
@@ -118,18 +121,17 @@ Source: nautilus-dropbox
 Section: gnome
 Priority: optional
 Maintainer: Rian Hunter <rian@getdropbox.com>
-Build-Depends: debhelper (>= 5), autotools-dev, libnautilus-extension-dev, libnotify-dev, libglib2.0-dev (>= 2.16.3-1)
+Build-Depends: debhelper (>= 5), autotools-dev, libnautilus-extension-dev (>= 2.16.0), libnotify-dev (>= 0.4.4), libglib2.0-dev (>= 2.14.0)
 Standards-Version: 3.7.2
 
 Package: nautilus-dropbox
 Architecture: any
-Depends: nautilus (>= 2.20), wget, libnotify1 (>= 0.4.4), libglib2.0-0 (>= 2.16.3-1), \${shlibs:Depends}, \${misc:Depends}
+Depends: nautilus (>= 2.16.0), libnautilus-extension1 (>= 2.16.0), wget (>= 1.10.0), libnotify1 (>= 0.4.4), libglib2.0-0 (>= 2.14.0), \${shlibs:Depends}, \${misc:Depends}
 Description: Dropbox integration for Nautilus
  Nautilus Dropbox is an extension that integrates
  the Dropbox web service with your GNOME Desktop.
  .
  Check out http://www.getdropbox.com/
-Homepage: http://www.getdropbox.com/
 EOF
 
-dpkg-buildpackage -j4
+dpkg-buildpackage -rfakeroot -k3565780E
