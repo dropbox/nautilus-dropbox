@@ -41,7 +41,8 @@ for I in BUILD RPMS SOURCES SPECS SRPMS; do
     mkdir rpmbuild/$I
 done;
 
-if [ ! -x configure ]; then
+if [ ! -x configure ]; 
+   then
     ./autogen.sh
 fi
 
@@ -55,13 +56,14 @@ make dist
 cp nautilus-dropbox-$CURVER.tar.bz2 rpmbuild/SOURCES/
 
 cat <<EOF > rpmbuild/SPECS/nautilus-dropbox.spec
-%define glib_version 2.16.0
-%define nautilus_version 2.20.0
+%define glib_version 2.14.0
+%define nautilus_version 2.16.0
 %define libnotify_version 0.4.4
-%define libgnome_version 2.20.0
+%define libgnome_version 2.16.0
+%define wget_version 1.10.0
 
 Name:		nautilus-dropbox
-Version:	0.4.0
+Version:	$CURVER
 Release:	1%{?dist}
 Summary:	Dropbox integration for Nautilus
 Group:		User Interface/Desktops
@@ -132,6 +134,9 @@ rm -rf \$RPM_BUILD_ROOT
 
 
 %changelog
+* Mon Sep 1 2008 Rian Hunter <rian@getdropbox.com> - 0.4.1
+- Bugfix release
+
 * Mon Sep 1 2008 Rian Hunter <rian@getdropbox.com> - 0.4.0
 - Initial Package
 EOF
