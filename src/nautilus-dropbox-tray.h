@@ -42,20 +42,12 @@ typedef struct {
   GtkStatusIcon *status_icon;
   GtkMenu *context_menu;
   NotifyNotification *bubble;
-  GdkPixbuf *idle;
-  GdkPixbuf *busy;
-  GdkPixbuf *busy2;
-  GdkPixbuf *logo;
-  DropboxIconState icon_state;
-  gint busy_frame;
-  gboolean last_active;
   gboolean notify_inited;
   DropboxClient *dc;
   struct {
     gboolean user_quit;
     gboolean dropbox_starting;
   } ca;
-  GTimeVal last_open;
 } NautilusDropboxTray;
 
 void

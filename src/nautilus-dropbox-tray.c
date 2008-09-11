@@ -46,10 +46,6 @@
 #include "async-http-downloader.h"
 
 #include "nautilus-dropbox-tray.h"
-#include "busy2.h"
-#include "busy.h"
-#include "idle.h"
-#include "logo.h"
 
 typedef struct {
   NautilusDropboxTray *ndt;
@@ -61,7 +57,7 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropboxTray *ndt);
 
 static void
 launch_folder(NautilusDropboxTray *ndt,
-	      const gchar *folder_path) {
+		              const gchar *folder_path) {
   gchar *command_line, *escaped_string;
   gchar *msg;
   
@@ -81,7 +77,8 @@ launch_folder(NautilusDropboxTray *ndt,
 static void
 menu_refresh(NautilusDropboxTray *ndt) {
   gboolean visible;
-  
+
+  /* first see if the menu is popped up and visible */
   g_object_get(G_OBJECT(ndt->context_menu), "visible", &visible, NULL);
 
   if (visible) {
@@ -107,63 +104,12 @@ send_simple_command_if_connected(DropboxClient *dc,
   }
 }
 
-/* t1 must be larger than t2 */
-static void timediff(GTimeVal *t1, GTimeVal *t2, GTimeVal *store){
-  glong udiff, sdiff;
-
-  sdiff = t1->tv_sec - t2->tv_sec;
-  udiff = t1->tv_usec - t2->tv_usec;
-
-  if (udiff < 0) {
-    udiff += 1000000;
-    sdiff -= 1;
-  }
-
-  store->tv_sec = sdiff;
-  store->tv_usec = udiff;
-}
-
-static void
-activate_open_my_dropbox(GtkStatusIcon *status_icon,
-			 NautilusDropboxTray *ndt) {
-  GTimeVal diff;
-  GTimeVal curtime;
-
-  g_get_current_time(&curtime);
-  timediff(&curtime, &(ndt->last_open), &diff);
-
-  /* if this activate is less than a half second from the last one, don't activat
-     but allow the next click to work
-   */
-  if (diff.tv_sec == 0 && diff.tv_usec < 500000) {
-    ndt->last_open.tv_sec = 0;
-    ndt->last_open.tv_usec = 0;
-  }
-  else {
-    g_get_current_time(&(ndt->last_open));
-    send_simple_command_if_connected(ndt->dc, "tray_action_open_dropbox");
-  }
-}
-
-static void
-activate_stop_dropbox(GtkMenuItem *mi,
-		      NautilusDropboxTray *ndt) {
-  ndt->ca.user_quit = TRUE;
-  send_simple_command_if_connected(ndt->dc, "tray_action_hard_exit");
-}
-
 static void
 activate_start_dropbox(GtkMenuItem *mi,
 		       NautilusDropboxTray *ndt) {
   if (!nautilus_dropbox_common_start_dropbox()) {
     nautilus_dropbox_tray_start_dropbox_transfer(ndt);
   }
-}
-
-static void
-activate_menu_item(GtkStatusIcon *status_icon,
-		   MenuItemData *mid) {
-  send_simple_command_if_connected(mid->ndt->dc, mid->command);
 }
 
 static void
@@ -182,107 +128,10 @@ install_start_dropbox_menu(NautilusDropboxTray *ndt) {
   menu_refresh(ndt);
 }
 
-
 void menu_item_data_destroy(MenuItemData *mid,
 			    GClosure *closure) {
   g_free(mid->command);
   g_free(mid);
-}
-
-static void
-build_context_menu_from_list(NautilusDropboxTray *ndt, 
-			     GtkMenu *menu, gchar **options, gint len, int depth) {
-  int i;
-
-  /* there should be more asserts */
-  g_assert(menu != NULL);
-  g_assert(options != NULL);
-
-  /* too... much... recursion... */
-  if (depth > 2) {
-    return;
-  }
-
-  len = len * 2;
-  for (i = 0; ((len == -2 && options[i] != NULL) || 
-	       (len != -2 && i < len)); i += 2) {
-    GtkWidget *item;
-
-    if (strcmp(options[i], "") == 0) {
-      item = gtk_separator_menu_item_new();
-      gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
-    }
-    else {
-      int num_submenu_entries;
-      gchar *command;
-      item = gtk_menu_item_new_with_label(options[i]);
-      gtk_menu_shell_append(GTK_MENU_SHELL(menu), item);
-
-      command = options[i+1];
-
-      if (strcmp(command, "") == 0) {
-	g_object_set(item, "sensitive", FALSE, NULL);
-      }
-      else if ((num_submenu_entries = atoi(command)) != 0) {
-	GtkMenu *submenu = GTK_MENU(gtk_menu_new());
-
-	build_context_menu_from_list(ndt, submenu, &(options[i+2]),
-				     num_submenu_entries, depth+1);
-	gtk_menu_item_set_submenu(GTK_MENU_ITEM(item),
-				  GTK_WIDGET(submenu));
-
-	i += num_submenu_entries * 2;
-      }
-      else {
-	MenuItemData *mid = g_new0(MenuItemData, 1);
-	mid->ndt = ndt;
-	mid->command = g_strdup(command);
-	g_signal_connect_data(G_OBJECT(item), "activate",
-			      G_CALLBACK(activate_menu_item), 
-			      mid, (GClosureNotify) menu_item_data_destroy, 0);
-      }
-    }
-  }
-}
-
-static void
-get_menu_options_response_cb(GHashTable *response, NautilusDropboxTray *ndt) {
-  /* great got the menu options, now build the menu and show the tray icon*/
-
-  /*debug_enter(); */
-
-  gchar **options;
-
-  /* could happen if the call failed */
-  if (response == NULL) {
-    return;
-  }
-
-  if ((options = g_hash_table_lookup(response, "options")) != NULL &&
-      g_strv_length(options) % 2 == 0) {
-    gtk_container_remove_all(GTK_CONTAINER(ndt->context_menu));
-    build_context_menu_from_list(ndt, ndt->context_menu, options,
-				 -1, 0);
-    /* now add the quit dropbox item */
-    {
-      GtkWidget *item;
-      item = gtk_menu_item_new_with_label("Stop Dropbox");
-      gtk_menu_shell_append(GTK_MENU_SHELL(ndt->context_menu), item);
-      g_signal_connect(G_OBJECT(item), "activate",
-		       G_CALLBACK(activate_stop_dropbox), ndt);
-    }
-    menu_refresh(ndt);
-    gtk_status_icon_set_visible(ndt->status_icon, TRUE); 
-  }
-}
-
-static void
-create_menu(NautilusDropboxTray *ndt, gboolean active) {
-  dropbox_command_client_send_command(&(ndt->dc->dcc),
-				      (NautilusDropboxCommandResponseHandler)
-				      get_menu_options_response_cb, ndt,
-				      "tray_action_get_menu_options",
-				      "is_active", active ? "true" : "false", NULL);
 }
 
 void notify_closed_cb(NotifyNotification *nn, gpointer ud) {
@@ -370,32 +219,31 @@ nautilus_dropbox_tray_bubble(NautilusDropboxTray *ndt,
 
 void bubble_clicked_cb(gpointer *ud) {
   debug_enter();
-
-  if (g_file_test((const gchar *) ud[1], G_FILE_TEST_EXISTS) == FALSE) {
+  
+  if (!g_file_test((const gchar *) ud[1], G_FILE_TEST_EXISTS)) {
     return;
   }
-  
-  if (g_file_test((const gchar *) ud[1], G_FILE_TEST_IS_DIR) == FALSE) {
+   
+  if (g_file_test((const gchar *) ud[1], G_FILE_TEST_IS_DIR)) {
+    launch_folder((NautilusDropboxTray *) ud[0],
+		  (const gchar *) ud[1]);
+  }
+  else {
     gchar *base;
     base = g_path_get_dirname(ud[1]);
     launch_folder((NautilusDropboxTray *) ud[0],
 		  (const gchar *) base);
     g_free(base);
   }
-  else {
-    launch_folder((NautilusDropboxTray *) ud[0],
-		  (const gchar *) ud[1]);
-  }
-
+  
 }
 
 void bubble_clicked_callback_cb(gpointer *ud) {
   debug_enter();
-
+  
   dropbox_command_client_send_simple_command(&(((NautilusDropboxTray *) ud[0])->dc->dcc),
 					     ud[1]);
 }
-
 void bubble_clicked_free(gpointer *ud) {
   g_free(ud[1]);
   g_free(ud);
@@ -404,13 +252,13 @@ void bubble_clicked_free(gpointer *ud) {
 static void
 handle_bubble(GHashTable *args, NautilusDropboxTray *ndt) {
   gchar **message, **caption;
-  
+    
   message = g_hash_table_lookup(args, "message");
   caption = g_hash_table_lookup(args, "caption");
-
+  
   if (message != NULL && caption != NULL) {
     gchar **location, **callback;
-
+    
     location = g_hash_table_lookup(args, "location");
     callback = g_hash_table_lookup(args, "callback");
     if (location != NULL) {
@@ -422,7 +270,7 @@ handle_bubble(GHashTable *args, NautilusDropboxTray *ndt) {
 				   (DropboxTrayBubbleActionCB) bubble_clicked_cb,
 				   "Show Changed Files",
 				   ud,
-				   (GFreeFunc) bubble_clicked_free, NULL);      
+				   (GFreeFunc) bubble_clicked_free, NULL);     
     }
     else if (callback != NULL) {
       gpointer *ud;
@@ -432,51 +280,11 @@ handle_bubble(GHashTable *args, NautilusDropboxTray *ndt) {
       nautilus_dropbox_tray_bubble(ndt, caption[0], message[0],
 				   (DropboxTrayBubbleActionCB) bubble_clicked_callback_cb,
 				   NULL, ud,
-				   (GFreeFunc) bubble_clicked_free, NULL);      
+				   (GFreeFunc) bubble_clicked_free, NULL);     
     }
     else {
       nautilus_dropbox_tray_bubble(ndt, caption[0], message[0],
-				   NULL,NULL,NULL,NULL,NULL);      
-    }
-  }
-}
-
-static void
-get_dropbox_globals_cb(gchar **arr, NautilusDropboxTray *ndt) {
-  gchar *tooltip;
-
-  if (arr == NULL && g_strv_length(arr) != 2) {
-    /* TODO: we may need to do soemthing here,
-       probably restart dropbox */
-    return;
-  }
-
-  tooltip = (strcmp(arr[1], "") == 0)
-    ? g_strdup_printf("Dropbox %s", arr[0])
-    : g_strdup_printf("Dropbox %s - %s", arr[0], arr[1]);
-
-  gtk_status_icon_set_tooltip(ndt->status_icon, tooltip);
-
-  g_free(tooltip);
-}
-
-static void
-handle_change_to_menu(GHashTable *args, NautilusDropboxTray *ndt) {
-  gchar **value;
-
-  if ((value = g_hash_table_lookup(args, "active")) != NULL) {
-    gboolean active;
-
-    active = strcmp("true", value[0]) == 0;
-
-    create_menu(ndt, active);
-
-    if (active != ndt->last_active) {
-      nautilus_dropbox_common_get_globals(&(ndt->dc->dcc), "version\temail",
-					  (NautilusDropboxGlobalCB)
-					  get_dropbox_globals_cb, 
-					  ndt);
-      ndt->last_active = active;
+				   NULL,NULL,NULL,NULL,NULL);     
     }
   }
 }
@@ -492,47 +300,6 @@ handle_highlight_file(GHashTable *args, NautilusDropboxTray *ndt) {
     launch_folder(ndt, dir);
     g_free(dir);
   }
-}
-
-static void
-set_icon(NautilusDropboxTray *ndt) {
-  GdkPixbuf *toset = NULL;
-
-  switch (ndt->icon_state) {
-  case NOT_CONNECTED:
-    toset = ndt->logo;
-    break;
-  case SYNCING:
-    toset = ndt->busy_frame ? ndt->busy : ndt->busy2;
-    break;
-  case UPTODATE:
-    toset = ndt->idle;
-    break;
-  default:
-    g_assert_not_reached();
-    /* but fail transparently on production */
-    toset = ndt->logo;
-    break;
-  }
-
-  gtk_status_icon_set_from_pixbuf(ndt->status_icon, toset);
-}
-
-static void
-handle_change_state(GHashTable *args, NautilusDropboxTray *ndt) {
-  /* great got the menu options, now build the menu and show the tray icon*/
-  gchar **value;
-
-  if ((value = g_hash_table_lookup(args, "new_state")) != NULL) {
-    /*    debug("dropbox asking us to change our state to %s", value[0]);*/
-    ndt->icon_state = atoi(value[0]);
-    set_icon(ndt);
-  }
-}
-
-static void
-handle_refresh_tray_menu(GHashTable *args, NautilusDropboxTray *ndt) {
-  create_menu(ndt, ndt->last_active);
 }
 
 static void
@@ -574,44 +341,6 @@ is_out_of_date_cb(GHashTable *response, NautilusDropboxTray *ndt) {
 				 "the nautilus-dropbox package for your system.", NULL,
 				 NULL, NULL, NULL, NULL);
   }
-}
-
-static void
-get_active_setting_cb(gchar **arr, NautilusDropboxTray *ndt) {
-  if (arr == NULL || g_strv_length(arr) != 4) {
-    /* we should do something in this case */
-    return;
-  }
-
-  /* convert active argument */
-  ndt->last_active = strcmp(arr[0], "True") == 0;
-
-  /* set icon state, 0 means IDLE, 1 means BUSY, 2 means CONNECTING*/
-  ndt->icon_state = atoi(arr[3]);
-  set_icon(ndt);
-
-  /* set tooltip */
-  {
-    gchar *tooltip;
-
-    tooltip = (strcmp(arr[2], "") == 0)
-      ? g_strdup_printf("Dropbox %s", arr[1])
-      : g_strdup_printf("Dropbox %s - %s", arr[1], arr[2]);
-    
-    gtk_status_icon_set_tooltip(ndt->status_icon, tooltip);
-
-    g_free(tooltip);
-  }
-
-  /* now just set the menu and activate the toolbar */
-  create_menu(ndt, ndt->last_active);
-
-  /* find out if we are out of date */
-  dropbox_command_client_send_command(&(ndt->dc->dcc),
-				      (NautilusDropboxCommandResponseHandler)
-				      is_out_of_date_cb,
-				      ndt, "is_out_of_date",
-				      "version", PACKAGE_VERSION, NULL);
 }
 
 typedef struct {
@@ -760,14 +489,14 @@ handle_incoming_http_data(GIOChannel *chan,
 
 static void
 kill_hihd_ud(HttpDownloadCtx *ctx) {
+  gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
+
   if (ctx->user_cancelled == TRUE) {
     install_start_dropbox_menu(ctx->ndt);
   }
   else if (ctx->download_finished == FALSE) {
     fail_dropbox_download(ctx->ndt, NULL);
   }
-
-  gtk_status_icon_set_tooltip(ctx->ndt->status_icon, "Dropbox");
 
   g_io_channel_unref(ctx->tmpfilechan);
   g_free(ctx->tmpfilename);
@@ -976,8 +705,6 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropboxTray *ndt) {
     dropbox_platform = nautilus_dropbox_common_get_platform();
     webpath = g_strdup_printf("/download?plat=%s", dropbox_platform);
     
-    printf("downloading dropbox from http://www.getdropbox.com%s\n", webpath);
-
     if (make_async_http_get_request("www.getdropbox.com", webpath,
 				    NULL, (HttpResponseHandler) handle_dropbox_download_response,
 				    (gpointer) ctx) == FALSE) {
@@ -987,19 +714,6 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropboxTray *ndt) {
     g_free(dropbox_platform);
     g_free(webpath);
   }
-}
-
-/* TODO: needs cleanup, notion of icon_state separate from animation frame */
-static gboolean
-animate_icon(NautilusDropboxTray *ndt) {
-  if (ndt->icon_state == SYNCING) {
-    ndt->busy_frame = !ndt->busy_frame;
-    set_icon(ndt);
-  }
-
-  g_timeout_add(500, (GSourceFunc)animate_icon, ndt);
-
-  return FALSE;
 }
 
 static void
@@ -1012,9 +726,16 @@ on_connect(NautilusDropboxTray *ndt) {
   dropbox_command_client_send_command(&(ndt->dc->dcc), NULL, NULL,
 				      "on_x_server", "display", g_getenv("DISPLAY"), NULL);
 
-  /* first get active, with version and email setting */
-  nautilus_dropbox_common_get_globals(&(ndt->dc->dcc), "active\tversion\temail\ticon_state",
-				      (NautilusDropboxGlobalCB) get_active_setting_cb, ndt);
+  /* find out if we are out of date */
+  dropbox_command_client_send_command(&(ndt->dc->dcc),
+				      (NautilusDropboxCommandResponseHandler)
+				      is_out_of_date_cb,
+				      ndt, "is_out_of_date",
+				      "version", PACKAGE_VERSION, NULL);
+
+  gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
+  /* make our icon invisible */
+  gtk_status_icon_set_visible(ndt->status_icon, FALSE); 
 }
 
 static void
@@ -1039,17 +760,24 @@ on_disconnect(NautilusDropboxTray *ndt) {
     gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
   }
   else {
-    gtk_container_remove_all(GTK_CONTAINER(ndt->context_menu));
     GtkWidget *item;
+
     item = gtk_menu_item_new_with_label("Reconnecting to Dropbox...");
-    gtk_menu_shell_append(GTK_MENU_SHELL(ndt->context_menu), item);
     g_object_set(item, "sensitive", FALSE, NULL);    
+
+    gtk_container_remove_all(GTK_CONTAINER(ndt->context_menu));
+    gtk_menu_shell_append(GTK_MENU_SHELL(ndt->context_menu), item);
+
     menu_refresh(ndt);
+
     gtk_status_icon_set_tooltip(ndt->status_icon, "Reconnecting to Dropbox...");
   }
   
   ndt->icon_state = NOT_CONNECTED;
   set_icon(ndt);
+
+  /* make our icon visible */
+  gtk_status_icon_set_visible(ndt->status_icon, TRUE); 
 }
 
 void
@@ -1058,7 +786,6 @@ nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
   ndt->ca.dropbox_starting = FALSE;
 
   ndt->dc = dc;
-  ndt->last_open.tv_sec = ndt->last_open.tv_usec = 0;
  
   /* register connect handler */
   dropbox_client_add_on_connect_hook(dc,
@@ -1074,26 +801,16 @@ nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
   /* register hooks from the daemon */
   nautilus_dropbox_hooks_add(&(dc->hookserv), "bubble",
 			     (DropboxUpdateHook) handle_bubble, ndt);
-  nautilus_dropbox_hooks_add(&(dc->hookserv), "change_to_menu",
-			     (DropboxUpdateHook) handle_change_to_menu, ndt);
-  nautilus_dropbox_hooks_add(&(dc->hookserv), "change_state",
-			     (DropboxUpdateHook) handle_change_state, ndt);
-  nautilus_dropbox_hooks_add(&(dc->hookserv), "refresh_tray_menu",
-			     (DropboxUpdateHook) handle_refresh_tray_menu, ndt);
   nautilus_dropbox_hooks_add(&(dc->hookserv), "launch_folder",
 			     (DropboxUpdateHook) handle_launch_folder, ndt);
   nautilus_dropbox_hooks_add(&(dc->hookserv), "highlight_file",
 			     (DropboxUpdateHook) handle_highlight_file, ndt);
+  
 
-  ndt->icon_state = NOT_CONNECTED;
-  ndt->busy_frame = 0;
-  ndt->idle = gdk_pixbuf_new_from_inline(-1, idle, FALSE, NULL);
-  ndt->busy = gdk_pixbuf_new_from_inline(-1, busy, FALSE, NULL);
-  ndt->busy2 = gdk_pixbuf_new_from_inline(-1, busy2, FALSE, NULL);
-  ndt->logo = gdk_pixbuf_new_from_inline(-1, logo, FALSE, NULL);
+  ndt->status_icon = gtk_status_icon_new_from_icon_name("dropbox"); 
 
-  ndt->last_active = 0;
-  ndt->status_icon = gtk_status_icon_new_from_pixbuf(ndt->logo);
+  /* set up tray menu */
+  gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
   {
     GtkWidget *item;
     ndt->context_menu = GTK_MENU(gtk_menu_new());
@@ -1108,11 +825,6 @@ nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
   g_signal_connect (G_OBJECT (ndt->status_icon), "popup-menu",
 		    G_CALLBACK (popup), ndt);
   
-  g_signal_connect (G_OBJECT (ndt->status_icon), "activate",
-		    G_CALLBACK (activate_open_my_dropbox), ndt);
-
   /* TODO: do a popup notification if this failed */
-  ndt->notify_inited = notify_init("Dropbox");
-
-  animate_icon(ndt);
+  ndt->notify_inited = notify_init("nautilus-dropbox");
 }
