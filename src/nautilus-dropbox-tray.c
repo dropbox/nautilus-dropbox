@@ -97,14 +97,6 @@ gtk_container_remove_all(GtkContainer *c) {
 }
 
 static void
-send_simple_command_if_connected(DropboxClient *dc,
-				 const gchar *command) {
-  if (dropbox_client_is_connected(dc)) {
-    dropbox_command_client_send_simple_command(&(dc->dcc), command);
-  }
-}
-
-static void
 activate_start_dropbox(GtkMenuItem *mi,
 		       NautilusDropboxTray *ndt) {
   if (!nautilus_dropbox_common_start_dropbox()) {
@@ -114,6 +106,8 @@ activate_start_dropbox(GtkMenuItem *mi,
 
 static void
 install_start_dropbox_menu(NautilusDropboxTray *ndt) {
+  gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
+
   /* install start dropbox menu */
   gtk_container_remove_all(GTK_CONTAINER(ndt->context_menu));
   
@@ -489,8 +483,6 @@ handle_incoming_http_data(GIOChannel *chan,
 
 static void
 kill_hihd_ud(HttpDownloadCtx *ctx) {
-  gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
-
   if (ctx->user_cancelled == TRUE) {
     install_start_dropbox_menu(ctx->ndt);
   }
@@ -772,9 +764,6 @@ on_disconnect(NautilusDropboxTray *ndt) {
 
     gtk_status_icon_set_tooltip(ndt->status_icon, "Reconnecting to Dropbox...");
   }
-  
-  ndt->icon_state = NOT_CONNECTED;
-  set_icon(ndt);
 
   /* make our icon visible */
   gtk_status_icon_set_visible(ndt->status_icon, TRUE); 
@@ -807,7 +796,19 @@ nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
 			     (DropboxUpdateHook) handle_highlight_file, ndt);
   
 
-  ndt->status_icon = gtk_status_icon_new_from_icon_name("dropbox"); 
+  {
+    GdkPixbuf *dbicon, *old;
+
+    old = gtk_icon_theme_load_icon(gtk_icon_theme_get_default(), "dropbox", 16, 
+				   0, NULL);
+
+    dbicon = gdk_pixbuf_copy(old);
+    g_object_unref(old);
+    
+    ndt->status_icon = gtk_status_icon_new_from_pixbuf(dbicon); 
+    gtk_status_icon_set_visible(ndt->status_icon, TRUE); 
+  }
+
 
   /* set up tray menu */
   gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
