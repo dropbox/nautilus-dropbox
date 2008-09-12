@@ -722,7 +722,7 @@ on_connect(NautilusDropboxTray *ndt) {
   dropbox_command_client_send_command(&(ndt->dc->dcc),
 				      (NautilusDropboxCommandResponseHandler)
 				      is_out_of_date_cb,
-				      ndt, "is_out_of_date",
+				      ndt, "nautilus-dropbox-version",
 				      "version", PACKAGE_VERSION, NULL);
 
   gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
