@@ -322,21 +322,6 @@ popup(GtkStatusIcon *status_icon,
 		 activate_time);
 }
 
-static void
-is_out_of_date_cb(GHashTable *response, NautilusDropboxTray *ndt) {
-  gchar **outofdate;
-
-  if (response == NULL || 
-      ((outofdate = g_hash_table_lookup(response, "outofdate")) != NULL &&
-       strcmp(outofdate[0], "true") == 0)) {
-    nautilus_dropbox_tray_bubble(ndt, "Out of Date",
-				 "Your version of the Dropbox extension for Nautilus appears "
-				 "to be out of date. It is highly recommended that you upgrade "
-				 "the nautilus-dropbox package for your system.", NULL,
-				 NULL, NULL, NULL, NULL);
-  }
-}
-
 typedef struct {
   NautilusDropboxTray *ndt;
   GtkLabel *percent_done_label;
@@ -719,9 +704,7 @@ on_connect(NautilusDropboxTray *ndt) {
 				      "on_x_server", "display", g_getenv("DISPLAY"), NULL);
 
   /* find out if we are out of date */
-  dropbox_command_client_send_command(&(ndt->dc->dcc),
-				      (NautilusDropboxCommandResponseHandler)
-				      is_out_of_date_cb,
+  dropbox_command_client_send_command(&(ndt->dc->dcc), NULL, 
 				      ndt, "nautilus-dropbox-version",
 				      "version", PACKAGE_VERSION, NULL);
 
