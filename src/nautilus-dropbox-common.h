@@ -51,8 +51,7 @@ nautilus_dropbox_common_launch_command_with_error(NautilusDropboxTray *ndt,
 						  const gchar *msg);
 
 void
-nautilus_dropbox_common_launch_folder(NautilusDropboxTray *ndt,
-				      const gchar *folder_path);
+nautilus_dropbox_common_launch_url(NautilusDropboxTray *ndt, const gchar *url);
 
 G_END_DECLS
 

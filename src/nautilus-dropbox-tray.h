@@ -38,20 +38,22 @@ typedef void (*DropboxTrayBubbleActionCB)(gpointer);
 
 typedef enum {UPTODATE, SYNCING, NOT_CONNECTED} DropboxIconState;
 
-typedef struct {
-  GtkStatusIcon *status_icon;
+typedef struct {  GtkStatusIcon *status_icon;
   GtkMenu *context_menu;
   NotifyNotification *bubble;
   gboolean notify_inited;
   DropboxClient *dc;
   struct {
-    gboolean user_quit;
-    gboolean dropbox_starting;
+    gint rs;
+    guint timer;
   } ca;
 } NautilusDropboxTray;
 
 void
 nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc);
+
+void
+nautilus_dropbox_tray_start(NautilusDropboxTray *ndt);
 
 gboolean
 nautilus_dropbox_tray_bubble(NautilusDropboxTray *ndt,

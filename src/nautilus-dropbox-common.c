@@ -138,7 +138,7 @@ nautilus_dropbox_common_start_dropbox() {
       
       g_free(delete_dropbox_cmdline);
 
-      goto OUTFALSE;
+      goto OUTTRUE;
     }
   }
   /* else we have to download it */
@@ -203,4 +203,23 @@ nautilus_dropbox_common_launch_command_with_error(NautilusDropboxTray * ndt,
     g_child_watch_add(childpid,
 		      (GChildWatchFunc) handle_launch_command_dying, ud);
   }
+}
+
+void
+nautilus_dropbox_common_launch_url(NautilusDropboxTray *ndt, const char *url) {
+  gchar *command_line, *escaped_string, *msg;
+
+  escaped_string = g_strescape(url, NULL);
+  command_line = g_strdup_printf("gnome-open \"%s\"", url);
+  msg = g_strdup_printf("Couldn't start your browser using gnome-open. "
+			"Please check "
+			"and see if you have the 'gnome-open' program "
+			"installed.");
+  
+  nautilus_dropbox_common_launch_command_with_error(ndt, command_line,
+						    "Couldn't start your browser",
+						    msg);
+  g_free(msg);
+  g_free(command_line);
+  g_free(escaped_string);
 }

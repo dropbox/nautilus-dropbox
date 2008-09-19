@@ -318,22 +318,7 @@ handle_launch_url(GHashTable *args, NautilusDropbox *cvs) {
   gchar **url;
   
   if ((url = g_hash_table_lookup(args, "url")) != NULL) {
-    gchar *command_line, *escaped_string;
-
-    gchar *msg;
-    escaped_string = g_strescape(url[0], NULL);
-    command_line = g_strdup_printf("gnome-open \"%s\"", url[0]);
-    msg = g_strdup_printf("Couldn't start your browser using gnome-open. "
-			  "Please check "
-			  "and see if you have the 'gnome-open' program "
-			  "installed.");
-    
-    nautilus_dropbox_common_launch_command_with_error(&(cvs->ndt), command_line,
-						      "Couldn't start your browser",
-						      msg);
-    g_free(msg);
-    g_free(command_line);
-    g_free(escaped_string);
+    nautilus_dropbox_common_launch_url(&(cvs->ndt), url[0]);
   }
 }
 
@@ -752,6 +737,7 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
   
   /* now start the connection */
   dropbox_client_start(&(cvs->dc));
+  nautilus_dropbox_tray_start(&(cvs->ndt));
 
   return;
 }

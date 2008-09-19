@@ -52,27 +52,17 @@ typedef struct {
   gchar *command;
 } MenuItemData;
 
+typedef enum {RS_CONNECTED, RS_CONNECTED_STABLE, RS_DISCONNECTED, RS_RECONNECT} ReconnectionStates;
+typedef enum {RS_EV_USER_QUIT, RS_EV_DISCONNECT, RS_EV_CONNECT, RS_EV_CONNECTION_ATTEMPT,
+	      RS_EV_TIMER_EXPIRE, RS_EV_START_DROPBOX} ReconnectionMachineInput;
+
 static void
 nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropboxTray *ndt);
 
-static void
-launch_folder(NautilusDropboxTray *ndt,
-		              const gchar *folder_path) {
-  gchar *command_line, *escaped_string;
-  gchar *msg;
-  
-  escaped_string = g_strescape(folder_path, NULL);
-  command_line = g_strdup_printf("nautilus \"%s\"", escaped_string);
-  msg = g_strdup_printf("Couldn't start '%s'. Is nautilus in your PATH?",
-			command_line);
-  
-  nautilus_dropbox_common_launch_command_with_error(ndt, command_line,
-						    "Couldn't open folder", msg);
-  
-  g_free(msg);
-  g_free(escaped_string);
-  g_free(command_line);
-}
+static void 
+reconnection_state_machine(NautilusDropboxTray *ndt,
+			   ReconnectionMachineInput rmi,
+			   gint input_param);
 
 static void
 menu_refresh(NautilusDropboxTray *ndt) {
@@ -102,6 +92,9 @@ activate_start_dropbox(GtkMenuItem *mi,
   if (!nautilus_dropbox_common_start_dropbox()) {
     nautilus_dropbox_tray_start_dropbox_transfer(ndt);
   }
+  else {
+    reconnection_state_machine(ndt, RS_EV_START_DROPBOX, 0);
+  }
 }
 
 static void
@@ -120,6 +113,166 @@ install_start_dropbox_menu(NautilusDropboxTray *ndt) {
   }
   
   menu_refresh(ndt);
+}
+
+static void
+launch_forums(NautilusDropboxTray *ndt) {
+  nautilus_dropbox_common_launch_url(ndt, "http://forums.getdropbox.com/");
+}
+
+static gboolean
+connection_timeout_checker(NautilusDropboxTray *ndt) {
+  reconnection_state_machine(ndt, RS_EV_TIMER_EXPIRE, 0);
+  return FALSE;
+}
+
+static void 
+reconnection_state_machine(NautilusDropboxTray *ndt,
+			   ReconnectionMachineInput rmi,
+			   gint input_param) {
+
+  switch (ndt->ca.rs) {
+  case RS_CONNECTED:
+    switch (rmi) {
+    case RS_EV_USER_QUIT:
+      install_start_dropbox_menu(ndt);
+      gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
+      ndt->ca.rs = RS_DISCONNECTED;
+      g_source_remove(ndt->ca.timer);
+      break;
+    case RS_EV_DISCONNECT:
+      ndt->ca.rs = RS_RECONNECT;
+      {
+	GtkWidget *item;
+	
+	item = gtk_menu_item_new_with_label("Reconnecting to Dropbox...");
+	g_object_set(item, "sensitive", FALSE, NULL);    
+	
+	gtk_container_remove_all(GTK_CONTAINER(ndt->context_menu));
+	gtk_menu_shell_append(GTK_MENU_SHELL(ndt->context_menu), item);
+	
+	menu_refresh(ndt);
+	
+	gtk_status_icon_set_tooltip(ndt->status_icon, "Reconnecting to Dropbox...");
+      }
+      break;
+    case RS_EV_TIMER_EXPIRE:
+      ndt->ca.rs = RS_CONNECTED_STABLE;
+    default:
+      g_assert_not_reached();
+    }
+    break;
+
+  case RS_CONNECTED_STABLE:
+    switch (rmi) {
+    case RS_EV_USER_QUIT:
+      install_start_dropbox_menu(ndt);
+      gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
+      ndt->ca.rs = RS_DISCONNECTED;
+      break;
+    case RS_EV_DISCONNECT:
+      ndt->ca.rs = RS_RECONNECT;
+      {
+	GtkWidget *item;
+	
+	item = gtk_menu_item_new_with_label("Reconnecting to Dropbox...");
+	g_object_set(item, "sensitive", FALSE, NULL);    
+	
+	gtk_container_remove_all(GTK_CONTAINER(ndt->context_menu));
+	gtk_menu_shell_append(GTK_MENU_SHELL(ndt->context_menu), item);
+	
+	menu_refresh(ndt);
+	
+	gtk_status_icon_set_tooltip(ndt->status_icon, "Reconnecting to Dropbox...");
+      }
+      ndt->ca.timer = g_timeout_add_seconds(10, (GSourceFunc) connection_timeout_checker, ndt);
+      break;
+    default:
+      g_assert_not_reached();
+      break;
+    }
+    
+  case RS_DISCONNECTED:
+    switch (rmi) {
+    case RS_EV_USER_QUIT:
+      /* ignore */
+      break;
+    case RS_EV_CONNECT:
+      ndt->ca.rs = RS_CONNECTED_STABLE;
+      break;
+    case RS_EV_START_DROPBOX:
+      ndt->ca.rs = RS_RECONNECT;
+      ndt->ca.timer = g_timeout_add_seconds(10, (GSourceFunc) connection_timeout_checker, ndt);
+      break;
+    case RS_EV_CONNECTION_ATTEMPT:
+      /* ignore */
+      break;
+    default:
+      g_assert_not_reached();
+      break;
+    }
+    break;
+
+  case RS_RECONNECT:
+    switch (rmi) {
+    case RS_EV_USER_QUIT:
+      install_start_dropbox_menu(ndt);
+      gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
+      ndt->ca.rs = RS_DISCONNECTED;
+      g_source_remove(ndt->ca.timer);
+      break;
+    case RS_EV_CONNECT:
+      ndt->ca.rs = RS_CONNECTED;
+      break;
+    case RS_EV_CONNECTION_ATTEMPT:
+#ifdef ND_DEBUG
+      if (input_param > 3) {
+	if (!nautilus_dropbox_common_start_dropbox()) {
+	  nautilus_dropbox_tray_start_dropbox_transfer(ndt);
+	  ndt->ca.rs = RS_DISCONNECTED;
+	}
+      }
+#endif
+      break;
+    case RS_EV_TIMER_EXPIRE:
+      ndt->ca.rs = RS_DISCONNECTED;
+      ndt->ca.timer = 0;
+      install_start_dropbox_menu(ndt);
+      nautilus_dropbox_tray_bubble(ndt, "Couldn't Start Dropbox",
+				   "Nautilus was unable to start Dropbox, This "
+				   "can due to multiple causes. Click here to find help.",
+				   (DropboxTrayBubbleActionCB) launch_forums,
+				   NULL, ndt, NULL, NULL);
+      break;
+    default:
+      g_assert_not_reached();
+      break;
+    }
+    break;
+    
+  default:
+    g_assert_not_reached();
+    break;
+  }
+}
+
+static void
+launch_folder(NautilusDropboxTray *ndt,
+		              const gchar *folder_path) {
+  gchar *command_line, *escaped_string;
+  gchar *msg;
+  
+  escaped_string = g_strescape(folder_path, NULL);
+  command_line = g_strdup_printf("nautilus \"%s\"", escaped_string);
+  msg = g_strdup_printf("Couldn't start '%s'. Is nautilus in your PATH?",
+			command_line);
+  
+  nautilus_dropbox_common_launch_command_with_error(ndt, command_line,
+						    "Couldn't open folder", msg);
+  
+  g_free(msg);
+  g_free(escaped_string);
+  g_free(command_line);
 }
 
 void menu_item_data_destroy(MenuItemData *mid,
@@ -305,6 +458,12 @@ handle_launch_folder(GHashTable *args, NautilusDropboxTray *ndt) {
   }
 }
 
+static void
+handle_dropbox_quit(GHashTable *args, NautilusDropboxTray *ndt) {
+  reconnection_state_machine(ndt, RS_EV_USER_QUIT, 0);
+}
+
+
 static void 
 popup(GtkStatusIcon *status_icon,
       guint button,
@@ -347,16 +506,20 @@ fail_dropbox_download(NautilusDropboxTray *ndt, const gchar *msg) {
 
 static void
 handle_tar_dying(GPid pid, gint status, gpointer *ud) {
+  NautilusDropboxTray *ndt;
+  
+  ndt = (NautilusDropboxTray *) ud[1];
+  
   if (status == 0) {
     g_unlink(ud[0]);
     nautilus_dropbox_common_start_dropbox();
+    reconnection_state_machine(ndt, RS_EV_START_DROPBOX, 0);
   }
   else {
     gchar *msg;
     msg = g_strdup_printf("The Dropbox archive located at \"%s\" failed to unpack.",
 			  (gchar *) ud[0]);
-    nautilus_dropbox_tray_bubble(&(((NautilusDropbox *) ud[1])->ndt),
-				 "Couldn't download Dropbox.",
+    nautilus_dropbox_tray_bubble(ndt, "Couldn't download Dropbox.",
 				 msg, NULL, NULL, NULL, NULL, NULL);
     g_free(msg);
   }
@@ -695,10 +858,6 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropboxTray *ndt) {
 
 static void
 on_connect(NautilusDropboxTray *ndt) {
-  /* reset these vars */
-  ndt->ca.user_quit = FALSE;
-  ndt->ca.dropbox_starting = FALSE;
-
   /* tell dropbox what X server we're on */
   dropbox_command_client_send_command(&(ndt->dc->dcc), NULL, NULL,
 				      "on_x_server", "display", g_getenv("DISPLAY"), NULL);
@@ -711,51 +870,24 @@ on_connect(NautilusDropboxTray *ndt) {
   gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
   /* make our icon invisible */
   gtk_status_icon_set_visible(ndt->status_icon, FALSE); 
+  
+  reconnection_state_machine(ndt, RS_EV_CONNECT, 0);
 }
 
 static void
 connection_attempt(guint i, NautilusDropboxTray *ndt) {
-  if (ndt->ca.user_quit == FALSE &&
-      i > 3 &&
-      ndt->ca.dropbox_starting == FALSE) {
-    ndt->ca.dropbox_starting = TRUE;
-#ifndef ND_DEBUG    
-    debug("couldn't connect to dropbox, auto-starting");
-    if (!nautilus_dropbox_common_start_dropbox()) {
-      nautilus_dropbox_tray_start_dropbox_transfer(ndt);
-    }
-#endif
-  }
+  reconnection_state_machine(ndt, RS_EV_CONNECTION_ATTEMPT, i);
 }
 
 static void
 on_disconnect(NautilusDropboxTray *ndt) {
-  if (ndt->ca.user_quit == TRUE) {
-    install_start_dropbox_menu(ndt);
-    gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
-  }
-  else {
-    GtkWidget *item;
-
-    item = gtk_menu_item_new_with_label("Reconnecting to Dropbox...");
-    g_object_set(item, "sensitive", FALSE, NULL);    
-
-    gtk_container_remove_all(GTK_CONTAINER(ndt->context_menu));
-    gtk_menu_shell_append(GTK_MENU_SHELL(ndt->context_menu), item);
-
-    menu_refresh(ndt);
-
-    gtk_status_icon_set_tooltip(ndt->status_icon, "Reconnecting to Dropbox...");
-  }
-
-  /* make our icon visible */
+  reconnection_state_machine(ndt, RS_EV_DISCONNECT, 0);
   gtk_status_icon_set_visible(ndt->status_icon, TRUE); 
 }
 
 void
 nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
-  ndt->ca.user_quit = FALSE;
-  ndt->ca.dropbox_starting = FALSE;
+  ndt->ca.rs = RS_DISCONNECTED;
 
   ndt->dc = dc;
  
@@ -777,8 +909,10 @@ nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
 			     (DropboxUpdateHook) handle_launch_folder, ndt);
   nautilus_dropbox_hooks_add(&(dc->hookserv), "highlight_file",
 			     (DropboxUpdateHook) handle_highlight_file, ndt);
-  
+  nautilus_dropbox_hooks_add(&(dc->hookserv), "dropbox_quit",
+			     (DropboxUpdateHook) handle_dropbox_quit, ndt);
 
+  /* setup tray icon */
   {
     GdkPixbuf *dbicon, *old;
 
@@ -789,26 +923,29 @@ nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
     g_object_unref(old);
     
     ndt->status_icon = gtk_status_icon_new_from_pixbuf(dbicon); 
+    ndt->context_menu = GTK_MENU(gtk_menu_new());
+    install_start_dropbox_menu(ndt);
+
     gtk_status_icon_set_visible(ndt->status_icon, TRUE); 
   }
-
-
-  /* set up tray menu */
-  gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
-  {
-    GtkWidget *item;
-    ndt->context_menu = GTK_MENU(gtk_menu_new());
-    item = gtk_menu_item_new_with_label("Connecting to Dropbox...");
-    gtk_menu_shell_append(GTK_MENU_SHELL(ndt->context_menu), item);
-    g_object_set(item, "sensitive", FALSE, NULL);    
-  }
-
-  gtk_status_icon_set_visible(ndt->status_icon, TRUE); 
 
   /* Connect signals */
   g_signal_connect (G_OBJECT (ndt->status_icon), "popup-menu",
 		    G_CALLBACK (popup), ndt);
   
-  /* TODO: do a popup notification if this failed */
+  /* TODO: do a alert box if this failed */
   ndt->notify_inited = notify_init("nautilus-dropbox");
+}
+
+static gboolean
+ask_to_start(NautilusDropboxTray *ndt) {
+  nautilus_dropbox_tray_bubble(ndt, "Start Dropbox",
+			       "Select this tray icon to start Dropbox!",
+			       NULL, NULL, NULL, NULL, NULL);
+  return FALSE;
+}
+
+void
+nautilus_dropbox_tray_start(NautilusDropboxTray *ndt) {
+  g_timeout_add_seconds(2, ask_to_start, ndt);
 }
