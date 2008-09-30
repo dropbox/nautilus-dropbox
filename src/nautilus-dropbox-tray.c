@@ -179,6 +179,7 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
 						ndt);
 	}
 	else {
+	  ndt->ca.rs = RS_DISCONNECTED;
 	  install_start_dropbox_menu(ndt);
 	  nautilus_dropbox_tray_bubble(ndt, "Start Dropbox",
 				       "Click here to start Dropbox!",
@@ -611,6 +612,7 @@ handle_incoming_http_data(GIOChannel *chan,
 		      ctx->bytes_downloaded * 100 / ctx->filesize);
     
     gtk_label_set_text(GTK_LABEL(ctx->percent_done_label), percent_done);
+    gtk_status_icon_set_tooltip(ctx->ndt->status_icon, percent_done);
     g_free(percent_done);
   }
   else {
@@ -942,7 +944,7 @@ nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
 					(DropboxClientConnectHook) on_disconnect, 
 					ndt);
   dropbox_client_add_connection_attempt_hook(dc,
-					     (DropboxClientConnectionAttemptHook)
+ (DropboxClientConnectionAttemptHook)
 					     connection_attempt, ndt);
 
   /* register hooks from the daemon */
@@ -968,7 +970,6 @@ nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
     ndt->status_icon = gtk_status_icon_new_from_pixbuf(dbicon); 
     ndt->context_menu = GTK_MENU(gtk_menu_new());
     {
-      
       GtkWidget *item;
       
       item = gtk_menu_item_new_with_label("Connecting to Dropbox...");
