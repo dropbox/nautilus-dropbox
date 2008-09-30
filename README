@@ -13,7 +13,7 @@ Rian Hunter and the rest of the Dropbox Team
 Building Dropbox Nautilus Extension From Source Tarball
 --------------------------------------------------
 
-You will need the following packages (or equivalant):
+You will need the following packages (or equivalent):
 
 libnautilus-extension-dev
 libnotify-dev
