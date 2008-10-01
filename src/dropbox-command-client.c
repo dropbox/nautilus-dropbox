@@ -327,9 +327,19 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
     *context_options_response = NULL, *args, *folder_tag_response = NULL;
   gchar *filename;
 
-  /* TODO: might be thread-unsafe */
-  filename = g_filename_from_uri(nautilus_file_info_get_uri(dfic->file),
-				 NULL, NULL);
+  {
+    gchar *filename_un;
+    /* TODO: might be thread-unsafe */
+    filename_un = g_filename_from_uri(nautilus_file_info_get_uri(dfic->file),
+				      NULL, NULL);
+    filename = g_filename_to_utf8(filename_un, -1, NULL, NULL, NULL);
+    g_free(filename_un);
+  }
+  
+  if (filename == NULL) {
+    /* oooh, filename wasn't correctly encoded. mark as  */
+    return;
+  }
 
   args = g_hash_table_new_full((GHashFunc) g_str_hash,
 			       (GEqualFunc) g_str_equal,
