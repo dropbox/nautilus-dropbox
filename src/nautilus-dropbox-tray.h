@@ -46,6 +46,7 @@ typedef struct {  GtkStatusIcon *status_icon;
   struct {
     gint rs;
     guint timer;
+    gboolean was_connected;
   } ca;
 } NautilusDropboxTray;
 

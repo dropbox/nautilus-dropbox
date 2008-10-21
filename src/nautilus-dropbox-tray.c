@@ -138,10 +138,73 @@ button_start_dropbox(NautilusDropboxTray *ndt) {
   }
 }
 
+static const gchar *reconnection_state_string(ReconnectionStates rs) {
+  gchar *toret;
+
+  switch (rs) {
+  case RS_CONNECTED:
+    toret = "RS_CONNECTED";
+    break;
+  case RS_CONNECTED_STABLE:
+    toret = "RS_CONNECTED_STABLE";
+    break;
+  case RS_DISCONNECTED:
+    toret = "RS_DISCONNECTED";
+    break;
+  case RS_RECONNECT:
+    toret = "RS_RECONNECT";
+    break;
+  case RS_INITIAL_CONNECT:
+    toret = "RS_INITIAL_CONNECT";
+    break;
+  default:
+    toret = "INVALID";
+    break;
+  }
+
+  return toret;
+}
+
+static const gchar *reconnection_event_string(ReconnectionMachineInput rmi) {
+  const gchar *toret;
+
+  switch (rmi) {
+  case RS_EV_USER_QUIT:
+    toret ="RS_EV_USER_QUIT";
+    break;
+  case RS_EV_DISCONNECT:
+    toret = "RS_EV_DISCONNECT";
+    break;
+  case RS_EV_CONNECT:
+    toret = "RS_EV_CONNECT";
+    break;
+  case RS_EV_CONNECTION_ATTEMPT:
+    toret = "RS_EV_CONNECTION_ATTEMPT";
+    break;
+  case RS_EV_TIMER_EXPIRE:
+    toret = "RS_EV_TIMER_EXPIRE";
+    break;
+  case RS_EV_START_DROPBOX:
+    toret = "RS_EV_START_DROPBOX";
+    break;
+  default:
+    toret = "INVALID";
+    break;
+  }
+
+  return toret;
+}
+
 static void 
 reconnection_state_machine(NautilusDropboxTray *ndt,
 			   ReconnectionMachineInput rmi,
 			   gint input_param) {
+  const guint reconnect_quiescence_period = 4;
+
+  debug("%s with %s",
+	reconnection_state_string(ndt->ca.rs),
+	reconnection_event_string(rmi));
+
   switch (ndt->ca.rs) {
   case RS_CONNECTED:
     switch (rmi) {
@@ -149,6 +212,7 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
       install_start_dropbox_menu(ndt);
       gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
       ndt->ca.rs = RS_DISCONNECTED;
+      ndt->ca.was_connected = FALSE;      
       gtk_status_icon_set_visible(ndt->status_icon, TRUE); 
       g_source_remove(ndt->ca.timer);
       break;
@@ -158,6 +222,8 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
       break;
     case RS_EV_TIMER_EXPIRE:
       ndt->ca.rs = RS_CONNECTED_STABLE;
+      ndt->ca.was_connected = TRUE;
+      break;
     default:
       g_assert_not_reached();
     }
@@ -166,7 +232,9 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
   case RS_INITIAL_CONNECT:
     switch (rmi) {
     case RS_EV_CONNECT:
-      ndt->ca.rs = RS_CONNECTED_STABLE;
+      ndt->ca.rs = RS_CONNECTED;
+      ndt->ca.timer = g_timeout_add_seconds(reconnect_quiescence_period,
+					    (GSourceFunc) connection_timeout_checker, ndt);
       /* make our icon invisible */
       gtk_status_icon_set_visible(ndt->status_icon, FALSE); 
       break;
@@ -174,7 +242,7 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
       if (input_param >= 3) {
 	if (nautilus_dropbox_common_start_dropbox()) {
 	  ndt->ca.rs = RS_RECONNECT;
-	  ndt->ca.timer = g_timeout_add_seconds(10,
+	  ndt->ca.timer = g_timeout_add_seconds(reconnect_quiescence_period,
 						(GSourceFunc) connection_timeout_checker,
 						ndt);
 	}
@@ -200,6 +268,7 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
       install_start_dropbox_menu(ndt);
       gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
       ndt->ca.rs = RS_DISCONNECTED;
+      ndt->ca.was_connected = FALSE;      
       gtk_status_icon_set_visible(ndt->status_icon, TRUE); 
       break;
     case RS_EV_DISCONNECT:
@@ -218,12 +287,14 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
 	gtk_status_icon_set_tooltip(ndt->status_icon, "Reconnecting to Dropbox...");
       }
       gtk_status_icon_set_visible(ndt->status_icon, TRUE); 
-      ndt->ca.timer = g_timeout_add_seconds(10, (GSourceFunc) connection_timeout_checker, ndt);
+      ndt->ca.timer = g_timeout_add_seconds(reconnect_quiescence_period,
+					    (GSourceFunc) connection_timeout_checker, ndt);
       break;
     default:
       g_assert_not_reached();
       break;
     }
+    break;
     
   case RS_DISCONNECTED:
     switch (rmi) {
@@ -231,7 +302,9 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
       /* ignore */
       break;
     case RS_EV_CONNECT:
-      ndt->ca.rs = RS_CONNECTED_STABLE;
+      ndt->ca.rs = RS_CONNECTED;
+      ndt->ca.timer = g_timeout_add_seconds(reconnect_quiescence_period,
+					    (GSourceFunc) connection_timeout_checker, ndt);
       /* make our icon invisible */
       gtk_status_icon_set_visible(ndt->status_icon, FALSE); 
       break;
@@ -251,7 +324,8 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
 	gtk_status_icon_set_tooltip(ndt->status_icon,
 				    "Connecting to Dropbox...");
       }
-      ndt->ca.timer = g_timeout_add_seconds(10, (GSourceFunc) connection_timeout_checker, ndt);
+      ndt->ca.timer = g_timeout_add_seconds(reconnect_quiescence_period,
+					    (GSourceFunc) connection_timeout_checker, ndt);
       break;
     case RS_EV_CONNECTION_ATTEMPT:
       /* ignore */
@@ -268,6 +342,7 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
       install_start_dropbox_menu(ndt);
       gtk_status_icon_set_tooltip(ndt->status_icon, "Dropbox");
       ndt->ca.rs = RS_DISCONNECTED;
+      ndt->ca.was_connected = FALSE;
       g_source_remove(ndt->ca.timer);
       break;
     case RS_EV_CONNECT:
@@ -275,25 +350,28 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
       gtk_status_icon_set_visible(ndt->status_icon, FALSE); 
       break;
     case RS_EV_CONNECTION_ATTEMPT:
-      if (input_param > 3) {
-	ndt->ca.rs = RS_DISCONNECTED;
-	install_start_dropbox_menu(ndt);
+      /* ignore */
+      break;
+    case RS_EV_TIMER_EXPIRE:
+      ndt->ca.rs = RS_DISCONNECTED;
+      install_start_dropbox_menu(ndt);
+
+      if (ndt->ca.was_connected)  {
 	nautilus_dropbox_tray_bubble(ndt, "Dropbox has stopped",
 				     "Dropbox has unexpectedly stopped. "
 				     "Click here to restart Dropbox.",
 				     (DropboxTrayBubbleActionCB) button_start_dropbox,
 				     NULL, ndt, NULL, NULL);
       }
-      /* ignore */
-      break;
-    case RS_EV_TIMER_EXPIRE:
-      ndt->ca.rs = RS_DISCONNECTED;
-      install_start_dropbox_menu(ndt);
-      nautilus_dropbox_tray_bubble(ndt, "Couldn't Start Dropbox",
-				   "Nautilus was unable to start Dropbox. "
-				   "Click here to find help.",
-				   (DropboxTrayBubbleActionCB) launch_forums,
-				   NULL, ndt, NULL, NULL);
+      else {
+	nautilus_dropbox_tray_bubble(ndt, "Couldn't Start Dropbox",
+				     "Nautilus was unable to start Dropbox. "
+				     "Click here to find help.",
+				     (DropboxTrayBubbleActionCB) launch_forums,
+				     NULL, ndt, NULL, NULL);
+      }
+      ndt->ca.was_connected = FALSE;
+
       break;
     default:
       g_assert_not_reached();
@@ -305,6 +383,9 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
     g_assert_not_reached();
     break;
   }
+
+  debug("trans'ed to %s",
+	reconnection_state_string(ndt->ca.rs));
 }
 
 void menu_item_data_destroy(MenuItemData *mid,
@@ -829,6 +910,7 @@ on_disconnect(NautilusDropboxTray *ndt) {
 void
 nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
   ndt->ca.rs = RS_INITIAL_CONNECT;
+  ndt->ca.was_connected = FALSE;
 
   ndt->dc = dc;
  
