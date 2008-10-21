@@ -275,14 +275,11 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
       gtk_status_icon_set_visible(ndt->status_icon, FALSE); 
       break;
     case RS_EV_CONNECTION_ATTEMPT:
-#ifndef ND_DEBUG
       if (input_param > 3) {
-	if (!nautilus_dropbox_common_start_dropbox()) {
-	  nautilus_dropbox_tray_start_dropbox_transfer(ndt);
-	  ndt->ca.rs = RS_DISCONNECTED;
-	}
+	/* TODO: popup that dropbox has stopped */
+	ndt->ca.rs = RS_DISCONNECTED;
       }
-#endif
+      /* ignore */
       break;
     case RS_EV_TIMER_EXPIRE:
       ndt->ca.rs = RS_DISCONNECTED;
@@ -303,25 +300,6 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
     g_assert_not_reached();
     break;
   }
-}
-
-static void
-launch_folder(NautilusDropboxTray *ndt,
-		              const gchar *folder_path) {
-  gchar *command_line, *escaped_string;
-  gchar *msg;
-  
-  escaped_string = g_strescape(folder_path, NULL);
-  command_line = g_strdup_printf("nautilus \"%s\"", escaped_string);
-  msg = g_strdup_printf("Couldn't start '%s'. Is nautilus in your PATH?",
-			command_line);
-  
-  nautilus_dropbox_common_launch_command_with_error(ndt, command_line,
-						    "Couldn't open folder", msg);
-  
-  g_free(msg);
-  g_free(escaped_string);
-  g_free(command_line);
 }
 
 void menu_item_data_destroy(MenuItemData *mid,
@@ -411,100 +389,6 @@ nautilus_dropbox_tray_bubble(NautilusDropboxTray *ndt,
   }
 
   return toret;
-}
-
-void bubble_clicked_cb(gpointer *ud) {
-  debug_enter();
-  
-  if (!g_file_test((const gchar *) ud[1], G_FILE_TEST_EXISTS)) {
-    return;
-  }
-   
-  if (g_file_test((const gchar *) ud[1], G_FILE_TEST_IS_DIR)) {
-    launch_folder((NautilusDropboxTray *) ud[0],
-		  (const gchar *) ud[1]);
-  }
-  else {
-    gchar *base;
-    base = g_path_get_dirname(ud[1]);
-    launch_folder((NautilusDropboxTray *) ud[0],
-		  (const gchar *) base);
-    g_free(base);
-  }
-  
-}
-
-void bubble_clicked_callback_cb(gpointer *ud) {
-  debug_enter();
-  
-  dropbox_command_client_send_simple_command(&(((NautilusDropboxTray *) ud[0])->dc->dcc),
-					     ud[1]);
-}
-void bubble_clicked_free(gpointer *ud) {
-  g_free(ud[1]);
-  g_free(ud);
-}
-
-static void
-handle_bubble(GHashTable *args, NautilusDropboxTray *ndt) {
-  gchar **message, **caption;
-    
-  message = g_hash_table_lookup(args, "message");
-  caption = g_hash_table_lookup(args, "caption");
-  
-  if (message != NULL && caption != NULL) {
-    gchar **location, **callback;
-    
-    location = g_hash_table_lookup(args, "location");
-    callback = g_hash_table_lookup(args, "callback");
-    if (location != NULL) {
-      gpointer *ud;
-      ud = g_new(gpointer, 2);
-      ud[0] = ndt;
-      ud[1] = g_strdup(location[0]);
-      nautilus_dropbox_tray_bubble(ndt, caption[0], message[0],
-				   (DropboxTrayBubbleActionCB) bubble_clicked_cb,
-				   "Show Changed Files",
-				   ud,
-				   (GFreeFunc) bubble_clicked_free, NULL);     
-    }
-    else if (callback != NULL) {
-      gpointer *ud;
-      ud = g_new(gpointer, 2);
-      ud[0] = ndt;
-      ud[1] = g_strdup(callback[0]);
-      nautilus_dropbox_tray_bubble(ndt, caption[0], message[0],
-				   (DropboxTrayBubbleActionCB) bubble_clicked_callback_cb,
-				   NULL, ud,
-				   (GFreeFunc) bubble_clicked_free, NULL);     
-    }
-    else {
-      nautilus_dropbox_tray_bubble(ndt, caption[0], message[0],
-				   NULL,NULL,NULL,NULL,NULL);     
-    }
-  }
-}
-
-static void
-handle_highlight_file(GHashTable *args, NautilusDropboxTray *ndt) {
-  gchar **path;
-
-  if ((path = g_hash_table_lookup(args, "path")) != NULL) {
-    /* need to get dirname */
-    gchar *dir;
-    dir = g_path_get_dirname(path[0]);
-    launch_folder(ndt, dir);
-    g_free(dir);
-  }
-}
-
-static void
-handle_launch_folder(GHashTable *args, NautilusDropboxTray *ndt) {
-  gchar **path;
-
-  if ((path = g_hash_table_lookup(args, "path")) != NULL) {
-    launch_folder(ndt, path[0]);
-  }
 }
 
 static void
@@ -717,38 +601,44 @@ handle_dropbox_download_response(gint response_code,
     {
       /* find the location header */
       GList *li;
+      gboolean end_iteration = FALSE;
 
-      for (li = headers; li != NULL; li = g_list_next(li)) {
-
+      for (li = headers; li != NULL && end_iteration == FALSE; li = g_list_next(li)) {
 	if (g_ascii_strncasecmp((gchar *) li->data, "location:", 9) == 0) {
-	  gchar *location;
+	  gchar *location, *url_scheme, *url_hostname, *url_path;
+	  gint url_port;
 
+	  location = g_strstrip(g_strdup((gchar *) li->data + sizeof("Location:") - 1));
 
-	  location = g_strstrip(g_strdup((gchar *) li->data + sizeof("Location:")-1));
+	  if (g_util_parse_url(location, &url_scheme, &url_hostname, &url_port,
+			       &url_path)) {
+	    gboolean is_http, is_https;
 
-	  if (g_str_has_prefix(location, "http://")) {
-	    gchar *host, *webpath;
-
-	    host = location + sizeof("http://") - 1;
-	    webpath = strchr(host, '/');
-	    
-	    host = g_strndup(host, webpath - host);
-	    webpath = g_strdup(webpath);
-
-	    printf("downloading dropbox from http://%s%s\n", host, webpath);
-
-	    if (make_async_http_get_request(host, webpath,
-					    NULL, (HttpResponseHandler)
-					    handle_dropbox_download_response,
-					    (gpointer) ctx)) {
-	      /* made a successful request, stop this iteration */
-	      break;
+	    is_http = g_ascii_strcasecmp(url_scheme, "http") == 0;
+	    is_https = is_http ? FALSE : g_ascii_strcasecmp(url_scheme, "https") == 0;
+	    if (is_http || is_https) {
+	      if (make_async_http_get_request(url_hostname, url_port,
+					      url_path, is_https,
+					      NULL, (HttpResponseHandler)
+					      handle_dropbox_download_response,
+					      (gpointer) ctx)) {
+		/* made a successful request, stop this iteration */
+		end_iteration = TRUE;
+	      }
 	    }
+	   
+	    /* must free url_* */
+	    g_free(url_scheme);
+	    g_free(url_hostname);
+	    g_free(url_path);
 	  }
+
+	  /* must free location */
+	  g_free(location);
 	}
       }
 
-      if (li == NULL) {
+      if (end_iteration == FALSE) {
 	fail_dropbox_download(ctx->ndt, NULL);
 	g_free(ctx);
       }
@@ -895,7 +785,8 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropboxTray *ndt) {
     dropbox_platform = nautilus_dropbox_common_get_platform();
     webpath = g_strdup_printf("/download?plat=%s", dropbox_platform);
     
-    if (make_async_http_get_request("www.getdropbox.com", webpath,
+    if (make_async_http_get_request("www.getdropbox.com", -1,
+				    webpath, FALSE,
 				    NULL, (HttpResponseHandler) handle_dropbox_download_response,
 				    (gpointer) ctx) == FALSE) {
       fail_dropbox_download(ndt, NULL);
@@ -944,16 +835,10 @@ nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
 					(DropboxClientConnectHook) on_disconnect, 
 					ndt);
   dropbox_client_add_connection_attempt_hook(dc,
- (DropboxClientConnectionAttemptHook)
+					     (DropboxClientConnectionAttemptHook)
 					     connection_attempt, ndt);
 
   /* register hooks from the daemon */
-  nautilus_dropbox_hooks_add(&(dc->hookserv), "bubble",
-			     (DropboxUpdateHook) handle_bubble, ndt);
-  nautilus_dropbox_hooks_add(&(dc->hookserv), "launch_folder",
-			     (DropboxUpdateHook) handle_launch_folder, ndt);
-  nautilus_dropbox_hooks_add(&(dc->hookserv), "highlight_file",
-			     (DropboxUpdateHook) handle_highlight_file, ndt);
   nautilus_dropbox_hooks_add(&(dc->hookserv), "dropbox_quit",
 			     (DropboxUpdateHook) handle_dropbox_quit, ndt);
 

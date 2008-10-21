@@ -137,17 +137,25 @@ handle_wget_stderr(GIOChannel *stderr_chan,
 }
 
 gboolean
-make_async_http_get_request(const char *host, const char *path,
+make_async_http_get_request(const gchar *host, gint port,
+			    const gchar *path, gboolean is_ssl,
                             GList *request_headers,
                             HttpResponseHandler cb, gpointer ud) {
   gint stdout, stderr;
   gchar **argv;
+  gchar *scheme;
 
   g_assert(host != NULL);
   g_assert(path != NULL);
 
-  debug("making request for http://%s%s...", host, path);
-
+  if (port == -1) {
+    port = is_ssl ? 443 : 80;
+  }
+  scheme = is_ssl ? "https" : "http";
+  
+  debug("making request for %s://%s:%d%s...", 
+	scheme, host, port, path);
+  
   /* first build argv */
   {
     int i = 0;
@@ -168,7 +176,8 @@ make_async_http_get_request(const char *host, const char *path,
       }
     }
 
-    argv[i++] = g_strdup_printf("http://%s%s", host, path);
+    argv[i++] = g_strdup_printf("%s://%s:%d%s",
+				scheme, host, port, path);
     argv[i++] = NULL;
 
     g_assert(i == argv_length);

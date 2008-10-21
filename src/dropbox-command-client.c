@@ -559,11 +559,7 @@ dropbox_command_client_thread(DropboxCommandClient *dcc) {
   addr.sun_family = AF_UNIX;
   g_snprintf(addr.sun_path,
 	     sizeof(addr.sun_path),
-#ifdef ND_DEBUG
-	     "%s/.dropboxlocal/command_socket",
-#else
 	     "%s/.dropbox/command_socket",
-#endif
 	     g_get_home_dir());
   addr_len = sizeof(addr) - sizeof(addr.sun_path) + strlen(addr.sun_path);
 

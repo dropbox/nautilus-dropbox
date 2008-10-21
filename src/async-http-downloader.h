@@ -34,7 +34,8 @@ typedef void (*HttpResponseHandler)(gint response_code,
                                     gpointer ud);
 
 gboolean
-make_async_http_get_request(const char *host, const char *path,
+make_async_http_get_request(const char *host, gint port,
+			    const char *path, gboolean is_ssl,
                             GList *request_headers,
                             HttpResponseHandler cb, gpointer ud);
 

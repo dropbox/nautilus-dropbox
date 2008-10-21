@@ -47,6 +47,12 @@ G_BEGIN_DECLS
 void
 g_util_destroy_string(gpointer data);
 
+gboolean g_util_parse_url(const gchar *url,
+			  gchar **scheme,
+			  gchar **hostname,
+			  gint *port,
+			  gchar **path);
+
 G_END_DECLS
 
 #endif
