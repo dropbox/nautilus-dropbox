@@ -181,7 +181,7 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
 	else {
 	  ndt->ca.rs = RS_DISCONNECTED;
 	  install_start_dropbox_menu(ndt);
-	  nautilus_dropbox_tray_bubble(ndt, "Start Dropbox",
+	  nautilus_dropbox_tray_bubble(ndt, "Welcome to Dropbox",
 				       "Click here to start Dropbox!",
 				       (DropboxTrayBubbleActionCB) button_start_dropbox,
 				       NULL, ndt, NULL, NULL);
@@ -276,8 +276,13 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
       break;
     case RS_EV_CONNECTION_ATTEMPT:
       if (input_param > 3) {
-	/* TODO: popup that dropbox has stopped */
 	ndt->ca.rs = RS_DISCONNECTED;
+	install_start_dropbox_menu(ndt);
+	nautilus_dropbox_tray_bubble(ndt, "Dropbox has stopped",
+				     "Dropbox has unexpectedly stopped. "
+				     "Click here to restart Dropbox.",
+				     (DropboxTrayBubbleActionCB) button_start_dropbox,
+				     NULL, ndt, NULL, NULL);
       }
       /* ignore */
       break;
