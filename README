@@ -23,3 +23,6 @@ $ ./configure
 $ make
 $ sudo make install
 
+After installing the package you must restart Nautilus. You can do that by issuing the following command (note: if you're running compiz, doing so may lock up your computer - log out and log back in instead):
+
+$ killall nautilus
