@@ -884,6 +884,48 @@ nautilus_dropbox_tray_start_dropbox_transfer(NautilusDropboxTray *ndt) {
 }
 
 static void
+launch_folder(NautilusDropboxTray *ndt,
+	      const gchar *folder_path) {
+  gchar *command_line, *escaped_string;
+  gchar *msg;
+  
+  escaped_string = g_strescape(folder_path, NULL);
+  command_line = g_strdup_printf("nautilus \"%s\"", escaped_string);
+  msg = g_strdup_printf("Couldn't start '%s'. Is nautilus in your PATH?",
+			command_line);
+  
+  nautilus_dropbox_common_launch_command_with_error(ndt, command_line,
+						    "Couldn't open folder",
+						    msg);
+  
+  g_free(msg);
+  g_free(escaped_string);
+  g_free(command_line);
+}
+
+static void
+handle_highlight_file(GHashTable *args, NautilusDropboxTray *ndt) {
+  gchar **path;
+  
+  if ((path = g_hash_table_lookup(args, "path")) != NULL) {
+    /* need to get dirname */
+    gchar *dir;
+    dir = g_path_get_dirname(path[0]);
+    launch_folder(ndt, dir);
+    g_free(dir);
+  }
+}
+
+static void
+handle_launch_folder(GHashTable *args, NautilusDropboxTray *ndt) {
+  gchar **path;
+  
+  if ((path = g_hash_table_lookup(args, "path")) != NULL) {
+    launch_folder(ndt, path[0]);
+  }
+}
+
+static void
 on_connect(NautilusDropboxTray *ndt) {
   /* tell dropbox what X server we're on */
   dropbox_command_client_send_command(&(ndt->dc->dcc), NULL, NULL,
@@ -926,6 +968,10 @@ nautilus_dropbox_tray_setup(NautilusDropboxTray *ndt, DropboxClient *dc) {
 					     connection_attempt, ndt);
 
   /* register hooks from the daemon */
+  nautilus_dropbox_hooks_add(&(dc->hookserv), "launch_folder",
+			     (DropboxUpdateHook) handle_launch_folder, ndt);
+  nautilus_dropbox_hooks_add(&(dc->hookserv), "highlight_file",
+			     (DropboxUpdateHook) handle_highlight_file, ndt);
   nautilus_dropbox_hooks_add(&(dc->hookserv), "dropbox_quit",
 			     (DropboxUpdateHook) handle_dropbox_quit, ndt);
 
