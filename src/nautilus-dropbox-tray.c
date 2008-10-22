@@ -298,7 +298,7 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
     
   case RS_DISCONNECTED:
     switch (rmi) {
-    case RS_EV_USER_QUIT: CASE RS_EV_DISCONNECT:
+    case RS_EV_USER_QUIT: case RS_EV_DISCONNECT:
       /* ignore */
       break;
     case RS_EV_CONNECT:
