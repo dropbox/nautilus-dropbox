@@ -54,6 +54,9 @@ gboolean
 dropbox_client_is_connected(DropboxClient *dc);
 
 void
+dropbox_client_force_reconnect(DropboxClient *dc);
+
+void
 dropbox_client_add_on_connect_hook(DropboxClient *dc,
 				   DropboxClientConnectHook dhcch,
 				   gpointer ud);

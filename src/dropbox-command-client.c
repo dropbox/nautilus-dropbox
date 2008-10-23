@@ -618,9 +618,7 @@ dropbox_command_client_thread(DropboxCommandClient *dcc) {
 	}
       }
 
-      /* why this insures lexical module safety should be obvious,
-	 (this function is static)
-       */
+      /* this pointer should be unique */
       if ((gpointer (*)(DropboxCommandClient *data)) dc == &dropbox_command_client_thread) {
 	debug("got a reset request");
 	goto BADCONNECTION;

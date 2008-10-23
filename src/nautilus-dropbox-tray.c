@@ -480,6 +480,7 @@ nautilus_dropbox_tray_bubble(NautilusDropboxTray *ndt,
 static void
 handle_dropbox_quit(GHashTable *args, NautilusDropboxTray *ndt) {
   reconnection_state_machine(ndt, RS_EV_USER_QUIT, 0);
+  dropbox_client_force_reconnect(ndt->dc);
 }
 
 

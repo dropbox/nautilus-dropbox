@@ -88,6 +88,15 @@ dropbox_client_is_connected(DropboxClient *dc) {
 	  nautilus_dropbox_hooks_is_connected(&(dc->hookserv)));
 }
 
+void
+dropbox_client_force_reconnect(DropboxClient *dc) {
+  if (dropbox_client_is_connected(dc) == TRUE) {
+    debug("forcing client to reconnect");
+    dropbox_command_client_force_reconnect(&(dc->dcc));
+    nautilus_dropbox_hooks_force_reconnect(&(dc->hookserv));
+  }
+}
+
 /* should only be called once on initialization */
 void
 dropbox_client_setup(DropboxClient *dc) {
