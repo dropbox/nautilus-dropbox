@@ -366,11 +366,13 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
 	*/
       }
       else {
+	/*
 	nautilus_dropbox_tray_bubble(ndt, "Couldn't Start Dropbox",
 				     "Nautilus was unable to start Dropbox. "
 				     "Click here to find help.",
 				     (DropboxTrayBubbleActionCB) launch_forums,
 				     NULL, ndt, NULL, NULL);
+	*/
       }
       ndt->ca.was_connected = FALSE;
 
