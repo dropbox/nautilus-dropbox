@@ -199,7 +199,7 @@ static void
 reconnection_state_machine(NautilusDropboxTray *ndt,
 			   ReconnectionMachineInput rmi,
 			   gint input_param) {
-  const guint reconnect_quiescence_period = 4;
+  const guint reconnect_quiescence_period = 1;
 
   debug("%s with %s",
 	reconnection_state_string(ndt->ca.rs),
@@ -357,11 +357,13 @@ reconnection_state_machine(NautilusDropboxTray *ndt,
       install_start_dropbox_menu(ndt);
 
       if (ndt->ca.was_connected)  {
+	/*
 	nautilus_dropbox_tray_bubble(ndt, "Dropbox has stopped",
 				     "Dropbox has unexpectedly stopped. "
 				     "Click here to restart Dropbox.",
 				     (DropboxTrayBubbleActionCB) button_start_dropbox,
 				     NULL, ndt, NULL, NULL);
+	*/
       }
       else {
 	nautilus_dropbox_tray_bubble(ndt, "Couldn't Start Dropbox",
