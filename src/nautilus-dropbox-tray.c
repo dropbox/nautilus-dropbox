@@ -199,7 +199,7 @@ static void
 reconnection_state_machine(NautilusDropboxTray *ndt,
 			   ReconnectionMachineInput rmi,
 			   gint input_param) {
-  const guint reconnect_quiescence_period = 1;
+  const guint reconnect_quiescence_period = 2;
 
   debug("%s with %s",
 	reconnection_state_string(ndt->ca.rs),
