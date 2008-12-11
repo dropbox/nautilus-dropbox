@@ -1,0 +1,493 @@
+#!/usr/bin/python
+
+# try "dropbox" or "dropbox help" for help
+#
+# Copyright 2008 Dropbox
+# Michael Haimes / Rian Hunter
+
+from __future__ import with_statement
+
+import sys
+import optparse
+import socket
+import os
+import time
+import locale
+import platform
+import tarfile
+import threading
+import urllib
+import subprocess
+import fcntl
+import errno
+from contextlib import closing
+
+enc = 'utf-8'
+
+class DropboxCommand(object):
+    def __init__(self):
+        self.s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.s.connect(os.path.expanduser(u'~/.dropbox/command_socket'))
+        self.f = self.s.makefile("r+", 4096)
+
+    def close(self):
+        self.f.close()
+        self.s.close()
+
+    # atttribute doesn't exist, i know what you want
+    def send_command(self, name, args):
+        self.f.write(name.encode('utf8'))
+        self.f.write(u"\n".encode('utf8'))
+        self.f.writelines((u"\t".join([k] + v) + u"\n").encode('utf8')
+                          for k,v in args.iteritems())
+        self.f.write(u"done\n".encode('utf8'))
+                
+        self.f.flush()
+
+        ok = self.f.readline().decode('utf8').rstrip(u"\n") == u"ok"
+        if ok:
+            toret = {}
+            for i in range(21):
+                if i == 20:
+                    raise Exception(u"close this connection!")
+
+                line = self.f.readline().decode('utf8').rstrip(u"\n")
+                if line == u"done":
+                    break
+                        
+                argval = line.split(u"\t")
+                toret[argval[0]] = argval[1:]
+
+            return toret
+        else:
+            problems = []
+            for i in range(21):
+                if i == 20:
+                    raise Exception(u"close this connection!")
+
+                line = self.f.readline().decode('utf8').rstrip(u"\n")
+                if line == u"done":
+                    break
+                        
+                problems.append(line)
+                    
+            raise Exception(u"\n".join(problems))
+
+    # this is the hotness, auto marshalling
+    def __getattr__(self, name):
+        try:
+            return super(DropboxCommand, self).__getattr__(name)
+        except:
+            def __spec_command(args):
+                return self.send_command(unicode(name), args)
+            self.__setattr__(name, __spec_command)
+            return __spec_command
+
+def command(meth):
+    assert meth.__doc__, "All commands need properly formatted docstrings (even %r!!)" % meth
+    meth.command = True
+    return meth
+
+def start_dropbox():
+    db_path = os.path.expanduser(u"~/.dropbox-dist/dropboxd").encode(sys.getfilesystemencoding())
+    if os.access(db_path, os.X_OK):
+        subprocess.Popen([db_path], preexec_fn=os.setsid, cwd=os.path.expanduser("~"))
+        sys.stdout.flush()
+        sys.stdout.write(u"Starting Dropbox...".encode(enc))                
+        for i in range(5):
+            try:
+                dc = DropboxCommand()
+                sys.stdout.write(u"Done!".encode(enc))
+                dc.close()
+                return
+            except:
+                sys.stdout.write(u".".encode(enc))
+                
+            # back off from connect for a while
+            time.sleep(0.1)
+
+        sys.stdout.write(u"Starting Dropbox Failed!\n".encode(enc))
+        return True
+    else:
+        return False
+
+@command
+def filestatus(args):
+    """filestatus
+"""
+    pass
+
+@command
+def ls(args):
+    """ls
+"""
+    pass
+
+@command
+def publicurl(args):
+    """publicurl
+"""
+    pass
+
+@command
+def status(args):
+    """status
+"""
+    pass
+
+@command
+def stop(args):
+    """stop
+"""
+    pass
+
+WARNING = "In order to use Dropbox, you must download the proprietary daemon."
+
+DOWNLOADING = "Downloading Dropbox... %d%%"
+UNPACKING = "Unpacking Dropbox... %d%%"
+
+PARENT_DIR = os.path.expanduser("~")
+DROPBOXD_PATH = "%s/.dropbox-dist/dropboxd" % PARENT_DIR
+
+def plat():
+    if sys.platform.lower().startswith('linux'):
+        arch = platform.machine()
+        if (arch[0] == 'i' and
+            arch[1].isdigit() and
+            arch[2:3] == '86'):
+            plat = "x86"
+        elif arch == 'x86_64':
+            plat = arch
+        else:
+            FatalVisibleError("Platform not supported")
+        return "lnx.%s" % plat
+    else:
+        FatalVisibleError("Platform not supported")
+
+class DownloadState(object):
+    def __init__(self):
+        try:
+            self.file = urllib.urlopen("http://www.getdropbox.com/download?plat=%s" % plat())
+        except IOError:
+            FatalVisibleError("Trouble connecting to Dropbox servers. Maybe your internet connection is down, or you need to set your http_proxy environment variable.")
+            
+        fcntl.fcntl(self.file, fcntl.F_SETFL, os.O_NONBLOCK)
+        
+        self.size = int(self.file.info()['content-length'])
+        self.progress = 0
+
+        self.local_path = "%s/dropbox.tar.gz" % PARENT_DIR
+        self.local_file = open(self.local_path, 'wb')
+
+    def copy_data(self):
+        chunks = []
+        def flush():
+            while chunks:
+                self.local_file.write(chunks.pop())
+        while True:
+            try:
+                chunk = os.read(self.file.fileno(), 4096)
+                self.progress += len(chunk)
+                chunks.insert(0, chunk)
+                yield True
+                if self.progress == self.size:
+                    break
+            except OSError, e:
+                if hasattr(e, 'errno') and e.errno == errno.EAGAIN:
+                    # nothing left to read
+                    flush()
+                    yield False
+                else:
+                    raise
+        flush()
+        self.file.close()
+
+    def unpack(self):
+        self.local_file.close()
+        archive = tarfile.open(self.local_path, 'r:gz')
+        total_members = len(archive.getmembers())
+        for i, member in enumerate(archive.getmembers()):
+            archive.extract(member, PARENT_DIR)
+            yield member.name, i, total_members
+        archive.close()
+        os.remove(self.local_path)
+
+    def cancel(self):
+        if not self.local_file.closed:
+            self.local_file.close()
+        if os.path.exists(self.local_path):
+            os.remove(self.local_path)
+
+
+if "DISPLAY" in os.environ:
+    def download():
+        import gtk
+        import gobject
+
+        global FatalVisibleError
+        def FatalVisibleError(s):
+            error = gtk.MessageDialog(parent = None,
+                                      flags = gtk.DIALOG_MODAL,
+                                      type = gtk.MESSAGE_ERROR,
+                                      buttons = gtk.BUTTONS_OK,
+                                      message_format = s)
+            error.set_title("Error")
+            error.run()
+            gtk.main_quit()
+            sys.exit(-1)
+
+        def gtk_flush_events():
+            while gtk.events_pending():
+                gtk.main_iteration()
+
+        class DownloadDialog(gtk.Dialog):
+
+            box_logo_pixbuf = gtk.gdk.pixbuf_new_from_file("../dropbox.png")
+
+            def handle_cancel(self, button):
+                if self.watch:
+                    gobject.source_remove(self.watch)
+                if self.download:
+                    self.download.cancel()
+                gtk.main_quit()
+
+            def handle_ok(self, button):
+                # begin download
+                self.ok.hide()
+                self.download = DownloadState()
+                self.one_chunk = self.download.copy_data()
+                self.watch = gobject.io_add_watch(self.download.file,
+                                                  gobject.IO_IN | 
+                                                  gobject.IO_PRI |
+                                                  gobject.IO_ERR |
+                                                  gobject.IO_HUP,
+                                                  self.handle_data_waiting)
+                self.label.hide()
+                self.progress.show()
+
+            def update_progress(self, text, fraction):
+                self.progress.set_text(text % int(fraction*100))
+                self.progress.set_fraction(fraction)
+                gtk_flush_events()
+
+            def handle_data_waiting(self, fd, condition):
+                if condition == gobject.IO_HUP:
+                    raise FatalVisibleError("Connection to server unexpectedly closed.")
+                elif condition == gobject.IO_ERR:
+                    raise FatalVisibleError("Unexpected error occurred with download.")
+                try:
+                    while self.one_chunk.next():
+                        self.update_progress(DOWNLOADING, float(self.download.progress)/self.download.size)
+                except StopIteration:
+                    self.update_progress(DOWNLOADING, 1.0)
+                    self.unpack_dropbox()
+                    return False
+                else:
+                    self.update_progress(DOWNLOADING, float(self.download.progress)/self.download.size)
+                    return True
+
+            def unpack_dropbox(self):
+                one_member = self.download.unpack()
+                try:
+                    while True:
+                        name, i, total = one_member.next()
+                        self.update_progress(UNPACKING, float(i)/total)
+                except StopIteration:
+                    self.update_progress(UNPACKING, 1.0)
+                    gtk.main_quit()
+
+            def __init__(self):
+                super(DownloadDialog, self).__init__(parent = None,
+                                                     title = "Dropbox")
+
+                self.download = None
+                self.watch = None
+
+                self.ok = ok = gtk.Button(stock=gtk.STOCK_OK)
+                ok.connect('clicked', self.handle_ok)
+                self.action_area.add(ok)
+                ok.show()
+
+                cancel = gtk.Button(stock=gtk.STOCK_CANCEL)
+                cancel.connect('clicked', self.handle_cancel)
+                self.action_area.add(cancel)
+                cancel.show()
+
+                self.box_logo = gtk.image_new_from_pixbuf(self.box_logo_pixbuf)
+                self.box_logo.show()
+
+                self.progress = gtk.ProgressBar()
+                self.progress.set_property('width-request', 300)
+
+                self.label = gtk.Label(WARNING)
+                self.label.set_line_wrap(True)
+                self.label.set_property('width-request', 300)
+                self.label.show()
+
+                self.hbox = gtk.HBox(spacing=10)
+                self.hbox.set_property('border-width',10)
+                self.hbox.pack_start(self.box_logo, False, False)
+                self.hbox.pack_start(self.label, False, False)
+                self.hbox.pack_start(self.progress, False, False)
+                self.hbox.show()
+
+                self.vbox.add(self.hbox)
+                self.set_resizable(False)
+
+        dialog = DownloadDialog()
+        dialog.show()
+        gtk.main()
+else:
+    def download():
+        global FatalVisibleError
+        def FatalVisibleError(s):
+            print >>sys.stderr, "Error: %s" % s
+            sys.exit(-1)
+
+        ESC = "\x1b"
+        save = ESC+"7"
+        unsave = ESC+"8"
+        clear = ESC+"[2J"
+
+        erase_to_start = ESC+"[1K"
+
+        write = sys.stdout.write
+        flush = sys.stdout.flush
+
+
+        last_progress = [None, None]
+        def setprogress(text, frac):
+            if last_progress == [text, frac]:
+                return
+            write(erase_to_start)
+            write(unsave)
+            write(text % int(100*frac))
+            flush()
+            last_progress[0], last_progress[1] = text, frac
+
+        write(clear)
+        write(save)
+
+        while True:
+            write(WARNING)
+            write(" [y/n] ")
+            flush()
+            text = raw_input()
+            if text.lower().startswith("y"):
+                break
+            elif text.lower().startswith("n"):
+                return
+            else:
+                print "Sorry, I didn't understand that. Please type yes or no."
+
+        download = DownloadState()
+        one_chunk = download.copy_data()
+
+        try:    
+            while True:
+                one_chunk.next()
+                setprogress(DOWNLOADING, float(download.progress)/download.size)
+        except StopIteration:
+            setprogress(DOWNLOADING, 1.0)
+            print ""
+            write(save)
+
+        one_member = download.unpack()
+
+        try:
+            while True:
+                name, i, total = one_member.next()
+                setprogress(UNPACKING, float(i)/total)
+        except StopIteration:
+            setprogress(UNPACKING, 1.0)
+
+        print ""
+
+
+@command
+def start(argv):
+    """start dropboxd
+dropbox start [OPTION]
+    
+Starts the dropbox daemon, dropboxd. If dropboxd is already running, this will do nothing.
+
+options:
+  -i - install dropboxd if not available on the system
+"""
+    enc = locale.getpreferredencoding()
+
+    should_install = "-i" in argv
+    
+    # first check if dropbox is already running
+    try:
+        dc = DropboxCommand()
+        print u"Dropbox is already running!".encode(enc)
+        return
+    except:
+        pass
+    
+    if not start_dropbox():
+        if not should_install:
+            print u"The Dropbox daemon is not installed! Run with -i to install the daemon"
+            return
+
+        # install dropbox!!!
+        download()
+        start_dropbox()
+
+@command
+def help(argv):
+    """provide help
+dropbox help [COMMAND]
+
+With no arguments, print a list of commands and a short description of each.
+
+With a command, print descriptive help on how to use the command. (Like right now!!)
+"""
+    if not argv:
+        return usage(argv)
+    for command in commands:
+        if command == argv[0]:
+            print commands[command].__doc__.split('\n', 1)[1]
+            return
+    print >>sys.stderr, "unknown command '%s'" % argv[0]
+
+def usage(argv):
+    print "Dropbox command-line interface\n"
+    print "commands:\n"
+    out = []
+    for command in commands:
+        out.append((command, commands[command].__doc__.splitlines()[0]))
+    spacing = max(len(o[0])+2 for o in out)
+    for o in out:
+        print " %s%s%s" % (o[0], (spacing-len(o[0]))*" ", o[1])
+
+def main(argv):
+    global commands
+    commands = {}
+    for name,meth in globals().iteritems():
+        if getattr(globals()[name], "command", False):
+            commands[name] = meth
+
+    # now we need to find out if one of the commands are in the
+    # argv list, and if so split the list at the point to
+    # separate the argv list at that point
+    cut = None
+    for i in range(len(argv)):
+        if argv[i] in commands:
+            cut = i
+            break
+    
+    if cut == None:
+        usage(argv)
+        return
+
+    # lol no options for now
+    globaloptionparser = optparse.OptionParser()
+    globaloptionparser.parse_args(argv[0:i])
+
+    # now dispatch and run
+    return commands[argv[i]](argv[i+1:])
+
+if __name__ == "__main__":
+    main(sys.argv)
