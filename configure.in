@@ -31,12 +31,21 @@ PKG_CHECK_MODULES(LIBNOTIFY, libnotify >= $LIBNOTIFY_REQUIRED)
 
 AC_PATH_PROG([PYTHON], [python])
 
+AC_MSG_CHECKING([for pygtk])
 if ! python -c 'import gtk'; then
+   AC_MSG_RESULT([no])
    AC_MSG_ERROR([couldn't find pygtk])
+else
+   AC_MSG_RESULT([yes])
 fi
 
+
+AC_MSG_CHECKING([for python gobject])
 if ! python -c 'import gobject'; then
+   AC_MSG_RESULT([no])
    AC_MSG_ERROR([couldn't find python gobject])
+else
+   AC_MSG_RESULT([yes])
 fi
 
 # Make dependency CFLAGS and LIBS available
