@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # this script assumes u have already run ./configure
-# you will need dh-make, dpkg-dev, fakeroot
+# you will need dh-make, dpkg-dev, fakeroot, cdbs
 
 if [ $(basename $(pwd)) != 'nautilus-dropbox' ]; then
     echo "This script must be run from the nautilus-dropbox folder"
@@ -27,15 +27,32 @@ tar xjf nautilus-dropbox-$CURVER.tar.bz2
 # go into package dir
 cd nautilus-dropbox-$CURVER
 
-# now run dh_make, please hit enter
-dh_make -c gpl -e rian@getdropbox.com -f ../nautilus-dropbox-$CURVER.tar.bz2 -s -p nautilus-dropbox
+# make debian dir
+mkdir debian
 
-# now fill up all files
+# add our files
+cat > debian/rules <<EOF
+#!/usr/bin/make -f
+
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/autotools.mk
+
+EOF
+chmod a+x debian/rules
+
+cat > debian/changelog <<EOF
+nautilus-dropbox ($CURVER) stable; urgency=low
+
+  * Initial Release, This package doesn't use a changelog
+
+ -- Rian Hunter <rian@getdropbox.com>  $(date -R)
+EOF
+
 cat > debian/copyright <<EOF
 This package was debianized by Rian Hunter <rian@getdropbox.com> on
 $(date -R).
 
-It was downloaded from http://dl.getdropbox.com/u/5143/nautilus-dropbox-$CURVER.tar.bz2
+It was downloaded from https://www.getdropbox.com/download?dl=packages/nautilus-dropbox-$CURVER.tar.bz2
 
 Upstream Author(s): 
 
@@ -114,14 +131,12 @@ set -e
 exit 0
 EOF
 
-rm debian/README.Debian
-
 cat > debian/control <<EOF
 Source: nautilus-dropbox
 Section: gnome
 Priority: optional
 Maintainer: Rian Hunter <rian@getdropbox.com>
-Build-Depends: debhelper (>= 5), autotools-dev, libnautilus-extension-dev (>= 2.16.0), libnotify-dev (>= 0.4.4), libglib2.0-dev (>= 2.14.0)
+Build-Depends: cdbs, debhelper (>= 5), autotools-dev, libnautilus-extension-dev (>= 2.16.0), libnotify-dev (>= 0.4.4), libglib2.0-dev (>= 2.14.0)
 Standards-Version: 3.7.2
 
 Package: nautilus-dropbox
@@ -131,7 +146,7 @@ Description: Dropbox integration for Nautilus
  Nautilus Dropbox is an extension that integrates
  the Dropbox web service with your GNOME Desktop.
  .
- Check out http://www.getdropbox.com/
+ Check us out at http://www.getdropbox.com/
 EOF
 
 dpkg-buildpackage -rfakeroot -k3565780E
