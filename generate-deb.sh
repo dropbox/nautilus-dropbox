@@ -136,12 +136,12 @@ Source: nautilus-dropbox
 Section: gnome
 Priority: optional
 Maintainer: Rian Hunter <rian@getdropbox.com>
-Build-Depends: cdbs, debhelper (>= 5), autotools-dev, libnautilus-extension-dev (>= 2.16.0), libnotify-dev (>= 0.4.4), libglib2.0-dev (>= 2.14.0)
+Build-Depends: cdbs, debhelper (>= 5), autotools-dev, libnautilus-extension-dev (>= 2.16.0), libnotify-dev (>= 0.4.4), libglib2.0-dev (>= 2.14.0), python-gtk2 (>= 2.12)
 Standards-Version: 3.7.2
 
 Package: nautilus-dropbox
 Architecture: any
-Depends: nautilus (>= 2.16.0), libnautilus-extension1 (>= 2.16.0), wget (>= 1.10.0), libnotify1 (>= 0.4.4), libglib2.0-0 (>= 2.14.0), libgnome2-0 (>= 2.16.0), \${shlibs:Depends}, \${misc:Depends}
+Depends: nautilus (>= 2.16.0), libnautilus-extension1 (>= 2.16.0), wget (>= 1.10.0), libnotify1 (>= 0.4.4), libglib2.0-0 (>= 2.14.0), libgnome2-0 (>= 2.16.0), python-gtk2 (>= 2.12), \${shlibs:Depends}, \${misc:Depends}
 Description: Dropbox integration for Nautilus
  Nautilus Dropbox is an extension that integrates
  the Dropbox web service with your GNOME Desktop.
