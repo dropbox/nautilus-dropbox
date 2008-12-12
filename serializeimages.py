@@ -16,7 +16,7 @@ if __name__ == "__main__":
         print >>sys.stderr, "Malformed dropbox script"
         sys.exit(-1)
 
-    pixbuf = gtk.gdk.pixbuf_new_from_file("48x48.png")
+    pixbuf = gtk.gdk.pixbuf_new_from_file("dialog-logo.png")
 
     f = open("dropbox", "w")
     for line in script[:starti]:
