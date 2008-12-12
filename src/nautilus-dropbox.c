@@ -112,6 +112,7 @@ menu_item_free(gpointer data) {
 
 static void
 reset_file(NautilusFileInfo *file) {
+  debug("resetting file %p", (void *) file);
   nautilus_file_info_invalidate_extension_info(file);
 
   g_object_set_data(G_OBJECT(file),
@@ -290,8 +291,11 @@ handle_shell_touch(GHashTable *args, NautilusDropbox *cvs) {
 
     filename = canonicalize_path(path[0]);
 
+    debug("shell touch for %s", filename);
+
     file = g_hash_table_lookup(cvs->filename2obj, filename);
     if (file != NULL) {
+      debug("gonna reset %s", filename);
       reset_file(file);
     }
     g_free(filename);

@@ -22,125 +22,6 @@ import fcntl
 import errno
 from contextlib import closing
 
-enc = 'utf-8'
-
-class DropboxCommand(object):
-    def __init__(self):
-        self.s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.s.connect(os.path.expanduser(u'~/.dropbox/command_socket'))
-        self.f = self.s.makefile("r+", 4096)
-
-    def close(self):
-        self.f.close()
-        self.s.close()
-
-    # atttribute doesn't exist, i know what you want
-    def send_command(self, name, args):
-        self.f.write(name.encode('utf8'))
-        self.f.write(u"\n".encode('utf8'))
-        self.f.writelines((u"\t".join([k] + v) + u"\n").encode('utf8')
-                          for k,v in args.iteritems())
-        self.f.write(u"done\n".encode('utf8'))
-                
-        self.f.flush()
-
-        ok = self.f.readline().decode('utf8').rstrip(u"\n") == u"ok"
-        if ok:
-            toret = {}
-            for i in range(21):
-                if i == 20:
-                    raise Exception(u"close this connection!")
-
-                line = self.f.readline().decode('utf8').rstrip(u"\n")
-                if line == u"done":
-                    break
-                        
-                argval = line.split(u"\t")
-                toret[argval[0]] = argval[1:]
-
-            return toret
-        else:
-            problems = []
-            for i in range(21):
-                if i == 20:
-                    raise Exception(u"close this connection!")
-
-                line = self.f.readline().decode('utf8').rstrip(u"\n")
-                if line == u"done":
-                    break
-                        
-                problems.append(line)
-                    
-            raise Exception(u"\n".join(problems))
-
-    # this is the hotness, auto marshalling
-    def __getattr__(self, name):
-        try:
-            return super(DropboxCommand, self).__getattr__(name)
-        except:
-            def __spec_command(args):
-                return self.send_command(unicode(name), args)
-            self.__setattr__(name, __spec_command)
-            return __spec_command
-
-def command(meth):
-    assert meth.__doc__, "All commands need properly formatted docstrings (even %r!!)" % meth
-    meth.command = True
-    return meth
-
-def start_dropbox():
-    db_path = os.path.expanduser(u"~/.dropbox-dist/dropboxd").encode(sys.getfilesystemencoding())
-    if os.access(db_path, os.X_OK):
-        subprocess.Popen([db_path], preexec_fn=os.setsid, cwd=os.path.expanduser("~"))
-        sys.stdout.flush()
-        sys.stdout.write(u"Starting Dropbox...".encode(enc))                
-        for i in range(5):
-            try:
-                dc = DropboxCommand()
-                sys.stdout.write(u"Done!".encode(enc))
-                dc.close()
-                return
-            except:
-                sys.stdout.write(u".".encode(enc))
-                
-            # back off from connect for a while
-            time.sleep(0.1)
-
-        sys.stdout.write(u"Starting Dropbox Failed!\n".encode(enc))
-        return True
-    else:
-        return False
-
-@command
-def filestatus(args):
-    """filestatus
-"""
-    pass
-
-@command
-def ls(args):
-    """ls
-"""
-    pass
-
-@command
-def publicurl(args):
-    """publicurl
-"""
-    pass
-
-@command
-def status(args):
-    """status
-"""
-    pass
-
-@command
-def stop(args):
-    """stop
-"""
-    pass
-
 WARNING = "In order to use Dropbox, you must download the proprietary daemon."
 
 DOWNLOADING = "Downloading Dropbox... %d%%"
@@ -404,25 +285,168 @@ else:
         print ""
 
 
+
+class DropboxCommand(object):
+    class CouldntConnectError(Exception): pass
+    class EOFError(Exception): pass
+
+    def __init__(self):
+        self.s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            self.s.connect(os.path.expanduser(u'~/.dropbox/command_socket'))
+        except socket.error, e:
+            raise DropboxCommand.CouldntConnectError()
+        self.f = self.s.makefile("r+", 4096)
+
+    def close(self):
+        self.f.close()
+        self.s.close()
+
+    def __readline(self):
+        toret = self.f.readline().decode('utf8').rstrip(u"\n")
+        if toret == '':
+            raise DropboxCommand.EOFError()
+        else:
+            return toret
+
+    # atttribute doesn't exist, i know what you want
+    def send_command(self, name, args):
+        self.f.write(name.encode('utf8'))
+        self.f.write(u"\n".encode('utf8'))
+        self.f.writelines((u"\t".join([k] + (list(v)
+                                             if hasattr(v, '__iter__') else
+                                             [v])) + u"\n").encode('utf8')
+                          for k,v in args.iteritems())
+        self.f.write(u"done\n".encode('utf8'))
+                
+        self.f.flush()
+
+        ok = self.__readline() == u"ok"
+        if ok:
+            toret = {}
+            for i in range(21):
+                if i == 20:
+                    raise Exception(u"close this connection!")
+
+                line = self.__readline()
+                if line == u"done":
+                    break
+                        
+                argval = line.split(u"\t")
+                toret[argval[0]] = argval[1:]
+
+            return toret
+        else:
+            problems = []
+            for i in range(21):
+                if i == 20:
+                    raise Exception(u"close this connection!")
+
+                line = self.__readline()
+                if line == u"done":
+                    break
+                        
+                problems.append(line)
+                    
+            raise Exception(u"\n".join(problems))
+
+    # this is the hotness, auto marshalling
+    def __getattr__(self, name):
+        try:
+            return super(DropboxCommand, self).__getattr__(name)
+        except:
+            def __spec_command(**kw):
+                return self.send_command(unicode(name), kw)
+            self.__setattr__(name, __spec_command)
+            return __spec_command
+
+def command(meth):
+    assert meth.__doc__, "All commands need properly formatted docstrings (even %r!!)" % meth
+    meth.command = True
+    return meth
+
+def start_dropbox():
+    db_path = os.path.expanduser(u"~/.dropbox-dist/dropboxd").encode(sys.getfilesystemencoding())
+    if os.access(db_path, os.X_OK):
+        subprocess.Popen([db_path], preexec_fn=os.setsid, cwd=os.path.expanduser("~"))
+        sys.stdout.flush()
+        print u"Starting Dropbox...",
+        for i in range(5):
+            try:
+                dc = DropboxCommand()
+                print u"Done!"
+                dc.close()
+                return
+            except:
+                print u".",
+                
+            # back off from connect for a while
+            time.sleep(0.1)
+
+        print u"Starting Dropbox Failed!"
+        return True
+    else:
+        return False
+
+@command
+def filestatus(args):
+    u"""filestatus
+"""
+    pass
+
+@command
+def ls(args):
+    u"""ls
+"""
+    pass
+
+@command
+def publicurl(args):
+    u"""publicurl
+"""
+    pass
+
+@command
+def status(args):
+    u"""status
+"""
+    pass
+
+@command
+def stop(args):
+    u"""stop dropboxd
+dropbox stop
+
+Stops the dropbox daemon.
+"""
+    # first check if dropbox is already running
+    try:
+        with closing(DropboxCommand()) as dc:
+            dc.tray_action_hard_exit()
+    except DropboxCommand.CouldntConnectError, e:
+        print u"Dropbox isn't running!"
+    except DropboxCommand.EOFError:
+        print u"Dropbox daemon stopped."        
+
 @command
 def start(argv):
-    """start dropboxd
-dropbox start [OPTION]
+    u"""start dropboxd
+dropbox start [-i]
     
-Starts the dropbox daemon, dropboxd. If dropboxd is already running, this will do nothing.
+Starts the dropbox daemon, dropboxd. If dropboxd is already running, this will
+do nothing.
 
 options:
-  -i - install dropboxd if not available on the system
+  -i --install  auto install dropboxd if not available on the system
 """
-    enc = locale.getpreferredencoding()
 
-    should_install = "-i" in argv
+    should_install = "-i" in argv or "--install" in argv
     
     # first check if dropbox is already running
     try:
-        dc = DropboxCommand()
-        print u"Dropbox is already running!".encode(enc)
-        return
+        with closing(DropboxCommand()) as dc:
+            print u"Dropbox is already running!"
+            return
     except:
         pass
     
@@ -437,7 +461,7 @@ options:
 
 @command
 def help(argv):
-    """provide help
+    u"""provide help
 dropbox help [COMMAND]
 
 With no arguments, print a list of commands and a short description of each.
@@ -453,14 +477,14 @@ With a command, print descriptive help on how to use the command. (Like right no
     print >>sys.stderr, "unknown command '%s'" % argv[0]
 
 def usage(argv):
-    print "Dropbox command-line interface\n"
-    print "commands:\n"
+    print u"Dropbox command-line interface\n"
+    print u"commands:\n"
     out = []
     for command in commands:
         out.append((command, commands[command].__doc__.splitlines()[0]))
-    spacing = max(len(o[0])+2 for o in out)
+    spacing = max(len(o[0])+3 for o in out)
     for o in out:
-        print " %s%s%s" % (o[0], (spacing-len(o[0]))*" ", o[1])
+        print " %-*s%s" % (spacing, o[0], o[1])
 
 def main(argv):
     global commands
