@@ -62,7 +62,25 @@ Copyright:
 
     Copyright (C) 2008 Evenflow, Inc.
 
-License:
+All images included in this package constitute data and are not licensed
+for you to use under the terms of the GPL. You may not use the images
+included in this package for any reason other than redistributing
+this package without first obtaining permission from Evenflow, Inc.
+You are explicitly forbidden from using these images in any other
+software package. This includes the files:
+
+/usr/share/icons/hicolor/16x16/apps/dropbox.png
+/usr/share/icons/hicolor/22x22/apps/dropbox.png
+/usr/share/icons/hicolor/24x24/apps/dropbox.png
+/usr/share/icons/hicolor/32x32/apps/dropbox.png
+/usr/share/icons/hicolor/48x48/apps/dropbox.png
+/usr/share/icons/hicolor/64x64/apps/dropbox.png
+/usr/share/icons/hicolor/64x64/emblems/emblem-dropbox-syncing.png
+/usr/share/icons/hicolor/64x64/emblems/emblem-dropbox-uptodate.png
+/usr/share/icons/hicolor/64x64/emblems/emblem-dropbox-unsyncable.png
+
+All program source in this package is released under the terms of the
+GNU GPL below.
 
     This package is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
