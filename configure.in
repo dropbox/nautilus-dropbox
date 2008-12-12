@@ -35,6 +35,10 @@ if ! python -c 'import gtk'; then
    AC_MSG_ERROR([couldn't find pygtk])
 fi
 
+if ! python -c 'import gobject'; then
+   AC_MSG_ERROR([couldn't find python gobject])
+fi
+
 # Make dependency CFLAGS and LIBS available
 AC_SUBST(NAUTILUS_CFLAGS)
 AC_SUBST(NAUTILUS_LIBS)
