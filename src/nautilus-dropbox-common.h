@@ -44,15 +44,6 @@ nautilus_dropbox_common_start_dropbox();
 gchar *
 nautilus_dropbox_common_get_platform();
 
-void
-nautilus_dropbox_common_launch_command_with_error(NautilusDropboxTray *ndt,
-						  const gchar *command_line,
-						  const gchar *caption,
-						  const gchar *msg);
-
-void
-nautilus_dropbox_common_launch_url(NautilusDropboxTray *ndt, const gchar *url);
-
 G_END_DECLS
 
 #endif

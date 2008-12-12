@@ -76,8 +76,24 @@ AC_DEFINE_UNQUOTED(NAUTILUS_VERSION_MAJOR, [$NAUTILUS_VERSION_MAJOR], [ nautilus
 AC_DEFINE_UNQUOTED(NAUTILUS_VERSION_MINOR, [$NAUTILUS_VERSION_MINOR], [ nautilus version minor])
 AC_DEFINE_UNQUOTED(NAUTILUS_VERSION_MICRO, [$NAUTILUS_VERSION_MICRO], [ nautilus version micro])
 
-# output
-AC_OUTPUT([
+AC_CONFIG_FILES([
 	Makefile 
 	src/Makefile
-])
+	data/Makefile
+	data/icons/Makefile
+	data/icons/hicolor/Makefile
+	data/icons/hicolor/16x16/Makefile
+	data/icons/hicolor/16x16/apps/Makefile
+	data/icons/hicolor/22x22/Makefile
+	data/icons/hicolor/22x22/apps/Makefile
+	data/icons/hicolor/24x24/Makefile
+	data/icons/hicolor/24x24/apps/Makefile
+	data/icons/hicolor/32x32/Makefile
+	data/icons/hicolor/32x32/apps/Makefile
+	data/icons/hicolor/48x48/Makefile
+	data/icons/hicolor/48x48/apps/Makefile
+	data/icons/hicolor/64x64/Makefile
+	data/icons/hicolor/64x64/apps/Makefile
+	data/icons/hicolor/64x64/emblems/Makefile])
+
+AC_OUTPUT

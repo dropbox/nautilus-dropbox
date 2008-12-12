@@ -32,7 +32,6 @@
 #include "dropbox-command-client.h"
 #include "nautilus-dropbox-hooks.h"
 #include "dropbox-client.h"
-#include "nautilus-dropbox-tray.h"
 
 G_BEGIN_DECLS
 
@@ -51,7 +50,6 @@ struct _NautilusDropbox {
   GHashTable *filename2obj;
   GHashTable *obj2filename;
   DropboxClient dc;
-  NautilusDropboxTray ndt;
 };
 
 struct _NautilusDropboxClass {

@@ -44,7 +44,6 @@
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
 #include "nautilus-dropbox-hooks.h"
-#include "nautilus-dropbox-tray.h"
 
 typedef struct {
   gchar *title;
@@ -302,28 +301,6 @@ handle_shell_touch(GHashTable *args, NautilusDropbox *cvs) {
   }
 
   return;
-}
-
-static void
-handle_copy_to_clipboard(GHashTable *args, NautilusDropbox *cvs) {
-  gchar **text;
-
-  if ((text = g_hash_table_lookup(args, "text")) != NULL) {
-    GtkClipboard *clip;
-    clip = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
-    gtk_clipboard_set_text(clip, text[0], -1);
-  }
-  
-  return;
-}
-
-static void
-handle_launch_url(GHashTable *args, NautilusDropbox *cvs) {
-  gchar **url;
-  
-  if ((url = g_hash_table_lookup(args, "url")) != NULL) {
-    nautilus_dropbox_common_launch_url(&(cvs->ndt), url[0]);
-  }
 }
 
 gboolean
@@ -720,16 +697,9 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
   /* setup the connection obj*/
   dropbox_client_setup(&(cvs->dc));
 
-  /* then the tray */
-  nautilus_dropbox_tray_setup(&(cvs->ndt), &(cvs->dc));
-
   /* our hooks */
   nautilus_dropbox_hooks_add(&(cvs->dc.hookserv), "shell_touch",
 			     (DropboxUpdateHook) handle_shell_touch, cvs);
-  nautilus_dropbox_hooks_add(&(cvs->dc.hookserv), "copy_to_clipboard",
-			     (DropboxUpdateHook) handle_copy_to_clipboard, cvs);
-  nautilus_dropbox_hooks_add(&(cvs->dc.hookserv), "launch_url",
-			     (DropboxUpdateHook) handle_launch_url, cvs);
 
   /* add connection handlers */
   dropbox_client_add_on_connect_hook(&(cvs->dc),
@@ -741,7 +711,6 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
   
   /* now start the connection */
   dropbox_client_start(&(cvs->dc));
-  nautilus_dropbox_tray_start(&(cvs->ndt));
 
   return;
 }

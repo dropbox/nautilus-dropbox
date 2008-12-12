@@ -37,7 +37,6 @@
 #include "dropbox-command-client.h"
 #include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
-#include "nautilus-dropbox-tray.h"
 #include "nautilus-dropbox-hooks.h"
 
 /* TODO: make this asynchronous ;) */
