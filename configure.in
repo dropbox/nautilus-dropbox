@@ -29,6 +29,12 @@ PKG_CHECK_MODULES(NAUTILUS, libnautilus-extension >= $NAUTILUS_REQUIRED)
 PKG_CHECK_MODULES(GLIB, glib-2.0 >= $GLIB_REQUIRED)
 PKG_CHECK_MODULES(LIBNOTIFY, libnotify >= $LIBNOTIFY_REQUIRED)
 
+AC_PATH_PROG([PYTHON], [python])
+
+if ! python -c 'import gtk'; then
+   AC_MSG_ERROR([couldn't find pygtk])
+fi
+
 # Make dependency CFLAGS and LIBS available
 AC_SUBST(NAUTILUS_CFLAGS)
 AC_SUBST(NAUTILUS_LIBS)
