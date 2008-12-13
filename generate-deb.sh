@@ -154,7 +154,7 @@ Source: nautilus-dropbox
 Section: gnome
 Priority: optional
 Maintainer: Rian Hunter <rian@getdropbox.com>
-Build-Depends: cdbs, debhelper (>= 5), autotools-dev, libnautilus-extension-dev (>= 2.16.0), libnotify-dev (>= 0.4.4), libglib2.0-dev (>= 2.14.0), python-gtk2 (>= 2.12)
+Build-Depends: cdbs, debhelper (>= 5), build-essential, libnautilus-extension-dev (>= 2.16.0), libnotify-dev (>= 0.4.4), libglib2.0-dev (>= 2.14.0), python-gtk2 (>= 2.12)
 Standards-Version: 3.7.2
 
 Package: nautilus-dropbox
