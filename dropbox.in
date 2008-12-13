@@ -315,6 +315,7 @@ else:
 class DropboxCommand(object):
     class CouldntConnectError(Exception): pass
     class EOFError(Exception): pass
+    class CommandError(Exception): pass
 
     def __init__(self):
         self.s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -374,7 +375,7 @@ class DropboxCommand(object):
                         
                 problems.append(line)
                     
-            raise Exception(u"\n".join(problems))
+            raise DropboxCommand.CommandError(u"\n".join(problems))
 
     # this is the hotness, auto marshalling
     def __getattr__(self, name):
@@ -417,7 +418,7 @@ def filestatus(args):
     u"""get current sync status of one or more files
 dropbox filestatus [-l] [-a] [FILE]...
 
-Gets the current status of the FILEs.
+Prints the current status of each FILE.
 
 options:
   -l --list  prints out information in a format similar
@@ -505,9 +506,18 @@ options:
                     args = [name for name in os.listdir(u".") if type(name) == unicode]
                 indent = max(len(st)+1 for st in args)
                 for file in args:
-                    status = dc.icon_overlay_file_status(path=os.path.abspath(file)).get(u'status', [u'unknown'])[0]
-                    console_print(u"%-*s %s" % (indent, file+':', status))
-
+                    fp = os.path.abspath(file)
+                    if not os.path.exists(fp):
+                        console_print(u"%-*s %s" % \
+                                          (indent, file+':', "File doesn't exist"))
+                        continue
+                        
+                    try:
+                        status = dc.icon_overlay_file_status(path=fp).get(u'status', [u'unknown'])[0]
+                        console_print(u"%-*s %s" % (indent, file+':', status))
+                    except DropboxCommand.CommandError, e:
+                        console_print(u"%-*s %s" % \
+                                          (indent, file+':', e.message))
     except DropboxCommand.CouldntConnectError, e:
         console_print(u"Dropbox isn't running!")
     except DropboxCommand.EOFError:
@@ -525,16 +535,54 @@ This is an alias for filestatus -l
 @command
 def publicurl(args):
     u"""get public url of a file in your dropbox
-dropbox publicurl
+dropbox publicurl [FILE]
+
+Prints out a public url for FILE.
 """
-    pass
+    if len(args) != 1:
+        console_print(publicurl.__doc__,linebreak=False)
+        return
+
+    try:
+        with closing(DropboxCommand()) as dc:
+            try:
+                console_print(dc.get_public_link(path=os.path.abspath(args[0].decode(sys.getfilesystemencoding()))).get(u'link', [u'No Link'])[0])
+            except DropboxCommand.CommandError, e:
+                console_print(u"Couldn't get public url: " + e.message)
+    except DropboxCommand.CouldntConnectError, e:
+        console_print(u"Dropbox isn't running!")
+    except DropboxCommand.EOFError:
+        console_print(u"Dropbox daemon stopped.")
 
 @command
 def status(args):
     u"""get current status of the dropboxd
 dropbox status
+
+Prints out the current status of the
+Dropbox daemon.
 """
-    pass
+    if len(args) != 0:
+        console_print(publicurl.__doc__,linebreak=False)
+        return
+
+    try:
+        with closing(DropboxCommand()) as dc:
+            try:
+                lines = dc.get_dropbox_status()[u'status']
+                if len(lines) == 0:
+                    console_print(u'Idle')                    
+                else:
+                    for line in lines:
+                        console_print(line)
+            except KeyError:
+                console_print(u"Couldn't get status: daemon isn't responding")
+            except DropboxCommand.CommandError, e:
+                console_print(u"Couldn't get status: " + e.message)
+    except DropboxCommand.CouldntConnectError, e:
+        console_print(u"Dropbox isn't running!")
+    except DropboxCommand.EOFError:
+        console_print(u"Dropbox daemon stopped.")
 
 @command
 def stop(args):
