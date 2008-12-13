@@ -27,7 +27,6 @@ import optparse
 import socket
 import os
 import time
-import locale
 import platform
 import tarfile
 import threading
@@ -35,6 +34,7 @@ import urllib
 import subprocess
 import fcntl
 import errno
+import locale
 from contextlib import closing
 
 WARNING = "In order to use Dropbox, you must download the proprietary daemon."
@@ -45,6 +45,13 @@ UNPACKING = "Unpacking Dropbox... %d%%"
 PARENT_DIR = os.path.expanduser("~")
 DROPBOXD_PATH = "%s/.dropbox-dist/dropboxd" % PARENT_DIR
 
+enc = locale.getpreferredencoding()
+def console_print(st, f=sys.stdout, linebreak=True):
+    global enc
+    assert type(st) is unicode
+    f.write(st.encode(enc))
+    if linebreak: f.write(os.linesep)
+    
 def plat():
     if sys.platform.lower().startswith('linux'):
         arch = platform.machine()
@@ -243,7 +250,7 @@ else:
     def download():
         global FatalVisibleError
         def FatalVisibleError(s):
-            print >>sys.stderr, "Error: %s" % s
+            console_print(u"Error: %s" % s, f=sys.stderr)
             sys.exit(-1)
 
         ESC = "\x1b"
@@ -280,7 +287,7 @@ else:
             elif text.lower().startswith("n"):
                 return
             else:
-                print "Sorry, I didn't understand that. Please type yes or no."
+                console_print(u"Sorry, I didn't understand that. Please type yes or no.")
 
         download = DownloadState()
         one_chunk = download.copy_data()
@@ -291,7 +298,7 @@ else:
                 setprogress(DOWNLOADING, float(download.progress)/download.size)
         except StopIteration:
             setprogress(DOWNLOADING, 1.0)
-            print ""
+            console_print(u"")
             write(save)
 
         one_member = download.unpack()
@@ -303,9 +310,7 @@ else:
         except StopIteration:
             setprogress(UNPACKING, 1.0)
 
-        print ""
-
-
+        console_print(u"")
 
 class DropboxCommand(object):
     class CouldntConnectError(Exception): pass
@@ -409,25 +414,125 @@ def start_dropbox():
 
 @command
 def filestatus(args):
-    u"""filestatus
+    u"""get current sync status of one or more files
+dropbox filestatus [-l] [-a] [FILE]...
+
+Gets the current status of the FILEs.
+
+options:
+  -l --list  prints out information in a format similar
+             to ls. works best when your console supports
+             color :)
+  -a --all   do not ignore entries starting with .
 """
-    pass
+    oparser = optparse.OptionParser()
+    oparser.add_option("-l", "--list", action="store_true", dest="list")
+    oparser.add_option("-a", "--all", action="store_true", dest="all")
+    (options, args) = oparser.parse_args(args)
+
+    # first check if dropbox is already running
+    try:
+        with closing(DropboxCommand()) as dc:
+            if options.list:
+                # TODO: ls style columns
+
+                if len(args) == 0:
+                    dirs, nondirs = [u"."], []
+                else:
+                    dirs, nondirs = [], []
+
+                    for a in args:
+                        try:
+                            (dirs if os.path.isdir(a) else
+                             nondirs).append(a.decode(sys.getfilesystemencoding()))
+                        except UnicodeDecodeError:
+                            pass
+
+                    if len(dirs) == 0 and len(nondirs) == 0:
+                        exit(1)
+
+                def lowerkey(st):
+                    return st.lower()
+
+                dirs.sort(key=lowerkey)
+                nondirs.sort(key=lowerkey)
+
+                def printstatus(fp):
+                    status = dc.icon_overlay_file_status(path=fp).get(u'status',
+                                                                      [None])[0]
+                    if not sys.stdout.isatty():
+                        console_print(os.path.basename(fp))
+                        return
+
+                    if status == u"up to date":
+                        INIT, CLEANUP = "\x1b[32m", "\x1b[0m"
+                    elif status == u"syncing":
+                        INIT, CLEANUP = "\x1b[36m", "\x1b[0m"
+                    elif status == u"unsyncable":
+                        INIT, CLEANUP = "\x1b[41m", "\x1b[0m"
+                    else:
+                        INIT, CLEANUP = '', ''
+
+                    console_print(u"%s%s%s" % (INIT, os.path.basename(fp), CLEANUP))
+
+                def printdir(name):
+                    for subname in sorted(os.listdir(name), key=lowerkey):
+                        if type(subname) != unicode:
+                            pass
+                        
+                        if not options.all and subname[0] == u'.':
+                            continue
+
+                        printstatus(os.path.abspath(os.path.join(name, subname)))
+
+                if len(dirs) == 1 and len(nondirs) == 0:
+                    printdir(dirs[0])
+                else:
+                    for name in nondirs:
+                        printstatus(os.path.abspath(name))
+
+                    if len(nondirs) == 0:
+                        console_print(dirs[0] + u":")
+                        printdir(dirs[0])
+                        dirs = dirs[1:]
+
+                    for name in dirs:
+                        console_print(u"")
+                        console_print(name + u":")
+                        printdir(name)
+            else:
+                if len(args) == 0:
+                    args = [name for name in os.listdir(u".") if type(name) == unicode]
+                indent = max(len(st)+1 for st in args)
+                for file in args:
+                    status = dc.icon_overlay_file_status(path=os.path.abspath(file)).get(u'status', [u'unknown'])[0]
+                    console_print(u"%-*s %s" % (indent, file+':', status))
+
+    except DropboxCommand.CouldntConnectError, e:
+        console_print(u"Dropbox isn't running!")
+    except DropboxCommand.EOFError:
+        console_print(u"Dropbox daemon stopped.")
 
 @command
 def ls(args):
-    u"""ls
+    u"""list directory contents with current sync status
+dropbox ls [FILE]...
+
+This is an alias for filestatus -l
 """
-    pass
+    return filestatus(["-l"] + args)
 
 @command
 def publicurl(args):
-    u"""publicurl
+    u"""get public url of a file in your dropbox
+dropbox publicurl
 """
     pass
 
 @command
 def status(args):
-    u"""status
+    u"""get current status of the dropboxd
+dropbox status
 """
     pass
 
@@ -443,9 +548,9 @@ Stops the dropbox daemon.
         with closing(DropboxCommand()) as dc:
             dc.tray_action_hard_exit()
     except DropboxCommand.CouldntConnectError, e:
-        print u"Dropbox isn't running!"
+        console_print(u"Dropbox isn't running!")
     except DropboxCommand.EOFError:
-        print u"Dropbox daemon stopped."        
+        console_print(u"Dropbox daemon stopped.")
 
 @command
 def start(argv):
@@ -464,21 +569,22 @@ options:
     # first check if dropbox is already running
     try:
         with closing(DropboxCommand()) as dc:
-            print u"Dropbox is already running!"
+            console_print(u"Dropbox is already running!")
             return
     except:
         pass
 
-    print u"Starting Dropbox...",
+    console_print(u"Starting Dropbox...", linebreak=False)
     if not start_dropbox():
         if not should_install:
-            print u"The Dropbox daemon is not installed! Run with -i to install the daemon"
+            console_print(u"The Dropbox daemon is not installed!")
+            console_print(u"Run with -i to install the daemon")
             return
 
         # install dropbox!!!
         download()
         start_dropbox()
-    print u"Done!"
+    console_print(u"Done!")
 
 @command
 def help(argv):
@@ -493,22 +599,23 @@ With a command, print descriptive help on how to use the command. (Like right no
         return usage(argv)
     for command in commands:
         if command == argv[0]:
-            print commands[command].__doc__.split('\n', 1)[1]
+            console_print(commands[command].__doc__.split('\n', 1)[1].decode('ascii'))
             return
-    print >>sys.stderr, "unknown command '%s'" % argv[0]
+    console_print(u"unknown command '%s'" % argv[0], f=sys.stderr)
 
 def usage(argv):
-    print u"Dropbox command-line interface\n"
-    print u"commands:\n"
+    console_print(u"Dropbox command-line interface\n")
+    console_print(u"commands:\n")
     out = []
     for command in commands:
         out.append((command, commands[command].__doc__.splitlines()[0]))
     spacing = max(len(o[0])+3 for o in out)
     for o in out:
-        print " %-*s%s" % (spacing, o[0], o[1])
+        console_print(" %-*s%s" % (spacing, o[0], o[1]))
 
 def main(argv):
     global commands
+
     commands = {}
     for name,meth in globals().iteritems():
         if getattr(globals()[name], "command", False):
