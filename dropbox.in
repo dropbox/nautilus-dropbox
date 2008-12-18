@@ -46,6 +46,9 @@ PARENT_DIR = os.path.expanduser("~")
 DROPBOXD_PATH = "%s/.dropbox-dist/dropboxd" % PARENT_DIR
 
 enc = locale.getpreferredencoding()
+def console_flush(f=sys.stdout):
+    f.flush()
+
 def console_print(st, f=sys.stdout, linebreak=True):
     global enc
     assert type(st) is unicode
@@ -67,6 +70,19 @@ def yes_no_question(question):
         else:
             console_print(u"Sorry, I didn't understand that. Please type yes or no.")
     
+def yes_no_question(question):
+    while True:
+        console_print(question, linebreak=False)
+        console_print(u" [y/n] ", linebreak=False)
+        console_flush()
+        text = raw_input()
+        if text.lower().startswith("y"):
+            return True
+        elif text.lower().startswith("n"):
+            return False
+        else:
+            console_print(u"Sorry, I didn't understand that. Please type yes or no.")
+
 def plat():
     if sys.platform.lower().startswith('linux'):
         arch = platform.machine()
@@ -194,9 +210,9 @@ if "DISPLAY" in os.environ:
 
             def handle_data_waiting(self, fd, condition):
                 if condition == gobject.IO_HUP:
-                    raise FatalVisibleError("Connection to server unexpectedly closed.")
+                    FatalVisibleError("Connection to server unexpectedly closed.")
                 elif condition == gobject.IO_ERR:
-                    raise FatalVisibleError("Unexpected error occurred with download.")
+                    FatalVisibleError("Unexpected error occurred with download.")
                 try:
                     while self.one_chunk.next():
                         self.update_progress(DOWNLOADING, float(self.download.progress)/self.download.size)
@@ -397,6 +413,10 @@ def command(meth):
     meth.command = True
     return meth
 
+def link_to_account(dc):
+    fields = dc.get_link_args(new=yes_no_question(u"Do you already have a Dropbox account?"))
+    print fields
+
 def start_dropbox():
     db_path = os.path.expanduser(u"~/.dropbox-dist/dropboxd").encode(sys.getfilesystemencoding())
     if os.access(db_path, os.X_OK):
@@ -407,6 +427,8 @@ def start_dropbox():
         for i in range(5):
             try:
                 with closing(DropboxCommand()) as dc:
+                    if dc.needs_cli_link()["needs_link"]:
+                        link_to_account(dc)
                     return True
             except:
                 pass
