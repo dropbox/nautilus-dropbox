@@ -37,7 +37,7 @@ import errno
 import locale
 from contextlib import closing
 
-WARNING = "In order to use Dropbox, you must download the proprietary daemon."
+WARNING = u"In order to use Dropbox, you must download the proprietary daemon."
 
 DOWNLOADING = "Downloading Dropbox... %d%%"
 UNPACKING = "Unpacking Dropbox... %d%%"
@@ -51,6 +51,21 @@ def console_print(st, f=sys.stdout, linebreak=True):
     assert type(st) is unicode
     f.write(st.encode(enc))
     if linebreak: f.write(os.linesep)
+def console_flush(f=sys.stdout):
+    f.flush()
+
+def yes_no_question(question):
+    while True:
+        console_print(question, linebreak=False)
+        console_print(u" [y/n] ", linebreak=False)
+        console_flush()
+        text = raw_input()
+        if text.lower().startswith("y"):
+            return True
+        elif text.lower().startswith("n"):
+            return False
+        else:
+            console_print(u"Sorry, I didn't understand that. Please type yes or no.")
     
 def plat():
     if sys.platform.lower().startswith('linux'):
@@ -250,19 +265,17 @@ else:
     def download():
         global FatalVisibleError
         def FatalVisibleError(s):
-            console_print(u"Error: %s" % s, f=sys.stderr)
+            console_print(u"\nError: %s" % s, f=sys.stderr)
             sys.exit(-1)
 
         ESC = "\x1b"
         save = ESC+"7"
         unsave = ESC+"8"
         clear = ESC+"[2J"
-
         erase_to_start = ESC+"[1K"
 
         write = sys.stdout.write
         flush = sys.stdout.flush
-
 
         last_progress = [None, None]
         def setprogress(text, frac):
@@ -274,20 +287,12 @@ else:
             flush()
             last_progress[0], last_progress[1] = text, frac
 
-        write(clear)
+        console_print(u"")
         write(save)
+        flush()
 
-        while True:
-            write(WARNING)
-            write(" [y/n] ")
-            flush()
-            text = raw_input()
-            if text.lower().startswith("y"):
-                break
-            elif text.lower().startswith("n"):
-                return
-            else:
-                console_print(u"Sorry, I didn't understand that. Please type yes or no.")
+        if not yes_no_question(WARNING):
+            return
 
         download = DownloadState()
         one_chunk = download.copy_data()
