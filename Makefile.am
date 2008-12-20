@@ -2,7 +2,7 @@ AUTOMAKE_OPTIONS = dist-bzip2 no-dist-gzip
 
 bin_SCRIPTS = dropbox
 CLEANFILES = $(bin_SCRIPTS) dropbox.1 dropbox.txt
-EXTRA_DIST = dropbox.in serializeimages.py dropbox.txt.in docgen.py
+EXTRA_DIST = dropbox.in serializeimages.py dropbox.txt.in docgen.py rst2man.py
 man_MANS = dropbox.1
 
 dropbox: dropbox.in serializeimages.py
