@@ -6,11 +6,11 @@ EXTRA_DIST = dropbox.in serializeimages.py dropbox.txt.in docgen.py rst2man.py
 man_MANS = dropbox.1
 
 dropbox: dropbox.in serializeimages.py
-	python serializeimages.py < dropbox.in > dropbox
+	python serializeimages.py $(PACKAGE_VERSION) < dropbox.in > dropbox
 	chmod +x dropbox
 
 dropbox.1: dropbox.txt.in dropbox docgen.py
-	python docgen.py < dropbox.txt.in > dropbox.txt
+	python docgen.py $(PACKAGE_VERSION) < dropbox.txt.in > dropbox.txt
 	python rst2man.py dropbox.txt > dropbox.1
 
 SUBDIRS = data src
