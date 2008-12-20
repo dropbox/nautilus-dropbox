@@ -8,6 +8,7 @@ A command line interface to the Dropbox service
 
 :Date:   @DATE@
 :Copyright: Copyright (C) 2008 Evenflow, Inc. Free use of this software is granted under the terms of the GNU General Public License (GPL).
+:Version: @PACKAGE_VERSION@
 :Manual section: 1
 
 SYNOPSIS

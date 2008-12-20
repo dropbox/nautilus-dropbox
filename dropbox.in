@@ -4,7 +4,7 @@
 #
 # dropbox
 # Dropbox frontend script
-# This file is part of nautilus-dropbox.
+# This file is part of nautilus-dropbox @PACKAGE_VERSION@.
 #
 # nautilus-dropbox is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -83,6 +83,11 @@ def plat():
         return "lnx.%s" % plat
     else:
         FatalVisibleError("Platform not supported")
+
+# This sets a custom User-Agent
+class DropboxURLopener(urllib.FancyURLopener):
+    version = "DropboxLinuxDownloader/@PACKAGE_VERSION@"
+urllib._urlopener = DropboxURLopener()
 
 class DownloadState(object):
     def __init__(self):
