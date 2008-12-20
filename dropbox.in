@@ -149,7 +149,7 @@ def load_serialized_images():
     box_logo_pixbuf = @IMAGEDATA64@
     window_icon = @IMAGEDATA16@
 
-if "DISPLAY" in os.environ:
+if os.environ.get("DISPLAY", '') != '':
     def download():
         import pygtk
         pygtk.require("2.0")
