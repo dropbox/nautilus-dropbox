@@ -39,11 +39,18 @@ else
    AC_MSG_RESULT([yes])
 fi
 
-
 AC_MSG_CHECKING([for python gobject])
 if ! python -c 'import gobject'; then
    AC_MSG_RESULT([no])
    AC_MSG_ERROR([couldn't find python gobject])
+else
+   AC_MSG_RESULT([yes])
+fi
+
+AC_MSG_CHECKING([for python docutils])
+if ! python -c 'import docutils'; then
+   AC_MSG_RESULT([no])
+   AC_MSG_ERROR([couldn't find python docutils])
 else
    AC_MSG_RESULT([yes])
 fi

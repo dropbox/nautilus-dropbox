@@ -4,7 +4,7 @@
 #
 # dropbox
 # Dropbox frontend script
-# This file is part of nautilus-dropbox.
+# This file is part of nautilus-dropbox @PACKAGE_VERSION@.
 #
 # nautilus-dropbox is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -37,10 +37,12 @@ import errno
 import locale
 from contextlib import closing
 
+INFO = u"Dropbox is the easiest way to share and store your files online. Want to learn more? Head to"
+LINK = u"http://www.getdropbox.com/"
 WARNING = u"In order to use Dropbox, you must download the proprietary daemon."
 
-DOWNLOADING = "Downloading Dropbox... %d%%"
-UNPACKING = "Unpacking Dropbox... %d%%"
+DOWNLOADING = u"Downloading Dropbox... %d%%"
+UNPACKING = u"Unpacking Dropbox... %d%%"
 
 PARENT_DIR = os.path.expanduser("~")
 DROPBOXD_PATH = "%s/.dropbox-dist/dropboxd" % PARENT_DIR
@@ -88,7 +90,7 @@ def plat():
         arch = platform.machine()
         if (arch[0] == 'i' and
             arch[1].isdigit() and
-            arch[2:3] == '86'):
+            arch[2:4] == '86'):
             plat = "x86"
         elif arch == 'x86_64':
             plat = arch
@@ -97,6 +99,11 @@ def plat():
         return "lnx.%s" % plat
     else:
         FatalVisibleError("Platform not supported")
+
+# This sets a custom User-Agent
+class DropboxURLopener(urllib.FancyURLopener):
+    version = "DropboxLinuxDownloader/@PACKAGE_VERSION@"
+urllib._urlopener = DropboxURLopener()
 
 class DownloadState(object):
     def __init__(self):
@@ -158,10 +165,14 @@ def load_serialized_images():
     box_logo_pixbuf = @IMAGEDATA64@
     window_icon = @IMAGEDATA16@
 
-if "DISPLAY" in os.environ:
+if os.environ.get("DISPLAY", '') != '':
     def download():
+        import pygtk
+        pygtk.require("2.0")
         import gtk
         import gobject
+        import pango
+        import webbrowser
 
         load_serialized_images()
 
@@ -234,12 +245,37 @@ if "DISPLAY" in os.environ:
                     self.update_progress(UNPACKING, 1.0)
                     gtk.main_quit()
 
+            def mouse_down(self, widget, event):
+                if self.hovering:
+                    self.clicked_link = True
+
+            def mouse_up(self, widget, event):
+                if self.clicked_link:
+                    webbrowser.open(LINK)
+                    self.clicked_link = False
+
+            def label_motion(self, widget, event):
+                offx, offy = self.label.get_layout_offsets()
+                layout = self.label.get_layout()
+                index = layout.xy_to_index(int((offx+event.x)*pango.SCALE),
+                                           int((offy+event.y)*pango.SCALE))[0]
+                link_index = layout.get_text().find(LINK)
+                if index >= link_index and index < link_index+len(LINK):
+                    self.hovering = True
+                    self.label_box.window.set_cursor(gtk.gdk.Cursor(gtk.gdk.HAND2))
+                else:
+                    self.hovering = False
+                    self.label_box.window.set_cursor(gtk.gdk.Cursor(gtk.gdk.ARROW))
+
+
             def __init__(self):
                 super(DownloadDialog, self).__init__(parent = None,
                                                      title = "Dropbox Installation")
 
                 self.download = None
                 self.watch = None
+                self.hovering = False
+                self.clicked_link = False
 
                 self.ok = ok = gtk.Button(stock=gtk.STOCK_OK)
                 ok.connect('clicked', self.handle_ok)
@@ -259,15 +295,26 @@ if "DISPLAY" in os.environ:
                 self.progress = gtk.ProgressBar()
                 self.progress.set_property('width-request', 300)
 
-                self.label = gtk.Label(WARNING)
+                self.label = gtk.Label()
+                self.label.set_markup('%s <span foreground="#000099" underline="single" weight="bold">%s</span>\n\n%s' % (INFO, LINK, WARNING))
                 self.label.set_line_wrap(True)
                 self.label.set_property('width-request', 300)
                 self.label.show()
 
+                self.label_box = gtk.EventBox()
+                self.label_box.add(self.label)
+                self.label_box.connect("button-release-event", self.mouse_up)
+                self.label_box.connect("button-press-event", self.mouse_down)
+                self.label_box.connect("motion-notify-event", self.label_motion)
+                self.label_box.show()
+                def on_realize(widget):
+                    self.label_box.add_events(gtk.gdk.POINTER_MOTION_MASK)
+                self.label_box.connect("realize", on_realize)
+
                 self.hbox = gtk.HBox(spacing=10)
                 self.hbox.set_property('border-width',10)
                 self.hbox.pack_start(self.box_logo, False, False)
-                self.hbox.pack_start(self.label, False, False)
+                self.hbox.pack_start(self.label_box, False, False)
                 self.hbox.pack_start(self.progress, False, False)
                 self.hbox.show()
 
@@ -284,12 +331,12 @@ else:
             console_print(u"\nError: %s" % s, f=sys.stderr)
             sys.exit(-1)
 
+
         ESC = "\x1b"
         save = ESC+"7"
         unsave = ESC+"8"
         clear = ESC+"[2J"
         erase_to_start = ESC+"[1K"
-
         write = sys.stdout.write
         flush = sys.stdout.flush
 
@@ -297,15 +344,19 @@ else:
         def setprogress(text, frac):
             if last_progress == [text, frac]:
                 return
-            write(erase_to_start)
-            write(unsave)
-            write(text % int(100*frac))
-            flush()
+            if sys.stdout.isatty():
+                write(erase_to_start)
+                write(unsave)
+            console_print(text % int(100*frac), linebreak=not sys.stdout.isatty())
+            if sys.stdout.isatty():
+                flush()
             last_progress[0], last_progress[1] = text, frac
 
         console_print(u"")
-        write(save)
-        flush()
+        if sys.stdout.isatty():
+            write(save)
+            flush()
+        console_print(u"%s %s\n" % (INFO, LINK))
 
         if not yes_no_question(WARNING):
             return
@@ -408,9 +459,14 @@ class DropboxCommand(object):
             self.__setattr__(name, __spec_command)
             return __spec_command
 
+commands = {}
+
 def command(meth):
+    global commands
     assert meth.__doc__, "All commands need properly formatted docstrings (even %r!!)" % meth
-    meth.command = True
+    if hasattr(meth, 'im_func'): # bound method, if we ever have one
+        meth = meth.im_func
+    commands[meth.func_name] = meth
     return meth
 
 def link_to_account(dc):
@@ -668,7 +724,7 @@ dropbox help [COMMAND]
 
 With no arguments, print a list of commands and a short description of each.
 
-With a command, print descriptive help on how to use the command. (Like right now!!)
+With a command, print descriptive help on how to use the command.
 """
     if not argv:
         return usage(argv)
@@ -690,11 +746,6 @@ def usage(argv):
 
 def main(argv):
     global commands
-
-    commands = {}
-    for name,meth in globals().iteritems():
-        if getattr(globals()[name], "command", False):
-            commands[name] = meth
 
     # now we need to find out if one of the commands are in the
     # argv list, and if so split the list at the point to

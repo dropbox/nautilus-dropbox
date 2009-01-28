@@ -128,6 +128,7 @@ cat > debian/nautilus-dropbox.postinst<<EOF
 case "\$1" in
     configure)
 	gtk-update-icon-cache /usr/share/icons/hicolor > /dev/null 2>&1
+	killall nautilus > /dev/null 2>&1
 	;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
@@ -154,7 +155,7 @@ Source: nautilus-dropbox
 Section: gnome
 Priority: optional
 Maintainer: Rian Hunter <rian@getdropbox.com>
-Build-Depends: cdbs, debhelper (>= 5), build-essential, libnautilus-extension-dev (>= 2.16.0), libnotify-dev (>= 0.4.4), libglib2.0-dev (>= 2.14.0), python-gtk2 (>= 2.12)
+Build-Depends: cdbs, debhelper (>= 5), build-essential, libnautilus-extension-dev (>= 2.16.0), libnotify-dev (>= 0.4.4), libglib2.0-dev (>= 2.14.0), python-gtk2 (>= 2.12), python-docutils
 Standards-Version: 3.7.2
 
 Package: nautilus-dropbox
