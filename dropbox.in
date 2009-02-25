@@ -183,6 +183,7 @@ if os.environ.get("DISPLAY", '') != '':
                 if self.download:
                     self.download.cancel()
                 gtk.main_quit()
+                self.user_cancelled = True
 
             def handle_ok(self, button):
                 # begin download
@@ -260,6 +261,7 @@ if os.environ.get("DISPLAY", '') != '':
                 self.watch = None
                 self.hovering = False
                 self.clicked_link = False
+                self.user_cancelled = False
 
                 self.ok = ok = gtk.Button(stock=gtk.STOCK_OK)
                 ok.connect('clicked', self.handle_ok)
@@ -308,6 +310,8 @@ if os.environ.get("DISPLAY", '') != '':
         dialog = DownloadDialog()
         dialog.show()
         gtk.main()
+        if dialog.user_cancelled:
+            raise Exception("user cancelled download!!!")
 else:
     def download():
         global FatalVisibleError
@@ -460,7 +464,10 @@ def start_dropbox():
         subprocess.Popen([db_path], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
                          stderr=f, stdout=f)
         sys.stdout.flush()
-        for i in range(5):
+        # in seconds
+        interval = 0.5
+        wait_for = 60
+        for i in xrange(wait_for / interval):
             try:
                 with closing(DropboxCommand()) as dc:
                     return True
@@ -468,7 +475,7 @@ def start_dropbox():
                 pass
                 
             # back off from connect for a while
-            time.sleep(0.5)
+            time.sleep(wait_for)
 
         return False
     else:
@@ -691,8 +698,12 @@ options:
             return
 
         # install dropbox!!!
-        download()
-        start_dropbox()
+        try:
+            download()
+        except:
+            pass
+        else:
+            start_dropbox()
     console_print(u"Done!")
 
 @command
