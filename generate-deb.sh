@@ -107,7 +107,7 @@ is licensed under the GPL, see above.
 EOF
 
 
-cat > debian/nautilus-dropbox.postinst<<EOF
+cat > debian/nautilus-dropbox.postinst<<'EOF'
 #!/bin/sh
 # postinst script for nautilus-dropbox
 #
@@ -125,13 +125,31 @@ cat > debian/nautilus-dropbox.postinst<<EOF
 # for details, see http://www.debian.org/doc/debian-policy/ or
 # the debian-policy package
 
-case "\$1" in
+case "$1" in
     configure)
 	gtk-update-icon-cache /usr/share/icons/hicolor > /dev/null 2>&1
         killall nautilus > /dev/null 2>&1
-        YEAH="/$(tty | sed -e 's/^\/dev\///' | sed -e 's/\//\\\//g')/ {print \$1}"
-        PATH=$PATH # reset PATH cache
-        sudo -u $(w | awk "$YEAH") $(which dropbox) start -i
+        START=$$
+        while [ $START -ne 1 ]; do
+          TTY=$(ps ax | awk "\$1 ~ /$START/ { print \$2 }")
+          if [ $TTY != "?" ]; then
+            break
+          fi
+  
+          START=$(cat /proc/$START/stat | awk '{print $4}')
+        done
+
+        if [ $TTY != "?" ]; then
+          ESCTTY=$(echo $TTY | sed -e 's/\//\\\//')
+          U=$(who | awk "\$2 ~ /$ESCTTY/ {print \$1}" | sort | uniq)
+          if [ "$(whoami)" != "$U" ]; then
+            if [ "$(whoami)" == "root" ]; then
+              su -c "dropbox start -i" $U &
+            fi
+          else
+            dropbox start -i
+          fi
+        fi
 	;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

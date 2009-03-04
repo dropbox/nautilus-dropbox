@@ -467,7 +467,7 @@ def start_dropbox():
         # in seconds
         interval = 0.5
         wait_for = 60
-        for i in xrange(wait_for / interval):
+        for i in xrange(int(wait_for / interval)):
             try:
                 with closing(DropboxCommand()) as dc:
                     return True
