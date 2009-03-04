@@ -29,6 +29,7 @@ libnautilus_dropbox_la_SOURCES = \
 	dropbox-command-client.h \
 	dropbox-command-client.c \
 	dropbox-client.c dropbox-client.h \
+	g-util.h \
 	async-io-coroutine.h \
 	dropbox-client-util.c \
 	dropbox-client-util.h \
