@@ -44,8 +44,7 @@ for I in BUILD RPMS SOURCES SPECS SRPMS; do
     mkdir rpmbuild/$I
 done;
 
-if [ ! -x configure ]; 
-   then
+if [ ! -x configure ]; then
     ./autogen.sh
 fi
 
@@ -99,9 +98,9 @@ Check us out at http://www.getdropbox.com/
 
 
 %build
+export DISPLAY=$DISPLAY
 %configure
 make %{?_smp_mflags}
-
 
 %install
 rm -rf \$RPM_BUILD_ROOT
@@ -143,6 +142,9 @@ rm -rf \$RPM_BUILD_ROOT
 %doc
 %{_libdir}/nautilus/extensions-2.0/*.so*
 %{_datadir}/icons/hicolor/*
+%{_bindir}/dropbox
+%{_datadir}/applications/dropbox.desktop
+%{_datadir}/man/man1/dropbox.1.gz
 
 
 %changelog
