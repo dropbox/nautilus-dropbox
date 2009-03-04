@@ -41,7 +41,6 @@
 
 #include "g-util.h"
 #include "dropbox-command-client.h"
-#include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
 #include "nautilus-dropbox-hooks.h"
 

@@ -32,7 +32,6 @@
 
 #include <libnotify/notification.h>
 
-#include "nautilus-dropbox-common.h"
 #include "nautilus-dropbox.h"
 
 static GType type_list[1];

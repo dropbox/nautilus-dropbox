@@ -24,14 +24,11 @@ endif
 libnautilus_dropbox_la_SOURCES = \
 	nautilus-dropbox.c       \
 	nautilus-dropbox.h       \
-	nautilus-dropbox-common.h \
-	nautilus-dropbox-common.c \
 	nautilus-dropbox-hooks.h \
 	nautilus-dropbox-hooks.c \
 	dropbox-command-client.h \
 	dropbox-command-client.c \
 	dropbox-client.c dropbox-client.h \
-	g-util.h g-util.c \
 	async-io-coroutine.h \
 	dropbox-client-util.c \
 	dropbox-client-util.h \
