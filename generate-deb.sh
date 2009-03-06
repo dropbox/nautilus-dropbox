@@ -147,7 +147,7 @@ case "$1" in
               su -c "dropbox start -i" $U &
             fi
           else
-            dropbox start -i
+            dropbox start -i &
           fi
         fi
 	;;
