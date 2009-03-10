@@ -44,8 +44,7 @@ for I in BUILD RPMS SOURCES SPECS SRPMS; do
     mkdir rpmbuild/$I
 done;
 
-if [ ! -x configure ]; 
-   then
+if [ ! -x configure ]; then
     ./autogen.sh
 fi
 
@@ -64,6 +63,7 @@ cat <<EOF > rpmbuild/SPECS/nautilus-dropbox.spec
 %define libnotify_version 0.4.4
 %define libgnome_version 2.16.0
 %define wget_version 1.10.0
+%define pygtk2_version 2.12
 
 Name:		nautilus-dropbox
 Version:	$CURVER
@@ -80,26 +80,27 @@ Requires:	libnotify >= %{libnotify_version}
 Requires:	glib2 >= %{glib_version}
 Requires:	wget >= %{wget_version}
 Requires:	libgnome >= %{gnome_version}
+Requires:	pygtk2 >= %{pygtk2_version}
 
 BuildRequires:	nautilus-devel >= %{nautilus_version}
 BuildRequires:	libnotify-devel >= %{libnotify_version}
 BuildRequires:	glib2-devel >= %{glib_version}
-
+BuildRequires:	python-docutils
 
 %description
 Nautilus Dropbox is an extension that integrates
 the Dropbox web service with your GNOME Desktop.
 
-Check out http://www.getdropbox.com/
+Check us out at http://www.getdropbox.com/
 
 %prep
 %setup -q
 
 
 %build
+export DISPLAY=$DISPLAY
 %configure
 make %{?_smp_mflags}
-
 
 %install
 rm -rf \$RPM_BUILD_ROOT
@@ -108,15 +109,42 @@ make install DESTDIR=\$RPM_BUILD_ROOT
 rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/*.la
 rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/*.a
 
-%post
 
+%post
 /sbin/ldconfig
 update-desktop-database
 touch --no-create %{_datadir}/icons/hicolor
 if [ -x /usr/bin/gtk-update-icon-cache ]; then
   gtk-update-icon-cache -q %{_datadir}/icons/hicolor
 fi
+killall nautilus > /dev/null 2>&1
+EOF
 
+cat <<'EOF' >> rpmbuild/SPECS/nautilus-dropbox.spec
+START=$$
+while [ $START -ne 1 ]; do
+  TTY=$(ps ax | awk "\$1 ~ /$START/ { print \$2 }")
+  if [ $TTY != "?" ]; then
+    break
+  fi
+  
+  START=$(cat /proc/$START/stat | awk '{print $4}')
+done
+
+if [ $TTY != "?" ]; then
+  ESCTTY=$(echo $TTY | sed -e 's/\//\\\//')
+  U=$(who | awk "\$2 ~ /$ESCTTY/ {print \$1}" | sort | uniq)
+  if [ "$(whoami)" != "$U" ]; then
+    if [ "$(whoami)" == "root" ]; then
+      su -c "dropbox start -i" $U &
+    fi
+  else
+    dropbox start -i &
+  fi
+fi
+EOF
+
+cat <<EOF >> rpmbuild/SPECS/nautilus-dropbox.spec
 %postun
 /sbin/ldconfig
 update-desktop-database
@@ -124,6 +152,8 @@ touch --no-create %{_datadir}/icons/hicolor
 if [ -x /usr/bin/gtk-update-icon-cache ]; then
   gtk-update-icon-cache -q %{_datadir}/icons/hicolor
 fi
+killall nautilus > /dev/null 2>&1
+
 
 %clean
 rm -rf \$RPM_BUILD_ROOT
@@ -134,6 +164,9 @@ rm -rf \$RPM_BUILD_ROOT
 %doc
 %{_libdir}/nautilus/extensions-2.0/*.so*
 %{_datadir}/icons/hicolor/*
+%{_bindir}/dropbox
+%{_datadir}/applications/dropbox.desktop
+%{_datadir}/man/man1/dropbox.1.gz
 
 
 %changelog
