@@ -482,7 +482,7 @@ def start_dropbox():
     if os.access(db_path, os.X_OK):
         f = open("/dev/null", "w")
         subprocess.Popen([db_path], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
-                         stderr=f, stdout=f)
+                         stderr=f, stdout=f, close_fds=True)
         sys.stdout.flush()
         # in seconds
         interval = 0.5
@@ -497,7 +497,7 @@ def start_dropbox():
                 pass
                 
             # back off from connect for a while
-            time.sleep(wait_for)
+            time.sleep(interval)
 
         return False
     else:
