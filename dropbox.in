@@ -475,7 +475,7 @@ def start_dropbox():
                 pass
                 
             # back off from connect for a while
-            time.sleep(wait_for)
+            time.sleep(interval)
 
         return False
     else:
