@@ -29,7 +29,6 @@ import os
 import time
 import platform
 import tarfile
-import threading
 import urllib
 import subprocess
 import fcntl
@@ -48,14 +47,13 @@ PARENT_DIR = os.path.expanduser("~")
 DROPBOXD_PATH = "%s/.dropbox-dist/dropboxd" % PARENT_DIR
 
 enc = locale.getpreferredencoding()
-def console_flush(f=sys.stdout):
-    f.flush()
 
 def console_print(st, f=sys.stdout, linebreak=True):
     global enc
     assert type(st) is unicode
     f.write(st.encode(enc))
     if linebreak: f.write(os.linesep)
+
 def console_flush(f=sys.stdout):
     f.flush()
 
@@ -72,19 +70,6 @@ def yes_no_question(question):
         else:
             console_print(u"Sorry, I didn't understand that. Please type yes or no.")
     
-def yes_no_question(question):
-    while True:
-        console_print(question, linebreak=False)
-        console_print(u" [y/n] ", linebreak=False)
-        console_flush()
-        text = raw_input()
-        if text.lower().startswith("y"):
-            return True
-        elif text.lower().startswith("n"):
-            return False
-        else:
-            console_print(u"Sorry, I didn't understand that. Please type yes or no.")
-
 def plat():
     if sys.platform.lower().startswith('linux'):
         arch = platform.machine()
@@ -511,9 +496,7 @@ dropbox filestatus [-l] [-a] [FILE]...
 Prints the current status of each FILE.
 
 options:
-  -l --list  prints out information in a format similar
-             to ls. works best when your console supports
-             color :)
+  -l --list  prints out information in a format similar to ls. works best when your console supports color :)
   -a --all   do not ignore entries starting with .
 """
     oparser = optparse.OptionParser()
@@ -649,8 +632,7 @@ def status(args):
     u"""get current status of the dropboxd
 dropbox status
 
-Prints out the current status of the
-Dropbox daemon.
+Prints out the current status of the Dropbox daemon.
 """
     if len(args) != 0:
         console_print(publicurl.__doc__,linebreak=False)
@@ -695,8 +677,7 @@ def start(argv):
     u"""start dropboxd
 dropbox start [-i]
     
-Starts the dropbox daemon, dropboxd. If dropboxd is already running, this will
-do nothing.
+Starts the dropbox daemon, dropboxd. If dropboxd is already running, this will do nothing.
 
 options:
   -i --install  auto install dropboxd if not available on the system
@@ -733,9 +714,7 @@ def help(argv):
     u"""provide help
 dropbox help [COMMAND]
 
-With no arguments, print a list of commands and a short description of each.
-
-With a command, print descriptive help on how to use the command.
+With no arguments, print a list of commands and a short description of each. With a command, print descriptive help on how to use the command.
 """
     if not argv:
         return usage(argv)

@@ -14,9 +14,8 @@ formatted_commands = ""
 for cmd in commands:
     split = commands[cmd].__doc__.split('\n', 2)
     formatted_commands += split[1].decode('ascii').replace(cmd, "`%s`" % cmd).replace("dropbox", "``dropbox``")
-    formatted_commands += '\n\n::\n  '
-    formatted_commands += split[2].decode('ascii').replace('\n', '\n  ')
-    formatted_commands += '\n|  \n\n'
+    formatted_commands += split[2].decode('ascii').replace('\n', '\n  | ')
+    formatted_commands += '\n\n'
 
 sys.stdout.write(sys.stdin.read().replace\
                      ('@AUTHORS@', authors).replace\
