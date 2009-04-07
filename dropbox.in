@@ -458,10 +458,6 @@ def command(meth):
     commands[meth.func_name] = meth
     return meth
 
-def link_to_account(dc):
-    fields = dc.get_link_args(new=yes_no_question(u"Do you already have a Dropbox account?"))
-    print fields
-
 def start_dropbox():
     db_path = os.path.expanduser(u"~/.dropbox-dist/dropboxd").encode(sys.getfilesystemencoding())
     if os.access(db_path, os.X_OK):
@@ -475,8 +471,6 @@ def start_dropbox():
         for i in xrange(int(wait_for / interval)):
             try:
                 with closing(DropboxCommand()) as dc:
-                    if dc.needs_cli_link()["needs_link"]:
-                        link_to_account(dc)
                     return True
             except:
                 pass
