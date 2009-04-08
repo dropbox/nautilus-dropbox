@@ -150,7 +150,9 @@ def load_serialized_images():
     box_logo_pixbuf = @IMAGEDATA64@
     window_icon = @IMAGEDATA16@
 
-if os.environ.get("DISPLAY", '') != '':
+GUI_AVAILABLE = os.environ.get("DISPLAY", '')
+
+if GUI_AVAILABLE:
     def download():
         import pygtk
         pygtk.require("2.0")
@@ -700,7 +702,12 @@ options:
         except:
             pass
         else:
-            start_dropbox()
+            if GUI_AVAILABLE:
+                start_dropbox()
+            else:
+                console_print(u"Dropbox has been downloaded successfully.")
+                console_print(u"In order to link to an account for the first time, a graphical environment is required.")
+                console_print(u"Try running 'dropbox start' from X windows")
     console_print(u"Done!")
 
 @command
