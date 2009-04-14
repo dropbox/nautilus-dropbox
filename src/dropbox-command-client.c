@@ -575,9 +575,30 @@ dropbox_command_client_thread(DropboxCommandClient *dcc) {
 
     sock = socket(PF_UNIX, SOCK_STREAM, 0);
 
-    for (i = 1; ;i++) {
+    if (0 > sock) {
+      /* WTF */
+      g_usleep(G_USEC_PER_SEC);
+      continue;
+    }
+
+    /* set timeout on socket, to protect against
+       bad servers */
+    {
+      struct timeval tv = {3, 0};
+      if (0 > setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
+			 &tv, sizeof(struct timeval))) {
+	/* WTF
+	   deallocate the socket
+	   ignore close return code, who cares, we haven't written or read any data */
+	close(sock);
+	g_usleep(G_USEC_PER_SEC);	
+	continue;
+      }
+    }
+
+    for (i = 1; ; i++) {
       /* first we have to connect to the dropbox command server */
-      if (-1 == connect(sock, (struct sockaddr *) &addr, addr_len)) {
+      if (0 > connect(sock, (struct sockaddr *) &addr, addr_len)) {
 	ConnectionAttempt *ca = g_new(ConnectionAttempt, 1);
 	ca->dcc = dcc;
 	ca->connect_attempt = i;
