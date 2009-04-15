@@ -158,7 +158,9 @@ def load_serialized_images():
     box_logo_pixbuf = @IMAGEDATA64@
     window_icon = @IMAGEDATA16@
 
-if os.environ.get("DISPLAY", '') != '':
+GUI_AVAILABLE = os.environ.get("DISPLAY", '')
+
+if GUI_AVAILABLE:
     def download():
         import pygtk
         pygtk.require("2.0")
@@ -215,9 +217,9 @@ if os.environ.get("DISPLAY", '') != '':
 
             def handle_data_waiting(self, fd, condition):
                 if condition == gobject.IO_HUP:
-                    raise FatalVisibleError("Connection to server unexpectedly closed.")
+                    FatalVisibleError("Connection to server unexpectedly closed.")
                 elif condition == gobject.IO_ERR:
-                    raise FatalVisibleError("Unexpected error occurred with download.")
+                    FatalVisibleError("Unexpected error occurred with download.")
                 try:
                     while self.one_chunk.next():
                         self.update_progress(DOWNLOADING, float(self.download.progress)/self.download.size)
@@ -506,9 +508,7 @@ dropbox filestatus [-l] [-a] [FILE]...
 Prints the current status of each FILE.
 
 options:
-  -l --list  prints out information in a format similar
-             to ls. works best when your console supports
-             color :)
+  -l --list  prints out information in a format similar to ls. works best when your console supports color :)
   -a --all   do not ignore entries starting with .
 """
     oparser = optparse.OptionParser()
@@ -647,8 +647,7 @@ def status(args):
     u"""get current status of the dropboxd
 dropbox status
 
-Prints out the current status of the
-Dropbox daemon.
+Prints out the current status of the Dropbox daemon.
 """
     if len(args) != 0:
         console_print(publicurl.__doc__,linebreak=False)
@@ -694,8 +693,7 @@ def start(argv):
     u"""start dropboxd
 dropbox start [-i]
     
-Starts the dropbox daemon, dropboxd. If dropboxd is already running, this will
-do nothing.
+Starts the dropbox daemon, dropboxd. If dropboxd is already running, this will do nothing.
 
 options:
   -i --install  auto install dropboxd if not available on the system
@@ -723,7 +721,12 @@ options:
         except:
             pass
         else:
-            start_dropbox()
+            if GUI_AVAILABLE:
+                start_dropbox()
+            else:
+                console_print(u"Dropbox has been downloaded successfully.")
+                console_print(u"In order to link to an account for the first time, a graphical environment is required.")
+                console_print(u"Try running 'dropbox start' from X windows")
     console_print(u"Done!")
 
 @command
@@ -731,9 +734,7 @@ def help(argv):
     u"""provide help
 dropbox help [COMMAND]
 
-With no arguments, print a list of commands and a short description of each.
-
-With a command, print descriptive help on how to use the command.
+With no arguments, print a list of commands and a short description of each. With a command, print descriptive help on how to use the command.
 """
     if not argv:
         return usage(argv)
