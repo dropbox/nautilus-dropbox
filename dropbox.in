@@ -554,10 +554,14 @@ options:
                 nondirs.sort(key=lowerkey)
 
                 def printstatus(fp):
+                    if not os.path.exists(fp):
+                        console_print(u"%s (File doesn't exist!)" % os.path.basename(fp))
+                        return
+
                     try:
                         status = dc.icon_overlay_file_status(path=fp).get(u'status', [None])[0]
                     except DropboxCommand.CommandError, e:
-                        console_print(u"%s (%s)" % (os.path.basename(fp), e.message))
+                        console_print(u"%s (%s)" % (os.path.basename(fp), e))
                         return
 
                     if not sys.stdout.isatty():
@@ -620,7 +624,7 @@ options:
                         status = dc.icon_overlay_file_status(path=fp).get(u'status', [u'unknown'])[0]
                         console_print(u"%-*s %s" % (indent, file+':', status))
                     except DropboxCommand.CommandError, e:
-                        console_print(u"%-*s %s" % (indent, file+':', e.message))
+                        console_print(u"%-*s %s" % (indent, file+':', e))
     except DropboxCommand.CouldntConnectError, e:
         console_print(u"Dropbox isn't running!")
 
@@ -651,7 +655,7 @@ Prints out a public url for FILE.
             try:
                 console_print(dc.get_public_link(path=os.path.abspath(args[0].decode(sys.getfilesystemencoding()))).get(u'link', [u'No Link'])[0])
             except DropboxCommand.CommandError, e:
-                console_print(u"Couldn't get public url: " + e.message)
+                console_print(u"Couldn't get public url: " + str(e))
             except DropboxCommand.BadConnectionError, e:
                 console_print(u"Dropbox isn't responding!")        
             except DropboxCommand.EOFError:
@@ -683,7 +687,7 @@ Prints out the current status of the Dropbox daemon.
             except KeyError:
                 console_print(u"Couldn't get status: daemon isn't responding")
             except DropboxCommand.CommandError, e:
-                console_print(u"Couldn't get status: " + e.message)
+                console_print(u"Couldn't get status: " + str(e))
             except DropboxCommand.BadConnectionError, e:
                 console_print(u"Dropbox isn't responding!")
             except DropboxCommand.EOFError:
