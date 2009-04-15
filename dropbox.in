@@ -557,7 +557,7 @@ options:
                     try:
                         status = dc.icon_overlay_file_status(path=fp).get(u'status', [None])[0]
                     except DropboxCommand.CommandError, e:
-                        console_print(u"%s (%s)" % (os.path.basename(file), e.message))
+                        console_print(u"%s (%s)" % (os.path.basename(fp), e.message))
                         return
 
                     if not sys.stdout.isatty():
