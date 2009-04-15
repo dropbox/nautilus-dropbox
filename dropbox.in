@@ -48,11 +48,12 @@ PARENT_DIR = os.path.expanduser("~")
 DROPBOXD_PATH = "%s/.dropbox-dist/dropboxd" % PARENT_DIR
 
 enc = locale.getpreferredencoding()
-def console_print(st, f=sys.stdout, linebreak=True):
+def console_print(st=u"", f=sys.stdout, linebreak=True):
     global enc
     assert type(st) is unicode
     f.write(st.encode(enc))
     if linebreak: f.write(os.linesep)
+
 def console_flush(f=sys.stdout):
     f.flush()
 
@@ -84,6 +85,19 @@ def plat():
     else:
         FatalVisibleError("Platform not supported")
 
+def is_dropbox_running():
+    pidfile = os.path.expanduser("~/.dropbox/dropbox.pid")
+
+    try:
+        with open(pidfile, "r") as f:
+            pid = int(f.read())
+        with open("/proc/%d/cmdline" % pid, "r") as f:
+            cmdline = f.read().lower()
+    except:
+        cmdline = ""
+
+    return "dropbox" in cmdline
+
 # This sets a custom User-Agent
 class DropboxURLopener(urllib.FancyURLopener):
     version = "DropboxLinuxDownloader/@PACKAGE_VERSION@"
@@ -105,26 +119,21 @@ class DownloadState(object):
         self.local_file = open(self.local_path, 'wb')
 
     def copy_data(self):
-        chunks = []
-        def flush():
-            while chunks:
-                self.local_file.write(chunks.pop())
         while True:
             try:
                 chunk = os.read(self.file.fileno(), 4096)
                 self.progress += len(chunk)
-                chunks.insert(0, chunk)
+                self.local_file.write(chunk)
                 yield True
                 if self.progress == self.size:
                     break
             except OSError, e:
                 if hasattr(e, 'errno') and e.errno == errno.EAGAIN:
                     # nothing left to read
-                    flush()
                     yield False
                 else:
                     raise
-        flush()
+
         self.file.close()
 
     def unpack(self):
@@ -340,7 +349,7 @@ else:
                 flush()
             last_progress[0], last_progress[1] = text, frac
 
-        console_print(u"")
+        console_print()
         if sys.stdout.isatty():
             write(save)
             flush()
@@ -358,7 +367,7 @@ else:
                 setprogress(DOWNLOADING, float(download.progress)/download.size)
         except StopIteration:
             setprogress(DOWNLOADING, 1.0)
-            console_print(u"")
+            console_print()
             write(save)
 
         one_member = download.unpack()
@@ -370,7 +379,7 @@ else:
         except StopIteration:
             setprogress(UNPACKING, 1.0)
 
-        console_print(u"")
+        console_print()
 
 class DropboxCommand(object):
     class CouldntConnectError(Exception): pass
@@ -457,31 +466,39 @@ def command(meth):
     commands[meth.func_name] = meth
     return meth
 
+def requires_dropbox_running(meth):
+    def newmeth(*n, **kw):
+        if is_dropbox_running():
+            return meth(*n, **kw)
+        else:
+            console_print(u"Dropbox isn't running!")            
+    newmeth.func_name = meth.func_name
+    newmeth.__doc__ = meth.__doc__
+    return newmeth
+
 def start_dropbox():
     db_path = os.path.expanduser(u"~/.dropbox-dist/dropboxd").encode(sys.getfilesystemencoding())
     if os.access(db_path, os.X_OK):
         f = open("/dev/null", "w")
-        subprocess.Popen([db_path], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
-                         stderr=f, stdout=f, close_fds=True)
-        sys.stdout.flush()
+        # we don't reap the child because we're gonna die anyway, let init do it
+        a = subprocess.Popen([db_path], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
+                             stderr=sys.stderr, stdout=f, close_fds=True)
+        
         # in seconds
         interval = 0.5
         wait_for = 60
         for i in xrange(int(wait_for / interval)):
-            try:
-                with closing(DropboxCommand()) as dc:
-                    return True
-            except:
-                pass
-                
+            if is_dropbox_running():
+                return True
             # back off from connect for a while
             time.sleep(interval)
-
+                
         return False
     else:
         return False
 
 @command
+@requires_dropbox_running
 def filestatus(args):
     u"""get current sync status of one or more files
 dropbox filestatus [-l] [-a] [FILE]...
@@ -566,7 +583,7 @@ options:
                         dirs = dirs[1:]
 
                     for name in dirs:
-                        console_print(u"")
+                        console_print()
                         console_print(name + u":")
                         printdir(name)
             else:
@@ -592,6 +609,7 @@ options:
         console_print(u"Dropbox daemon stopped.")
 
 @command
+@requires_dropbox_running
 def ls(args):
     u"""list directory contents with current sync status
 dropbox ls [FILE]...
@@ -601,6 +619,7 @@ This is an alias for filestatus -l
     return filestatus(["-l"] + args)
 
 @command
+@requires_dropbox_running
 def publicurl(args):
     u"""get public url of a file in your dropbox
 dropbox publicurl [FILE]
@@ -623,6 +642,7 @@ Prints out a public url for FILE.
         console_print(u"Dropbox daemon stopped.")
 
 @command
+@requires_dropbox_running
 def status(args):
     u"""get current status of the dropboxd
 dropbox status
@@ -653,6 +673,7 @@ Dropbox daemon.
         console_print(u"Dropbox daemon stopped.")
 
 @command
+@requires_dropbox_running
 def stop(args):
     u"""stop dropboxd
 dropbox stop
@@ -683,16 +704,15 @@ options:
     should_install = "-i" in argv or "--install" in argv
     
     # first check if dropbox is already running
-    try:
-        with closing(DropboxCommand()) as dc:
-            console_print(u"Dropbox is already running!")
-            return
-    except:
-        pass
+    if is_dropbox_running():
+        console_print(u"Dropbox is already running!")
+        return
 
     console_print(u"Starting Dropbox...", linebreak=False)
+    console_flush()
     if not start_dropbox():
         if not should_install:
+            console_print()
             console_print(u"The Dropbox daemon is not installed!")
             console_print(u"Run with -i to install the daemon")
             return

@@ -121,6 +121,14 @@ killall nautilus > /dev/null 2>&1
 EOF
 
 cat <<'EOF' >> rpmbuild/SPECS/nautilus-dropbox.spec
+# stop dropbox
+dropbox stop
+
+# kill all old installations 
+for I in /home/*/.dropbox-dist; do
+  rm -rf "$I"
+done
+
 START=$$
 while [ $START -ne 1 ]; do
   TTY=$(ps ax | awk "\$1 ~ /$START/ { print \$2 }")
@@ -136,9 +144,13 @@ if [ $TTY != "?" ]; then
   U=$(who | awk "\$2 ~ /$ESCTTY/ {print \$1}" | sort | uniq)
   if [ "$(whoami)" != "$U" ]; then
     if [ "$(whoami)" == "root" ]; then
+      # kill all old installations, in case they they don't use /home
+      su -c 'rm -rf ~/.dropbox-dist' $U
       su -c "dropbox start -i" $U &
     fi
   else
+    # kill all old installations, in case they they don't use /home
+    rm -rf ~/.dropbox-dist
     dropbox start -i &
   fi
 fi
