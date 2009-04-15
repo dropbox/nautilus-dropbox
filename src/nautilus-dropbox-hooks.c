@@ -26,6 +26,7 @@
 #include <sys/un.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <string.h>
 
@@ -155,9 +156,21 @@ try_to_connect(NautilusDropboxHookserv *hookserv) {
   /* create socket */
   hookserv->socket = socket(PF_UNIX, SOCK_STREAM, 0);
   
+  /* set native non-blocking, for connect timeout */
+  {
+    unsigned int flags;
+
+    if ((flags = fcntl(hookserv->socket, F_GETFL, 0)) < 0) {
+      goto FAIL_CLEANUP;
+    }
+
+    if (fcntl(hookserv->socket, F_SETFL, flags | O_NONBLOCK) < 0) {
+      goto FAIL_CLEANUP;
+    }
+  }
+
   /* connect to server, might fail of course */
   {
-    int err;
     struct sockaddr_un addr;
     socklen_t addr_len;
     
@@ -169,15 +182,36 @@ try_to_connect(NautilusDropboxHookserv *hookserv) {
 	       g_get_home_dir());
     addr_len = sizeof(addr) - sizeof(addr.sun_path) + strlen(addr.sun_path);
 
-    err = connect(hookserv->socket, (struct sockaddr *) &addr,
-		  addr_len);
-
     /* if there was an error we have to try again later */
-    if (err == -1) {
-      close(hookserv->socket);
-      g_timeout_add_seconds(1, (GSourceFunc) try_to_connect, hookserv);
-      return FALSE;
+    if (connect(hookserv->socket, (struct sockaddr *) &addr, addr_len) < 0) {
+      if (errno == EINPROGRESS) {
+	fd_set writers;
+	struct timeval tv = {1, 0};
+        FD_ZERO(&writers);
+	FD_SET(hookserv->socket, &writers);
+	
+	/* if nothing was ready after 3 seconds, fail out homie */
+	if (select(hookserv->socket+1, NULL, &writers, NULL, &tv) == 0) {
+	  goto FAIL_CLEANUP;
+	}
+
+	if (connect(hookserv->socket, (struct sockaddr *) &addr, addr_len) < 0) {
+	  debug("couldn't connect to hook server after 1 second");
+	  goto FAIL_CLEANUP;
+	}
+      }
+      else {
+	goto FAIL_CLEANUP;
+      }
     }
+  }
+
+  /* lol sometimes i write funny codez */
+  if (FALSE) {
+  FAIL_CLEANUP:
+    close(hookserv->socket);
+    g_timeout_add_seconds(1, (GSourceFunc) try_to_connect, hookserv);
+    return FALSE;
   }
 
   /* great we connected!, let's create the channel and wait on it */
@@ -187,7 +221,7 @@ try_to_connect(NautilusDropboxHookserv *hookserv) {
 
   /*debug("create channel"); */
 
-  /* Set non-blocking ;) */
+  /* Set non-blocking ;) (again just in case) */
   {
     GIOFlags flags;
     GIOStatus iostat;
@@ -214,7 +248,7 @@ try_to_connect(NautilusDropboxHookserv *hookserv) {
 			(GIOFunc) handle_hook_server_input, hookserv,
 			(GDestroyNotify) watch_killer);
 
-  /* debug("hook client connected");*/
+  debug("hook client connected");
   hookserv->connected = TRUE;
   g_hook_list_invoke(&(hookserv->onconnect_hooklist), FALSE);
 

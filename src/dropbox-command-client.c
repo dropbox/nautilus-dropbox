@@ -26,6 +26,7 @@
 #include <sys/un.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <stdarg.h>
 #include <string.h>
@@ -114,7 +115,9 @@ receive_args_until_done(GIOChannel *chan, GHashTable *return_table,
 				    &term_pos, &tmp_error);
     if (iostat == G_IO_STATUS_ERROR || tmp_error != NULL) {
       g_free(line);
-      g_propagate_error(err, tmp_error);
+      if (tmp_error != NULL) {
+	g_propagate_error(err, tmp_error);
+      }
       return FALSE;
     }
     else if (iostat == G_IO_STATUS_EOF) {
@@ -190,8 +193,11 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
     iostat = g_io_channel_write_chars(chan, sani_s,l, &bytes_trans,	\
 				      &tmp_error);			\
     g_free(sani_s);							\
-    if (iostat == G_IO_STATUS_ERROR || tmp_error != NULL) {		\
-      g_propagate_error(err, tmp_error);				\
+    if (iostat == G_IO_STATUS_ERROR ||					\
+	iostat == G_IO_STATUS_AGAIN) {					\
+      if (tmp_error != NULL) {						\
+	g_propagate_error(err, tmp_error);				\
+      }									\
       return NULL;							\
     }									\
   }
@@ -199,8 +205,11 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
 #define WRITE_OR_DIE(s,l) {						\
     iostat = g_io_channel_write_chars(chan, s,l, &bytes_trans,		\
 				      &tmp_error);			\
-    if (iostat == G_IO_STATUS_ERROR || tmp_error != NULL) {		\
-      g_propagate_error(err, tmp_error);				\
+    if (iostat == G_IO_STATUS_ERROR ||					\
+	iostat == G_IO_STATUS_AGAIN) {					\
+      if (tmp_error != NULL) {						\
+	g_propagate_error(err, tmp_error);				\
+      }									\
       return NULL;							\
     }									\
   }
@@ -234,7 +243,6 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
     g_list_free(keys);
   }
 
-
   WRITE_OR_DIE("done\n", -1);
 
 #undef WRITE_OR_DIE
@@ -249,13 +257,21 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
   /* now we have to read the data */
   iostat = g_io_channel_read_line(chan, &line, NULL,
 				  NULL, &tmp_error);
-  if (iostat == G_IO_STATUS_ERROR || tmp_error != NULL) {
-    if (line != NULL) g_free(line);
+  if (iostat == G_IO_STATUS_ERROR) {
+    g_assert(line == NULL);
     g_propagate_error(err, tmp_error);
     return NULL;
   }
+  else if (iostat == G_IO_STATUS_AGAIN) {
+    g_assert(line == NULL);
+    g_set_error(err,
+		g_quark_from_static_string("dropbox command connection timed out"),
+		0,
+		"dropbox command connection timed out");
+    return NULL;
+  }
   else if (iostat == G_IO_STATUS_EOF) {
-    if (line != NULL) g_free(line);
+    g_assert(line == NULL);
     g_set_error(err,
 		g_quark_from_static_string("dropbox command connection closed"),
 		0,
@@ -272,6 +288,7 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
 			    (GDestroyNotify) g_strfreev);
     
     g_free(line);
+    line = NULL;
 
     receive_args_until_done(chan, return_table, &tmp_error);
     if (tmp_error != NULL) {
@@ -284,21 +301,30 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
   }
   /* otherwise */
   else {
-    g_free(line);
-
     /* read errors off until we get done */
     do {
+      g_free(line);
+      line = NULL;
+      
       /* clear string */
       iostat = g_io_channel_read_line(chan, &line, NULL,
 				      NULL, &tmp_error);
-      if (iostat == G_IO_STATUS_ERROR ||
-	  tmp_error != NULL) {
-	g_free(line);
+      if (iostat == G_IO_STATUS_ERROR) {
+	g_assert(line == NULL);
 	g_propagate_error(err, tmp_error);
 	return NULL;
       }
+      else if (iostat == G_IO_STATUS_AGAIN) {
+	g_assert(line == NULL);
+	g_set_error(err,
+		    g_quark_from_static_string("dropbox command connection timed out"),
+		    0,
+		    "dropbox command connection timed out");
+	return NULL;
+	
+      }
       else if (iostat == G_IO_STATUS_EOF) {
-	g_free(line);
+	g_assert(line == NULL);
 	g_set_error(err,
 		    g_quark_from_static_string("dropbox command connection closed"),
 		    0,
@@ -513,7 +539,7 @@ check_connection(GIOChannel *chan) {
 
   /* this makes us disconnect from bad servers
      (those that send us information without us asking for it) */
-  return (iostat == G_IO_STATUS_AGAIN);
+  return iostat == G_IO_STATUS_AGAIN;
 }
 
 static gpointer
@@ -551,6 +577,7 @@ static gpointer
 dropbox_command_client_thread(DropboxCommandClient *dcc) {
   struct sockaddr_un addr;
   socklen_t addr_len;
+  int connection_attempts = 1;
 
   /* intialize address structure */
   addr.sun_family = AF_UNIX;
@@ -564,44 +591,93 @@ dropbox_command_client_thread(DropboxCommandClient *dcc) {
     GIOChannel *chan = NULL;
     GError *gerr = NULL;
     int sock;
-    int i;
+    gboolean failflag = TRUE;
 
-    sock = socket(PF_UNIX, SOCK_STREAM, 0);
+    do {
+      int flags;
 
-    if (0 > sock) {
-      /* WTF */
+      if (0 > (sock = socket(PF_UNIX, SOCK_STREAM, 0))) {
+	/* WTF */
+	break;
+      }
+
+      /* set timeout on socket, to protect against
+	 bad servers */
+      {
+	struct timeval tv = {3, 0};
+	if (0 > setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
+			   &tv, sizeof(struct timeval)) ||
+	    0 > setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO,
+			   &tv, sizeof(struct timeval))) {
+	  /* debug("setsockopt failed"); */
+	  break;
+	}
+      }
+
+      /* set native non-blocking, for connect timeout */
+      {
+	if ((flags = fcntl(sock, F_GETFL, 0)) < 0 ||
+	    fcntl(sock, F_SETFL, flags | O_NONBLOCK) < 0) {
+	  /* debug("fcntl failed"); */
+	  break;
+	}
+      }
+
+      /* if there was an error we have to try again later */
+      if (connect(sock, (struct sockaddr *) &addr, addr_len) < 0) {
+	if (errno == EINPROGRESS) {
+	  fd_set writers;
+	  struct timeval tv = {1, 0};
+
+	  FD_ZERO(&writers);
+	  FD_SET(sock, &writers);
+	  
+	  /* if nothing was ready after 3 seconds, fail out homie */
+	  if (select(sock+1, NULL, &writers, NULL, &tv) == 0) {
+	    /* debug("connection timeout"); */
+	    break;
+	  }
+	  
+	  if (connect(sock, (struct sockaddr *) &addr, addr_len) < 0) {
+	    /*	    debug("couldn't connect to command server after 1 second"); */
+	    break;
+	  }
+	}
+	/* errno != EINPROGRESS */
+	else {
+	  /*	  debug("bad connection"); */
+	  break;
+	}
+      }
+
+      /* set back to blocking */
+      if (fcntl(sock, F_SETFL, flags) < 0) {
+	/* debug("fcntl2 failed"); */
+	break;
+      }
+      
+      failflag = FALSE;
+    } while (0);
+
+    if (failflag) {
+      ConnectionAttempt *ca = g_new(ConnectionAttempt, 1);
+      ca->dcc = dcc;
+      ca->connect_attempt = connection_attempts;
+      g_idle_add((GSourceFunc) on_connection_attempt, ca);
+      if (sock >= 0) {
+	close(sock);
+      }
       g_usleep(G_USEC_PER_SEC);
+      connection_attempts++;
       continue;
     }
-
-    /* set timeout on socket, to protect against
-       bad servers */
-    {
-      struct timeval tv = {3, 0};
-      if (0 > setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO,
-			 &tv, sizeof(struct timeval))) {
-	/* WTF
-	   deallocate the socket
-	   ignore close return code, who cares, we haven't written or read any data */
-	close(sock);
-	g_usleep(G_USEC_PER_SEC);	
-	continue;
-      }
-    }
-
-    for (i = 1; ; i++) {
-      /* first we have to connect to the dropbox command server */
-      if (0 > connect(sock, (struct sockaddr *) &addr, addr_len)) {
-	ConnectionAttempt *ca = g_new(ConnectionAttempt, 1);
-	ca->dcc = dcc;
-	ca->connect_attempt = i;
-	g_idle_add((GSourceFunc) on_connection_attempt, ca);
-	g_usleep(G_USEC_PER_SEC);
-      }
-      else break;
+    else {
+      connection_attempts = 0;
     }
 
     /* connected */
+    debug("command client connected");
+
     chan = g_io_channel_unix_new(sock);
     g_io_channel_set_close_on_unref(chan, TRUE);
     g_io_channel_set_line_term(chan, "\n", -1);
@@ -644,10 +720,12 @@ dropbox_command_client_thread(DropboxCommandClient *dcc) {
 
       switch (dc->request_type) {
       case GET_FILE_INFO: {
+	debug("doing file info command");
 	do_file_info_command(chan, (DropboxFileInfoCommand *) dc, &gerr);
       }
 	break;
       case GENERAL_COMMAND: {
+	debug("doing general command");
 	do_general_command(chan, (DropboxGeneralCommand *) dc, &gerr);
       }
 	break;
@@ -656,10 +734,13 @@ dropbox_command_client_thread(DropboxCommandClient *dcc) {
 	break;
       }
       
+      debug("done.");
+
       if (gerr != NULL) {
+	//	debug("COMMAND ERROR*****************************");
 	/* mark this request as never to be completed */
 	end_request(dc);
-	
+
 	debug("command error: %s", gerr->message);
 	
 	g_error_free(gerr);
