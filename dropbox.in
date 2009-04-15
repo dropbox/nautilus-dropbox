@@ -188,6 +188,9 @@ if GUI_AVAILABLE:
                 gtk.main_iteration()
 
         class DownloadDialog(gtk.Dialog):
+            def handle_delete_event(self, wid, ev, data=None):
+                self.handle_cancel(wid)
+
             def handle_cancel(self, button):
                 if self.watch:
                     gobject.source_remove(self.watch)
@@ -283,6 +286,8 @@ if GUI_AVAILABLE:
                 cancel.connect('clicked', self.handle_cancel)
                 self.action_area.add(cancel)
                 cancel.show()
+
+                self.connect('delete_event', self.handle_delete_event)
 
                 self.box_logo = gtk.image_new_from_pixbuf(box_logo_pixbuf)
                 self.box_logo.show()
@@ -385,11 +390,13 @@ else:
 
 class DropboxCommand(object):
     class CouldntConnectError(Exception): pass
+    class BadConnectionError(Exception): pass
     class EOFError(Exception): pass
     class CommandError(Exception): pass
 
     def __init__(self):
         self.s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.s.settimeout(3)
         try:
             self.s.connect(os.path.expanduser(u'~/.dropbox/command_socket'))
         except socket.error, e:
@@ -401,7 +408,10 @@ class DropboxCommand(object):
         self.s.close()
 
     def __readline(self):
-        toret = self.f.readline().decode('utf8').rstrip(u"\n")
+        try:
+            toret = self.f.readline().decode('utf8').rstrip(u"\n")
+        except socket.error, e:
+            raise DropboxCommand.BadConnectionError()
         if toret == '':
             raise DropboxCommand.EOFError()
         else:
@@ -529,8 +539,8 @@ options:
 
                     for a in args:
                         try:
-                            (dirs if os.path.isdir(a) else
-                             nondirs).append(a.decode(sys.getfilesystemencoding()))
+                            (dirs if os.path.isdir(a) else nondirs).\
+                                append(a.decode(sys.getfilesystemencoding()))
                         except UnicodeDecodeError:
                             pass
 
@@ -544,8 +554,12 @@ options:
                 nondirs.sort(key=lowerkey)
 
                 def printstatus(fp):
-                    status = dc.icon_overlay_file_status(path=fp).get(u'status',
-                                                                      [None])[0]
+                    try:
+                        status = dc.icon_overlay_file_status(path=fp).get(u'status', [None])[0]
+                    except DropboxCommand.CommandError, e:
+                        console_print(u"%s (%s)" % (os.path.basename(file), e.message))
+                        return
+
                     if not sys.stdout.isatty():
                         console_print(os.path.basename(fp))
                         return
@@ -571,21 +585,26 @@ options:
 
                         printstatus(os.path.abspath(os.path.join(name, subname)))
 
-                if len(dirs) == 1 and len(nondirs) == 0:
-                    printdir(dirs[0])
-                else:
-                    for name in nondirs:
-                        printstatus(os.path.abspath(name))
-
-                    if len(nondirs) == 0:
-                        console_print(dirs[0] + u":")
+                try:
+                    if len(dirs) == 1 and len(nondirs) == 0:
                         printdir(dirs[0])
-                        dirs = dirs[1:]
+                    else:
+                        for name in nondirs:
+                            printstatus(os.path.abspath(name))
 
-                    for name in dirs:
-                        console_print()
-                        console_print(name + u":")
-                        printdir(name)
+                        if len(nondirs) == 0:
+                            console_print(dirs[0] + u":")
+                            printdir(dirs[0])
+                            dirs = dirs[1:]
+
+                        for name in dirs:
+                            console_print()
+                            console_print(name + u":")
+                            printdir(name)
+                except DropboxCommand.EOFError:
+                    console_print(u"Dropbox daemon stopped.")
+                except DropboxCommand.BadConnectionError, e:
+                    console_print(u"Dropbox isn't responding!")
             else:
                 if len(args) == 0:
                     args = [name for name in os.listdir(u".") if type(name) == unicode]
@@ -601,12 +620,9 @@ options:
                         status = dc.icon_overlay_file_status(path=fp).get(u'status', [u'unknown'])[0]
                         console_print(u"%-*s %s" % (indent, file+':', status))
                     except DropboxCommand.CommandError, e:
-                        console_print(u"%-*s %s" % \
-                                          (indent, file+':', e.message))
+                        console_print(u"%-*s %s" % (indent, file+':', e.message))
     except DropboxCommand.CouldntConnectError, e:
         console_print(u"Dropbox isn't running!")
-    except DropboxCommand.EOFError:
-        console_print(u"Dropbox daemon stopped.")
 
 @command
 @requires_dropbox_running
@@ -636,10 +652,12 @@ Prints out a public url for FILE.
                 console_print(dc.get_public_link(path=os.path.abspath(args[0].decode(sys.getfilesystemencoding()))).get(u'link', [u'No Link'])[0])
             except DropboxCommand.CommandError, e:
                 console_print(u"Couldn't get public url: " + e.message)
+            except DropboxCommand.BadConnectionError, e:
+                console_print(u"Dropbox isn't responding!")        
+            except DropboxCommand.EOFError:
+                console_print(u"Dropbox daemon stopped.")
     except DropboxCommand.CouldntConnectError, e:
         console_print(u"Dropbox isn't running!")
-    except DropboxCommand.EOFError:
-        console_print(u"Dropbox daemon stopped.")
 
 @command
 @requires_dropbox_running
@@ -666,10 +684,12 @@ Prints out the current status of the Dropbox daemon.
                 console_print(u"Couldn't get status: daemon isn't responding")
             except DropboxCommand.CommandError, e:
                 console_print(u"Couldn't get status: " + e.message)
+            except DropboxCommand.BadConnectionError, e:
+                console_print(u"Dropbox isn't responding!")
+            except DropboxCommand.EOFError:
+                console_print(u"Dropbox daemon stopped.")
     except DropboxCommand.CouldntConnectError, e:
         console_print(u"Dropbox isn't running!")
-    except DropboxCommand.EOFError:
-        console_print(u"Dropbox daemon stopped.")
 
 @command
 @requires_dropbox_running
@@ -679,14 +699,16 @@ dropbox stop
 
 Stops the dropbox daemon.
 """
-    # first check if dropbox is already running
     try:
         with closing(DropboxCommand()) as dc:
-            dc.tray_action_hard_exit()
+            try:
+                dc.tray_action_hard_exit()
+            except DropboxCommand.BadConnectionError, e:
+                console_print(u"Dropbox isn't responding!")        
+            except DropboxCommand.EOFError:
+                console_print(u"Dropbox daemon stopped.")
     except DropboxCommand.CouldntConnectError, e:
         console_print(u"Dropbox isn't running!")
-    except DropboxCommand.EOFError:
-        console_print(u"Dropbox daemon stopped.")
 
 @command
 def start(argv):
