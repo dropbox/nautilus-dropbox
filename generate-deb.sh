@@ -60,7 +60,7 @@ Upstream Author(s):
 
 Copyright: 
 
-    Copyright (C) 2008 Evenflow, Inc.
+    Copyright (C) 2009 Evenflow, Inc.
 
 All images included in this package constitute data and are not licensed
 for you to use under the terms of the GPL. You may not use the images

@@ -305,7 +305,7 @@ handle_shell_touch(GHashTable *args, NautilusDropbox *cvs) {
 gboolean
 nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr) {
 
-  debug_enter();
+  //debug_enter();
   
   if (dficr->dfic->cancelled == FALSE) {
     gchar **status= NULL, **options=NULL;
@@ -712,6 +712,7 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
 					cvs);
   
   /* now start the connection */
+  debug("about to start client connection");
   dropbox_client_start(&(cvs->dc));
 
   return;

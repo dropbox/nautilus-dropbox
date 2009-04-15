@@ -492,35 +492,28 @@ check_connection(GIOChannel *chan) {
   gsize bytes_read;
   GError *tmp_error = NULL;
   GIOFlags flags;
-  GIOStatus iostat;
+  GIOStatus ret, iostat;
 
   flags = g_io_channel_get_flags(chan);
   
   /* set non-blocking */
-  g_io_channel_set_flags(chan, flags | G_IO_FLAG_NONBLOCK,
-			 &tmp_error);
-  if (tmp_error != NULL) {
-    g_error_free(tmp_error);
+  ret = g_io_channel_set_flags(chan, flags | G_IO_FLAG_NONBLOCK, NULL);
+  if (ret == G_IO_STATUS_ERROR) {
     return FALSE;
   }
   
   iostat = g_io_channel_read_chars(chan, fake_buf,
 				   sizeof(fake_buf), 
 				   &bytes_read, &tmp_error);
-  g_io_channel_set_flags(chan, flags, NULL);
-  if (tmp_error != NULL) {
-    g_error_free(tmp_error);
+
+  ret = g_io_channel_set_flags(chan, flags, NULL);
+  if (ret == G_IO_STATUS_ERROR) {
     return FALSE;
   }
 
   /* this makes us disconnect from bad servers
      (those that send us information without us asking for it) */
-  if (iostat == G_IO_STATUS_AGAIN) {
-    return TRUE;
-  }
-  else {
-    return FALSE;
-  }
+  return (iostat == G_IO_STATUS_AGAIN);
 }
 
 static gpointer
@@ -763,6 +756,8 @@ dropbox_command_client_add_connection_attempt_hook(DropboxCommandClient *dcc,
 						   DropboxCommandClientConnectionAttemptHook dhcch,
 						   gpointer ud) {
   DropboxCommandClientConnectionAttempt *newhook;
+
+  debug("shouldn't be here...");
   
   newhook = g_new(DropboxCommandClientConnectionAttempt, 1);
   newhook->h = dhcch;
@@ -775,6 +770,7 @@ dropbox_command_client_add_connection_attempt_hook(DropboxCommandClient *dcc,
 void
 dropbox_command_client_start(DropboxCommandClient *dcc) {
   /* setup the connect to the command server */
+  debug("starting command thread");
   g_thread_create((gpointer (*)(gpointer data)) dropbox_command_client_thread,
 		  dcc, FALSE, NULL);
 }

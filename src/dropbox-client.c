@@ -159,6 +159,8 @@ void
 dropbox_client_add_connection_attempt_hook(DropboxClient *dc,
 					   DropboxClientConnectionAttemptHook dhcch,
 					   gpointer ud) {
+  debug("shouldn't be here...");
+
   dropbox_command_client_add_connection_attempt_hook(&(dc->dcc),
 						     dhcch, ud);
 }
@@ -166,6 +168,7 @@ dropbox_client_add_connection_attempt_hook(DropboxClient *dc,
 /* should only be called once on initialization */
 void
 dropbox_client_start(DropboxClient *dc) {
+  debug("starting connections");
   nautilus_dropbox_hooks_start(&(dc->hookserv));
   dropbox_command_client_start(&(dc->dcc));
 }
