@@ -122,7 +122,7 @@ EOF
 
 cat <<'EOF' >> rpmbuild/SPECS/nautilus-dropbox.spec
 # stop dropbox
-dropbox stop
+dropbox stop > /dev/null 2>&1
 
 # kill all old installations 
 for I in /home/*/.dropbox-dist; do
@@ -146,12 +146,12 @@ if [ $TTY != "?" ]; then
     if [ "$(whoami)" == "root" ]; then
       # kill all old installations, in case they they don't use /home
       su -c 'rm -rf ~/.dropbox-dist' $U
-      su -c "dropbox start -i" $U &
+      su -c "dropbox start -i" $U > /dev/null 2>&1 &
     fi
   else
     # kill all old installations, in case they they don't use /home
     rm -rf ~/.dropbox-dist
-    dropbox start -i &
+    dropbox start -i > /dev/null 2>&1 &
   fi
 fi
 EOF
