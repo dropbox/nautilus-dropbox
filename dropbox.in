@@ -640,7 +640,7 @@ This is an alias for filestatus -l
 
 @command
 @requires_dropbox_running
-def publicurl(args):
+def puburl(args):
     u"""get public url of a file in your dropbox
 dropbox publicurl [FILE]
 
@@ -779,6 +779,7 @@ def usage(argv):
     spacing = max(len(o[0])+3 for o in out)
     for o in out:
         console_print(" %-*s%s" % (spacing, o[0], o[1]))
+    console_print()
 
 def main(argv):
     global commands
