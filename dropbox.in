@@ -642,12 +642,12 @@ This is an alias for filestatus -l
 @requires_dropbox_running
 def puburl(args):
     u"""get public url of a file in your dropbox
-dropbox publicurl [FILE]
+dropbox puburl FILE
 
 Prints out a public url for FILE.
 """
     if len(args) != 1:
-        console_print(publicurl.__doc__,linebreak=False)
+        console_print(puburl.__doc__,linebreak=False)
         return
 
     try:
@@ -672,7 +672,7 @@ dropbox status
 Prints out the current status of the Dropbox daemon.
 """
     if len(args) != 0:
-        console_print(publicurl.__doc__,linebreak=False)
+        console_print(status.__doc__,linebreak=False)
         return
 
     try:
