@@ -123,37 +123,22 @@ EOF
 cat <<'EOF' >> rpmbuild/SPECS/nautilus-dropbox.spec
 # stop dropbox
 dropbox stop > /dev/null 2>&1
+sleep 0.5
+killall dropbox > /dev/null 2>&1
+killall dropboxd > /dev/null 2>&1
 
 # kill all old installations 
 for I in /home/*/.dropbox-dist; do
   rm -rf "$I"
 done
+rm -rf ~/.dropbox-dist
 
-START=$$
-while [ $START -ne 1 ]; do
-  TTY=$(ps ax | awk "\$1 ~ /$START/ { print \$2 }")
-  if [ $TTY != "?" ]; then
-    break
-  fi
-  
-  START=$(cat /proc/$START/stat | awk '{print $4}')
-done
-
-if [ $TTY != "?" ]; then
-  ESCTTY=$(echo $TTY | sed -e 's/\//\\\//')
-  U=$(who | awk "\$2 ~ /$ESCTTY/ {print \$1}" | sort | uniq)
-  if [ "$(whoami)" != "$U" ]; then
-    if [ "$(whoami)" == "root" ]; then
-      # kill all old installations, in case they they don't use /home
-      su -c 'rm -rf ~/.dropbox-dist' $U
-      su -c "dropbox start -i" $U > /dev/null 2>&1 &
-    fi
-  else
-    # kill all old installations, in case they they don't use /home
-    rm -rf ~/.dropbox-dist
-    dropbox start -i > /dev/null 2>&1 &
-  fi
+zenity --info --timeout=5 --text='Dropbox installation successfully completed! Please log out and log back in to complete the integration with your desktop. You can start Dropbox from your applications menu.' > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  echo
+  echo 'Dropbox installation successfully completed! Please log out and log back in to complete the integration with your desktop. You can start Dropbox from your applications menu.'
 fi
+
 EOF
 
 cat <<EOF >> rpmbuild/SPECS/nautilus-dropbox.spec
