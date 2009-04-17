@@ -4,6 +4,8 @@ AC_INIT([nautilus-dropbox],0.6.0)
 
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 
+AC_PREFIX_DEFAULT(/usr)
+
 AM_CONFIG_HEADER(config.h)
 
 # not ready for i18n yet

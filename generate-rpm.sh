@@ -27,7 +27,7 @@ fi
 
 cat <<EOF > $HOME/.rpmmacros
 %_topdir      $(pwd)/rpmbuild
-%_tmppath              $(pwd)/r/pmbuild
+%_tmppath              $(pwd)/rpmbuild
 %_smp_mflags  -j3
 %_signature gpg
 %_gpg_name 3565780E
@@ -62,7 +62,6 @@ cat <<EOF > rpmbuild/SPECS/nautilus-dropbox.spec
 %define nautilus_version 2.16.0
 %define libnotify_version 0.4.4
 %define libgnome_version 2.16.0
-%define wget_version 1.10.0
 %define pygtk2_version 2.12
 
 Name:		nautilus-dropbox
@@ -78,7 +77,6 @@ BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Requires:	nautilus >= %{nautilus_version}
 Requires:	libnotify >= %{libnotify_version}
 Requires:	glib2 >= %{glib_version}
-Requires:	wget >= %{wget_version}
 Requires:	libgnome >= %{gnome_version}
 Requires:	pygtk2 >= %{pygtk2_version}
 
@@ -117,43 +115,27 @@ touch --no-create %{_datadir}/icons/hicolor
 if [ -x /usr/bin/gtk-update-icon-cache ]; then
   gtk-update-icon-cache -q %{_datadir}/icons/hicolor
 fi
-killall nautilus > /dev/null 2>&1
 EOF
 
 cat <<'EOF' >> rpmbuild/SPECS/nautilus-dropbox.spec
 # stop dropbox
 dropbox stop > /dev/null 2>&1
+sleep 0.5
+killall dropbox > /dev/null 2>&1
+killall dropboxd > /dev/null 2>&1
 
 # kill all old installations 
 for I in /home/*/.dropbox-dist; do
   rm -rf "$I"
 done
+rm -rf ~/.dropbox-dist
 
-START=$$
-while [ $START -ne 1 ]; do
-  TTY=$(ps ax | awk "\$1 ~ /$START/ { print \$2 }")
-  if [ $TTY != "?" ]; then
-    break
-  fi
-  
-  START=$(cat /proc/$START/stat | awk '{print $4}')
-done
-
-if [ $TTY != "?" ]; then
-  ESCTTY=$(echo $TTY | sed -e 's/\//\\\//')
-  U=$(who | awk "\$2 ~ /$ESCTTY/ {print \$1}" | sort | uniq)
-  if [ "$(whoami)" != "$U" ]; then
-    if [ "$(whoami)" == "root" ]; then
-      # kill all old installations, in case they they don't use /home
-      su -c 'rm -rf ~/.dropbox-dist' $U
-      su -c "dropbox start -i" $U > /dev/null 2>&1 &
-    fi
-  else
-    # kill all old installations, in case they they don't use /home
-    rm -rf ~/.dropbox-dist
-    dropbox start -i > /dev/null 2>&1 &
-  fi
+zenity --info --timeout=5 --text='Dropbox installation successfully completed! Please log out and log back in to complete the integration with your desktop. You can start Dropbox from your applications menu.' > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  echo
+  echo 'Dropbox installation successfully completed! Please log out and log back in to complete the integration with your desktop. You can start Dropbox from your applications menu.'
 fi
+
 EOF
 
 cat <<EOF >> rpmbuild/SPECS/nautilus-dropbox.spec
@@ -164,12 +146,9 @@ touch --no-create %{_datadir}/icons/hicolor
 if [ -x /usr/bin/gtk-update-icon-cache ]; then
   gtk-update-icon-cache -q %{_datadir}/icons/hicolor
 fi
-killall nautilus > /dev/null 2>&1
-
 
 %clean
 rm -rf \$RPM_BUILD_ROOT
-
 
 %files
 %defattr(-,root,root,-)
@@ -180,13 +159,9 @@ rm -rf \$RPM_BUILD_ROOT
 %{_datadir}/applications/dropbox.desktop
 %{_datadir}/man/man1/dropbox.1.gz
 
-
 %changelog
-* Mon Sep 1 2008 Rian Hunter <rian@getdropbox.com> - 0.4.1
-- Bugfix release
-
-* Mon Sep 1 2008 Rian Hunter <rian@getdropbox.com> - 0.4.0
-- Initial Package
+* $(date +'%a %b %d %Y')  Rian Hunter <rian@getdropbox.com> - $CURVER
+- This package does not use a changelog
 EOF
 
 cd rpmbuild
