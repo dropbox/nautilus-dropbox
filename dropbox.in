@@ -98,6 +98,12 @@ def is_dropbox_running():
 
     return "dropbox" in cmdline
 
+def unicode_abspath(path):
+    global enc
+    assert type(path) is unicode
+    # shouldn't pass unicode to this craphead, it appends with os.getcwd() which is always a str 
+    return os.path.abspath(path.encode(sys.getfilesystemencoding())).decode(sys.getfilesystemencoding())
+
 # This sets a custom User-Agent
 class DropboxURLopener(urllib.FancyURLopener):
     version = "DropboxLinuxDownloader/@PACKAGE_VERSION@"
@@ -587,14 +593,19 @@ options:
                         if not options.all and subname[0] == u'.':
                             continue
 
-                        printstatus(os.path.abspath(os.path.join(name, subname)))
-
+                        try:
+                            printstatus(unicode_abspath(os.path.join(name, subname)))
+                        except (UnicodeEncodeError, UnicodeDecodeError), e:
+                            continue
                 try:
                     if len(dirs) == 1 and len(nondirs) == 0:
                         printdir(dirs[0])
                     else:
                         for name in nondirs:
-                            printstatus(os.path.abspath(name))
+                            try:
+                                printstatus(unicode_abspath(name))
+                            except (UnicodeEncodeError, UnicodeDecodeError), e:
+                                continue
 
                         if len(nondirs) == 0:
                             console_print(dirs[0] + u":")
@@ -614,7 +625,10 @@ options:
                     args = [name for name in os.listdir(u".") if type(name) == unicode]
                 indent = max(len(st)+1 for st in args)
                 for file in args:
-                    fp = os.path.abspath(file)
+                    try:
+                        fp = unicode_abspath(file)
+                    except (UnicodeEncodeError, UnicodeDecodeError), e:
+                        continue
                     if not os.path.exists(fp):
                         console_print(u"%-*s %s" % \
                                           (indent, file+':', "File doesn't exist"))
@@ -653,7 +667,7 @@ Prints out a public url for FILE.
     try:
         with closing(DropboxCommand()) as dc:
             try:
-                console_print(dc.get_public_link(path=os.path.abspath(args[0].decode(sys.getfilesystemencoding()))).get(u'link', [u'No Link'])[0])
+                console_print(dc.get_public_link(path=unicode_abspath(args[0].decode(sys.getfilesystemencoding()))).get(u'link', [u'No Link'])[0])
             except DropboxCommand.CommandError, e:
                 console_print(u"Couldn't get public url: " + str(e))
             except DropboxCommand.BadConnectionError, e:
