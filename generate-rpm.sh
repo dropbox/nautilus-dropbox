@@ -27,7 +27,7 @@ fi
 
 cat <<EOF > $HOME/.rpmmacros
 %_topdir      $(pwd)/rpmbuild
-%_tmppath              $(pwd)/r/pmbuild
+%_tmppath              $(pwd)/rpmbuild
 %_smp_mflags  -j3
 %_signature gpg
 %_gpg_name 3565780E
@@ -62,7 +62,6 @@ cat <<EOF > rpmbuild/SPECS/nautilus-dropbox.spec
 %define nautilus_version 2.16.0
 %define libnotify_version 0.4.4
 %define libgnome_version 2.16.0
-%define wget_version 1.10.0
 %define pygtk2_version 2.12
 
 Name:		nautilus-dropbox
@@ -78,7 +77,6 @@ BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Requires:	nautilus >= %{nautilus_version}
 Requires:	libnotify >= %{libnotify_version}
 Requires:	glib2 >= %{glib_version}
-Requires:	wget >= %{wget_version}
 Requires:	libgnome >= %{gnome_version}
 Requires:	pygtk2 >= %{pygtk2_version}
 
@@ -117,7 +115,6 @@ touch --no-create %{_datadir}/icons/hicolor
 if [ -x /usr/bin/gtk-update-icon-cache ]; then
   gtk-update-icon-cache -q %{_datadir}/icons/hicolor
 fi
-killall nautilus > /dev/null 2>&1
 EOF
 
 cat <<'EOF' >> rpmbuild/SPECS/nautilus-dropbox.spec
@@ -149,12 +146,9 @@ touch --no-create %{_datadir}/icons/hicolor
 if [ -x /usr/bin/gtk-update-icon-cache ]; then
   gtk-update-icon-cache -q %{_datadir}/icons/hicolor
 fi
-killall nautilus > /dev/null 2>&1
-
 
 %clean
 rm -rf \$RPM_BUILD_ROOT
-
 
 %files
 %defattr(-,root,root,-)
@@ -165,13 +159,9 @@ rm -rf \$RPM_BUILD_ROOT
 %{_datadir}/applications/dropbox.desktop
 %{_datadir}/man/man1/dropbox.1.gz
 
-
 %changelog
-* Mon Sep 1 2008 Rian Hunter <rian@getdropbox.com> - 0.4.1
-- Bugfix release
-
-* Mon Sep 1 2008 Rian Hunter <rian@getdropbox.com> - 0.4.0
-- Initial Package
+* $(date +'%a %b %d %Y')  Rian Hunter <rian@getdropbox.com> - $CURVER
+- This package does not use a changelog
 EOF
 
 cd rpmbuild
