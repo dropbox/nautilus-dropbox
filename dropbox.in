@@ -582,7 +582,7 @@ options:
                 def printdir(name):
                     for subname in sorted(os.listdir(name), key=lowerkey):
                         if type(subname) != unicode:
-                            pass
+                            continue
                         
                         if not options.all and subname[0] == u'.':
                             continue
