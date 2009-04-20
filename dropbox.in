@@ -527,6 +527,8 @@ options:
   -l --list  prints out information in a format similar to ls. works best when your console supports color :)
   -a --all   do not ignore entries starting with .
 """
+    global enc
+
     oparser = optparse.OptionParser()
     oparser.add_option("-l", "--list", action="store_true", dest="list")
     oparser.add_option("-a", "--all", action="store_true", dest="all")
@@ -545,10 +547,9 @@ options:
 
                     for a in args:
                         try:
-                            (dirs if os.path.isdir(a) else nondirs).\
-                                append(a.decode(sys.getfilesystemencoding()))
+                            (dirs if os.path.isdir(a) else nondirs).append(a.decode(enc))
                         except UnicodeDecodeError:
-                            pass
+                            continue
 
                     if len(dirs) == 0 and len(nondirs) == 0:
                         exit(1)
@@ -626,7 +627,7 @@ options:
                 indent = max(len(st)+1 for st in args)
                 for file in args:
                     try:
-                        fp = unicode_abspath(file)
+                        fp = unicode_abspath(file.decode(enc))
                     except (UnicodeEncodeError, UnicodeDecodeError), e:
                         continue
                     if not os.path.exists(fp):
