@@ -753,7 +753,7 @@ options:
         if not should_install:
             console_print()
             console_print(u"The Dropbox daemon is not installed!")
-            console_print(u"Run with -i to install the daemon")
+            console_print(u"Run \"dropbox start -i\" to install the daemon")
             return
 
         # install dropbox!!!
