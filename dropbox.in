@@ -26,6 +26,7 @@ import sys
 import optparse
 import socket
 import os
+import shutil
 import time
 import platform
 import tarfile
@@ -769,6 +770,50 @@ options:
                 console_print(u"In order to link to an account for the first time, a graphical environment is required.")
                 console_print(u"Try running 'dropbox start' from X windows")
     console_print(u"Done!")
+
+@command
+def autostart(argv):
+    u"""automatically start dropbox at login
+dropbox autostart [y/n]
+
+options:
+  n  dropbox will not start automatically at login
+  y  dropbox will start automatically at login (default)
+
+Note: May only work on current Ubuntu distributions.
+"""
+    if len(argv) != 1:
+        console_print(''.join(autostart.__doc__.split('\n')[1:]),linebreak=False)
+        return
+
+    s = argv[0].lower()
+    if s.startswith('y') or s.startswith('-y'):
+        should_autostart = True
+    elif s.startswith('n') or s.startswith('-n'):
+        should_autostart = False
+    else:
+        should_autostart = None
+
+    if should_autostart is None:
+        console_print(autostart.__doc__,linebreak=False)
+        return
+
+    home_dir = os.path.expanduser(u'~')
+    contents = os.listdir(home_dir)
+
+    # UBUNTU
+    if u".config" in contents:
+        autostart_dir = os.path.join(home_dir, u".config", u"autostart")
+        autostart_link = os.path.join(autostart_dir, u"%s.desktop" % "dropbox") #BUILD_KEY.lower()
+        desktop_file = u"/usr/local/share/applications/%s.desktop" % "dropbox" #BUILD_KEY.lower()
+        if should_autostart:
+            if os.path.exists(desktop_file):
+                if not os.path.exists(autostart_dir):
+                    os.makedirs(autostart_dir)
+                shutil.copyfile(desktop_file, autostart_link)
+        elif os.path.exists(autostart_link):
+            os.remove(autostart_link)
+
 
 @command
 def help(argv):
