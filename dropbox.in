@@ -198,6 +198,9 @@ if GUI_AVAILABLE:
             def handle_delete_event(self, wid, ev, data=None):
                 self.handle_cancel(wid)
 
+            def handle_dont_show_toggle(self, button, data=None):
+                reroll_autostart(not button.get_active())
+
             def handle_cancel(self, button):
                 if self.watch:
                     gobject.source_remove(self.watch)
@@ -218,6 +221,7 @@ if GUI_AVAILABLE:
                                                   gobject.IO_HUP,
                                                   self.handle_data_waiting)
                 self.label.hide()
+                self.dont_show_again_align.hide()
                 self.progress.show()
 
             def update_progress(self, text, fraction):
@@ -315,6 +319,7 @@ if GUI_AVAILABLE:
                 self.label_box.connect("button-release-event", self.mouse_up)
                 self.label_box.connect("button-press-event", self.mouse_down)
                 self.label_box.connect("motion-notify-event", self.label_motion)
+
                 self.label_box.show()
                 def on_realize(widget):
                     self.label_box.add_events(gtk.gdk.POINTER_MOTION_MASK)
@@ -328,7 +333,30 @@ if GUI_AVAILABLE:
                 self.hbox.show()
 
                 self.vbox.add(self.hbox)
-                self.set_resizable(False)
+
+                try:
+                    if can_reroll_autostart():
+                        dont_show_again = gtk.CheckButton("_Don't show this again")
+                        dont_show_again.connect('toggled', self.handle_dont_show_toggle)
+                        dont_show_again.show()
+
+                        self.dont_show_again_align = gtk.Alignment(xalign=1.0, yalign=0.0, xscale=0.0, yscale=0.0)
+                        self.dont_show_again_align.add(dont_show_again)
+                        self.dont_show_again_align.show()
+
+                        hbox = gtk.HBox()
+                        hbox.set_property('border-width', 10)
+                        hbox.pack_start(self.dont_show_again_align, True, True)
+                        hbox.show()
+
+                        self.vbox.add(hbox)
+
+                    self.set_resizable(False)
+                except:
+                    import traceback
+                    traceback.print_exc()
+
+                self.ok.grab_focus()
 
         dialog = DownloadDialog()
         dialog.show()
@@ -771,6 +799,28 @@ options:
                 console_print(u"Try running 'dropbox start' from X windows")
     console_print(u"Done!")
 
+def can_reroll_autostart():
+    return u".config" in os.listdir(os.path.expanduser(u'~'))
+
+def reroll_autostart(should_autostart):
+    home_dir = os.path.expanduser(u'~')
+    contents = os.listdir(home_dir)
+
+    # UBUNTU
+    if u".config" in contents:
+        autostart_dir = os.path.join(home_dir, u".config", u"autostart")
+        autostart_link = os.path.join(autostart_dir, u"%s.desktop" % "dropbox") #BUILD_KEY.lower()
+        desktop_file = u"/usr/local/share/applications/%s.desktop" % "dropbox" #BUILD_KEY.lower()
+        if should_autostart:
+            if os.path.exists(desktop_file):
+                if not os.path.exists(autostart_dir):
+                    os.makedirs(autostart_dir)
+                shutil.copyfile(desktop_file, autostart_link)
+        elif os.path.exists(autostart_link):
+            os.remove(autostart_link)
+
+
+
 @command
 def autostart(argv):
     u"""automatically start dropbox at login
@@ -796,23 +846,8 @@ Note: May only work on current Ubuntu distributions.
 
     if should_autostart is None:
         console_print(autostart.__doc__,linebreak=False)
-        return
-
-    home_dir = os.path.expanduser(u'~')
-    contents = os.listdir(home_dir)
-
-    # UBUNTU
-    if u".config" in contents:
-        autostart_dir = os.path.join(home_dir, u".config", u"autostart")
-        autostart_link = os.path.join(autostart_dir, u"%s.desktop" % "dropbox") #BUILD_KEY.lower()
-        desktop_file = u"/usr/local/share/applications/%s.desktop" % "dropbox" #BUILD_KEY.lower()
-        if should_autostart:
-            if os.path.exists(desktop_file):
-                if not os.path.exists(autostart_dir):
-                    os.makedirs(autostart_dir)
-                shutil.copyfile(desktop_file, autostart_link)
-        elif os.path.exists(autostart_link):
-            os.remove(autostart_link)
+    else:
+        reroll_autostart(should_autostart)
 
 
 @command
