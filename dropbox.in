@@ -758,6 +758,27 @@ Stops the dropbox daemon.
     except DropboxCommand.CouldntConnectError, e:
         console_print(u"Dropbox isn't running!")
 
+#returns true if link is necessary
+def grab_link_url_if_necessary():
+    try:
+        with closing(DropboxCommand()) as dc:
+            try:
+                link_url = dc.needs_link().get(u"link_url", None)
+                if link_url is not None:
+                    console_print(u"To link this computer to a dropbox account, visit the following url:\n%s" % link_url[0])
+                    return True
+                else:
+                    return False
+            except DropboxCommand.CommandError, e:
+                pass
+            except DropboxCommand.BadConnectionError, e:
+                console_print(u"Dropbox isn't responding!")        
+            except DropboxCommand.EOFError:
+                console_print(u"Dropbox daemon stopped.")
+    except DropboxCommand.CouldntConnectError, e:
+        console_print(u"Dropbox isn't running!")
+
+
 @command
 def start(argv):
     u"""start dropboxd
@@ -773,7 +794,8 @@ options:
     
     # first check if dropbox is already running
     if is_dropbox_running():
-        console_print(u"Dropbox is already running!")
+        if not grab_link_url_if_necessary():
+            console_print(u"Dropbox is already running!")
         return
 
     console_print(u"Starting Dropbox...", linebreak=False)
@@ -793,11 +815,15 @@ options:
         else:
             if GUI_AVAILABLE:
                 start_dropbox()
+                console_print(u"Done!")
             else:
-                console_print(u"Dropbox has been downloaded successfully.")
-                console_print(u"In order to link to an account for the first time, a graphical environment is required.")
-                console_print(u"Try running 'dropbox start' from X windows")
-    console_print(u"Done!")
+                if start_dropbox():
+                    if not grab_link_url_if_necessary():
+                        console_print(u"Done!")
+    else:
+        if not grab_link_url_if_necessary():
+            console_print(u"Done!")
+
 
 def can_reroll_autostart():
     return u".config" in os.listdir(os.path.expanduser(u'~'))
