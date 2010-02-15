@@ -579,13 +579,26 @@ nautilus_dropbox_parse_menu(gchar			**options,
   return ret;
 }
 
+static void
+get_file_items_callback(GHashTable *response, gpointer ud)
+{
+  GAsyncQueue *reply_queue = ud;
+
+  /* queue_push doesn't accept NULL as a value so we create an empty hash table
+   * if we got no response. */
+  g_async_queue_push(reply_queue, response ? g_hash_table_ref(response) :
+		     g_hash_table_new((GHashFunc) g_str_hash, (GEqualFunc) g_str_equal));
+  g_async_queue_unref(reply_queue);
+}
+
+
 static GList *
 nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
                                 GtkWidget            *window,
 				GList                *files)
 {
   /*
-   * To avoid useless waiting we will convert the files to filenames here.
+   * 1. Convert files to filenames.
    */
   int file_count = g_list_length(files);
 
@@ -613,31 +626,49 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
     paths[i] = filename;
   }
 
+  GAsyncQueue *reply_queue = g_async_queue_new_full((GDestroyNotify)g_hash_table_unref);
+  
   /*
-   * We have to ask dropbox for the menu but we have to block until it's done.
-   * We will only wait 50 ms for Dropbox to tell us.
+   * 2. Create a DropboxGeneralCommand to call "icon_overlay_context_options"
    */
 
-  NautilusDropbox *cvs = NAUTILUS_DROPBOX(provider);
-  GAsyncQueue *reply_queue = g_async_queue_new_full((GDestroyNotify)g_hash_table_unref);
-  DropboxFileMenuCommand *dfmc = g_new0(DropboxFileMenuCommand, 1);
-  dfmc->reply_queue = g_async_queue_ref(reply_queue);
-  dfmc->filenames = paths;
-  dfmc->dc.request_type = GET_FILE_MENU;
+  DropboxGeneralCommand *dgc = g_new0(DropboxGeneralCommand, 1);
+  dgc->dc.request_type = GENERAL_COMMAND;
+  dgc->command_name = g_strdup("icon_overlay_context_options");
+  dgc->command_args = g_hash_table_new_full((GHashFunc) g_str_hash,
+					    (GEqualFunc) g_str_equal,
+					    (GDestroyNotify) g_free,
+					    (GDestroyNotify) g_strfreev);
+  g_hash_table_insert(dgc->command_args, g_strdup("paths"), paths);
+  dgc->handler = get_file_items_callback;
+  dgc->handler_ud = g_async_queue_ref(reply_queue);
 
-  dropbox_command_client_request(&(cvs->dc.dcc), (DropboxCommand *) dfmc);
+  /*
+   * 3. Queue it up for the helper thread to run it.
+   */
+  NautilusDropbox *cvs = NAUTILUS_DROPBOX(provider);
+  dropbox_command_client_request(&(cvs->dc.dcc), (DropboxCommand *) dgc);
 
   GTimeVal gtv;
 
+  /*
+   * 4. We have to block until it's done because nautilus expects a reply.  But we will
+   * only block for 50 ms for a reply.
+   */
+
   g_get_current_time(&gtv);
-  g_time_val_add(&gtv, 50000); // 50 ms
+  g_time_val_add(&gtv, 50000);
 
   GHashTable *context_options_response = g_async_queue_timed_pop(reply_queue, &gtv);
+  g_async_queue_unref(reply_queue);
 
   if (!context_options_response) {
-      g_async_queue_unref(reply_queue);
       return NULL;
   }
+
+  /*
+   * 5. Parse the reply.
+   */
 
   char **options = g_hash_table_lookup(context_options_response, "options");
   GList *toret = NULL;
@@ -666,7 +697,6 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
     g_object_unref(root_menu);
   }
 
-  g_async_queue_unref(reply_queue);
   g_hash_table_unref(context_options_response);
 
   return toret;

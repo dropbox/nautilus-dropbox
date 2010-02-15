@@ -340,53 +340,6 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
   }
 }
 
-static void
-finish_file_menu_command(DropboxFileMenuCommand *dfmc,
-			 GHashTable *context_options_response)
-{
-  if (!context_options_response) {
-      // This is dumb but queue_push doesn't accept NULL as a value.
-      context_options_response = g_hash_table_new_full((GHashFunc) g_str_hash,
-						       (GEqualFunc) g_str_equal,
-						       (GDestroyNotify) g_free,
-						       (GDestroyNotify) g_strfreev);
-  }
-
-  /* put response in the queue now */
-  g_async_queue_push(dfmc->reply_queue, g_hash_table_ref(context_options_response));
-
-  /* cleanup stuff */
-  g_hash_table_unref(context_options_response);
-  g_async_queue_unref(dfmc->reply_queue);
-  g_strfreev(dfmc->filenames);
-  g_free(dfmc);
-}
-
-
-static void
-do_file_menu_command(GIOChannel *chan, DropboxFileMenuCommand *dfmc,
-		     GError **gerr) {
-  GError *tmp_gerr = NULL;
-  GHashTable *context_options_response = NULL, *args;
-
-  args = g_hash_table_new((GHashFunc) g_str_hash, (GEqualFunc) g_str_equal);
-
-  /* No need to strdup because args doesn't cleanup keys and values. */
-  g_hash_table_insert(args, "paths", dfmc->filenames);
-
-  /* send context options command to server */
-  context_options_response = send_command_to_db(chan, "icon_overlay_context_options",
-						args, &tmp_gerr);
-  g_hash_table_unref(args);
-
-  if (tmp_gerr != NULL) {
-    g_assert(context_options_response == NULL);
-    g_propagate_error(gerr, tmp_gerr);
-    return;
-  }
-
-  finish_file_menu_command(dfmc, context_options_response);
-}
 
 static void
 do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
@@ -400,9 +353,8 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
 
   {
     gchar *filename_un, *uri;
-    /* TODO: might be thread-unsafe */
     uri = nautilus_file_info_get_uri(dfic->file);
-    filename_un = g_filename_from_uri(uri, NULL, gerr);
+    filename_un = uri ? g_filename_from_uri(uri, NULL, gerr): NULL;
     g_free(uri);
     if (filename_un) {
       filename = g_filename_to_utf8(filename_un, -1, NULL, NULL, gerr);
@@ -415,7 +367,9 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
   }
 
   if (filename == NULL) {
-    /* oooh, filename wasn't correctly encoded. mark as  */
+    /* Make sure we have an error when we leave. */
+    if (gerr != NULL && *gerr == NULL)
+	*gerr = g_error_new (0, 2, "Unable to read filename");
     return;
   }
 
@@ -491,7 +445,7 @@ finish_general_command(DropboxGeneralCommandResponse *dgcr) {
   }
   
   if (dgcr->response != NULL) {
-    g_hash_table_destroy(dgcr->response);
+    g_hash_table_unref(dgcr->response);
   }
 
   g_free(dgcr->dgc->command_name);
@@ -525,7 +479,7 @@ do_general_command(GIOChannel *chan, DropboxGeneralCommand *dcac,
     DropboxGeneralCommandResponse *dgcr = g_new0(DropboxGeneralCommandResponse, 1);
     dgcr->dgc = dcac;
     dgcr->response = response;
-    g_idle_add((GSourceFunc) finish_general_command, dgcr);
+    finish_general_command(dgcr);
   }
   
   return;
@@ -576,16 +530,12 @@ end_request(DropboxCommand *dc) {
       g_idle_add((GSourceFunc) nautilus_dropbox_finish_file_info_command, dficr);
     }
       break;
-    case GET_FILE_MENU: {
-	finish_file_menu_command((DropboxFileMenuCommand *) dc, NULL);
-    }
-      break;
     case GENERAL_COMMAND: {
       DropboxGeneralCommand *dgc = (DropboxGeneralCommand *) dc;
       DropboxGeneralCommandResponse *dgcr = g_new0(DropboxGeneralCommandResponse, 1);
       dgcr->dgc = dgc;
       dgcr->response = NULL;
-      g_idle_add((GSourceFunc) finish_general_command, dgcr);
+      finish_general_command(dgcr);
     }
       break;
     default: 
@@ -751,11 +701,6 @@ dropbox_command_client_thread(DropboxCommandClient *dcc) {
 	do_general_command(chan, (DropboxGeneralCommand *) dc, &gerr);
       }
 	break;
-      case GET_FILE_MENU: {
-	debug("doing file menu command");
-	do_file_menu_command(chan, (DropboxFileMenuCommand *) dc, &gerr);
-      }
-	break;
       default: 
 	g_assert_not_reached();
 	break;
@@ -917,6 +862,10 @@ void dropbox_command_client_send_command(DropboxCommandClient *dcc,
 					    (GEqualFunc) g_str_equal,
 					    (GDestroyNotify) g_free,
 					    (GDestroyNotify) g_strfreev);
+  /*
+   * NB: The handler is called in the DropboxCommandClient Thread.  If you need
+   * it in the main thread you must call g_idle_add in the callback.
+   */
   dgc->handler = h;
   dgc->handler_ud = ud;
   
