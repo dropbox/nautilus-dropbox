@@ -310,10 +310,6 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
     if ((dficr->file_status_response != NULL &&
 	(status =
 	 g_hash_table_lookup(dficr->file_status_response, "status")) != NULL) &&
-	(dficr->context_options_response != NULL &&
-	 (options =
-	  g_hash_table_lookup(dficr->context_options_response,
-			      "options")) != NULL) &&
 	((isdir == TRUE &&
 	  dficr->folder_tag_response != NULL) || isdir == FALSE)) {
       gchar **tag = NULL;
@@ -385,8 +381,6 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
   /* destroy the objects we created */
   if (dficr->file_status_response != NULL)
     g_hash_table_unref(dficr->file_status_response);
-  if (dficr->context_options_response != NULL)
-    g_hash_table_unref(dficr->context_options_response);
   if (dficr->folder_tag_response != NULL)
     g_hash_table_unref(dficr->folder_tag_response);
 
@@ -596,15 +590,40 @@ nautilus_dropbox_parse_menu(gchar			**options,
 static GList *
 nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
                                 GtkWidget            *window,
-				GList                *files) {
-  /* we only do options for single files... for now */
-  if (g_list_length(files) != 1) {
+				GList                *files)
+{
+  /*
+   * We have to ask dropbox for the menu but we have to block until it's done.
+   * We will only wait 50 ms for Dropbox to tell us.
+   */
+
+  if (g_list_length(files) < 1)
     return NULL;
+
+  NautilusDropbox *cvs = NAUTILUS_DROPBOX(provider);
+  GAsyncQueue *reply_queue = g_async_queue_new_full((GDestroyNotify)g_hash_table_unref);
+  DropboxFileMenuCommand *dfmc = g_new0(DropboxFileMenuCommand, 1);
+  dfmc->reply_queue = g_async_queue_ref(reply_queue);
+  dfmc->files = nautilus_file_info_list_copy(files);
+  dfmc->dc.request_type = GET_FILE_MENU;
+
+  dropbox_command_client_request(&(cvs->dc.dcc), (DropboxCommand *) dfmc);
+
+  GTimeVal gtv;
+
+  g_get_current_time(&gtv);
+  g_time_val_add(&gtv, 50000); // 50 ms
+
+  GHashTable *context_options_response = g_async_queue_timed_pop(reply_queue, &gtv);
+
+  if (!context_options_response) {
+      g_async_queue_unref(reply_queue);
+      return NULL;
   }
 
+  char **options = g_hash_table_lookup(context_options_response, "options");
   GList *toret = NULL;
-  gchar **options = g_object_get_data(G_OBJECT(files->data),
-				      "nautilus_dropbox_menu_item");
+
   if (options && *options && **options)  {
     /* build the menu */
     NautilusMenuItem *root_item;
@@ -628,6 +647,10 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
     g_string_free(action_string, TRUE);
     g_object_unref(root_menu);
   }
+
+  g_async_queue_unref(reply_queue);
+  g_hash_table_unref(context_options_response);
+
   return toret;
 }
 

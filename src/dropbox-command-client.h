@@ -30,7 +30,7 @@
 G_BEGIN_DECLS
 
 /* command structs */
-typedef enum {GET_FILE_INFO, GENERAL_COMMAND} NautilusDropboxRequestType;
+typedef enum {GET_FILE_INFO, GENERAL_COMMAND, GET_FILE_MENU} NautilusDropboxRequestType;
 
 typedef struct {
   NautilusDropboxRequestType request_type;
@@ -47,7 +47,6 @@ typedef struct {
 typedef struct {
   DropboxFileInfoCommand *dfic;
   GHashTable *file_status_response;
-  GHashTable *context_options_response;
   GHashTable *folder_tag_response;
 } DropboxFileInfoCommandResponse;
 
@@ -60,6 +59,12 @@ typedef struct {
   NautilusDropboxCommandResponseHandler handler;
   gpointer *handler_ud;
 } DropboxGeneralCommand;
+
+typedef struct {
+  DropboxCommand dc;
+  GList *files;
+  GAsyncQueue *reply_queue;
+} DropboxFileMenuCommand;
 
 typedef void (*DropboxCommandClientConnectionAttemptHook)(guint, gpointer);
 typedef GHookFunc DropboxCommandClientConnectHook;

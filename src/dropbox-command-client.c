@@ -341,14 +341,87 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
 }
 
 static void
+finish_file_menu_command(DropboxFileMenuCommand *dfmc,
+			 GHashTable *context_options_response)
+{
+  if (!context_options_response) {
+      // This is dumb but queue_push doesn't accept NULL as a value.
+      context_options_response = g_hash_table_new_full((GHashFunc) g_str_hash,
+						       (GEqualFunc) g_str_equal,
+						       (GDestroyNotify) g_free,
+						       (GDestroyNotify) g_strfreev);
+  }
+
+  /* put response in the queue now */
+  g_async_queue_push(dfmc->reply_queue, g_hash_table_ref(context_options_response));
+
+  /* cleanup stuff */
+  g_hash_table_unref(context_options_response);
+  g_async_queue_unref(dfmc->reply_queue);
+  nautilus_file_info_list_free(dfmc->files);
+  g_free(dfmc);
+}
+
+
+static void
+do_file_menu_command(GIOChannel *chan, DropboxFileMenuCommand *dfmc,
+		     GError **gerr) {
+  GError *tmp_gerr = NULL;
+  GHashTable *context_options_response = NULL, *args;
+
+  args = g_hash_table_new_full((GHashFunc) g_str_hash,
+			       (GEqualFunc) g_str_equal,
+			       (GDestroyNotify) g_free,
+			       (GDestroyNotify) g_strfreev);
+  int file_count = g_list_length(dfmc->files);
+  gchar **paths = g_new(gchar *, file_count + 1);
+  int i = 0;
+  GList* elem;
+
+  for(elem = dfmc->files; elem; elem = elem->next) {
+    gchar *filename_un, *uri, *filename;
+    uri = nautilus_file_info_get_uri(elem->data);
+    filename_un = g_filename_from_uri(uri, NULL, NULL);
+    filename = g_filename_to_utf8(filename_un, -1, NULL, NULL, NULL);
+
+    g_free(filename_un);
+    g_free(uri);
+
+    if (filename == NULL) {
+      /* oooh, filename wasn't correctly encoded. mark as  */
+      debug("file wasn't correctly encoded %s", filename_un);
+      continue;
+    }
+
+    paths[i] = filename;
+    i++;
+  }
+  paths[file_count] = NULL;
+  g_hash_table_insert(args, g_strdup("paths"), paths);
+
+  /* send context options command to server */
+  context_options_response =
+    send_command_to_db(chan, "icon_overlay_context_options",
+		       args, &tmp_gerr);
+  g_hash_table_unref(args);
+
+  if (tmp_gerr != NULL) {
+    g_assert(context_options_response == NULL);
+    g_propagate_error(gerr, tmp_gerr);
+    return;
+  }
+
+  finish_file_menu_command(dfmc, context_options_response);
+}
+
+static void
 do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
 		     GError **gerr) {
   /* we need to send two requests to dropbox:
-     file status, and context options */
+     file status, and folder_tags */
   GError *tmp_gerr = NULL;
   DropboxFileInfoCommandResponse *dficr;
-  GHashTable *file_status_response = NULL,
-    *context_options_response = NULL, *args, *folder_tag_response = NULL;
+  GHashTable *file_status_response = NULL, *args, *folder_tag_response = NULL;
   gchar *filename;
 
   {
@@ -397,32 +470,6 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
     return;
   }
 
-  args = g_hash_table_new_full((GHashFunc) g_str_hash,
-			       (GEqualFunc) g_str_equal,
-			       (GDestroyNotify) g_free,
-			       (GDestroyNotify) g_strfreev);
-  {
-    gchar **paths_arg;
-    paths_arg = g_new(gchar *, 2);
-    paths_arg[0] = g_strdup(filename);
-    paths_arg[1] = NULL;
-    g_hash_table_insert(args, g_strdup("paths"), paths_arg);
-  }
-
-  /* send context options command to server */
-  context_options_response =
-    send_command_to_db(chan, "icon_overlay_context_options",
-		       args, &tmp_gerr);
-  g_hash_table_unref(args);
-  args = NULL;
-  if (tmp_gerr != NULL) {
-    if (file_status_response != NULL)
-      g_hash_table_destroy(file_status_response);
-    g_assert(context_options_response == NULL);
-    g_propagate_error(gerr, tmp_gerr);
-    return;
-  }
-
   if (nautilus_file_info_is_directory(dfic->file)) {
     args = g_hash_table_new_full((GHashFunc) g_str_hash,
 				 (GEqualFunc) g_str_equal,
@@ -443,8 +490,6 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
     if (tmp_gerr != NULL) {
       if (file_status_response != NULL)
 	g_hash_table_destroy(file_status_response);
-      if (context_options_response != NULL)
-	g_hash_table_destroy(context_options_response);      
       g_assert(folder_tag_response == NULL);
       g_propagate_error(gerr, tmp_gerr);
       return;
@@ -458,7 +503,6 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
   dficr->dfic = dfic;
   dficr->folder_tag_response = folder_tag_response;
   dficr->file_status_response = file_status_response;
-  dficr->context_options_response = context_options_response;
   g_idle_add((GSourceFunc) nautilus_dropbox_finish_file_info_command, dficr);
 
   g_free(filename);
@@ -555,8 +599,11 @@ end_request(DropboxCommand *dc) {
       DropboxFileInfoCommandResponse *dficr = g_new0(DropboxFileInfoCommandResponse, 1);
       dficr->dfic = dfic;
       dficr->file_status_response = NULL;
-      dficr->context_options_response = NULL;
       g_idle_add((GSourceFunc) nautilus_dropbox_finish_file_info_command, dficr);
+    }
+      break;
+    case GET_FILE_MENU: {
+	finish_file_menu_command((DropboxFileMenuCommand *) dc, NULL);
     }
       break;
     case GENERAL_COMMAND: {
@@ -728,6 +775,11 @@ dropbox_command_client_thread(DropboxCommandClient *dcc) {
       case GENERAL_COMMAND: {
 	debug("doing general command");
 	do_general_command(chan, (DropboxGeneralCommand *) dc, &gerr);
+      }
+	break;
+      case GET_FILE_MENU: {
+	debug("doing file menu command");
+	do_file_menu_command(chan, (DropboxFileMenuCommand *) dc, &gerr);
       }
 	break;
       default: 
