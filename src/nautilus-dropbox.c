@@ -100,13 +100,28 @@ static void
 reset_file(NautilusFileInfo *file) {
   debug("resetting file %p", (void *) file);
   nautilus_file_info_invalidate_extension_info(file);
-
-  g_object_set_data(G_OBJECT(file),
-		    "nautilus_dropbox_menu_item", NULL);
 }
 
 static void
-test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
+when_file_dies(NautilusDropbox *cvs, NautilusFileInfo *address) {
+  gchar *filename;
+
+  filename = g_hash_table_lookup(cvs->obj2filename, address);
+  
+  /* we never got a change to view this file */
+  if (filename == NULL) {
+    return;
+  }
+
+  /* too chatty */
+  /*  debug("removing %s <-> 0x%p", filename, address); */
+
+  g_hash_table_remove(cvs->filename2obj, filename);
+  g_hash_table_remove(cvs->obj2filename, address);
+}
+
+static void
+changed_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
   /* check if this file's path has changed, if so update the hash and invalidate
      the file */
   gchar *filename, *pfilename;
@@ -115,15 +130,26 @@ test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
 
   uri = nautilus_file_info_get_uri(file);
   pfilename = g_filename_from_uri(uri, NULL, NULL);
-  filename = canonicalize_path(pfilename);
+  filename = pfilename ? canonicalize_path(pfilename) : NULL;
+  filename2 =  g_hash_table_lookup(cvs->obj2filename, file);
+
   g_free(pfilename);
   g_free(uri);
-  filename2 =  g_hash_table_lookup(cvs->obj2filename, file);
 
   /* if filename2 is NULL we've never seen this file in update_file_info */
   if (filename2 == NULL) {
     g_free(filename);
     return;
+  }
+
+  if (filename == NULL) {
+      /* A file has moved to offline storage. Lets remove it from our tables. */
+      g_object_weak_unref(G_OBJECT(file), (GWeakNotify) when_file_dies, cvs);
+      g_hash_table_remove(cvs->filename2obj, filename2);
+      g_hash_table_remove(cvs->obj2filename, file);
+      g_signal_handlers_disconnect_by_func(file, G_CALLBACK(changed_cb), cvs);
+      reset_file(file);
+      return;
   }
 
   /* this is a hack, because nautilus doesn't do this for us, for some reason
@@ -152,24 +178,6 @@ test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
   }
   
   g_free(filename);
-}
-
-static void
-when_file_dies(NautilusDropbox *cvs, NautilusFileInfo *address) {
-  gchar *filename;
-
-  filename = g_hash_table_lookup(cvs->obj2filename, address);
-  
-  /* we never got a change to view this file */
-  if (filename == NULL) {
-    return;
-  }
-
-  /* too chatty */
-  /*  debug("removing %s <-> 0x%p", filename, address); */
-
-  g_hash_table_remove(cvs->filename2obj, filename);
-  g_hash_table_remove(cvs->obj2filename, address);
 }
 
 static NautilusOperationResult
@@ -208,11 +216,11 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 	
 	if (stored_filename != NULL && cmp != 0) {
 	  /* this happens when the filename changes name on a file obj 
-	     but test_cb isn't called */
+	     but changed_cb isn't called */
 	  g_object_weak_unref(G_OBJECT(file), (GWeakNotify) when_file_dies, cvs);
 	  g_hash_table_remove(cvs->obj2filename, file);
 	  g_hash_table_remove(cvs->filename2obj, stored_filename);
-	  g_signal_handlers_disconnect_by_func(file, G_CALLBACK(test_cb), cvs);
+	  g_signal_handlers_disconnect_by_func(file, G_CALLBACK(changed_cb), cvs);
 	}
 	else if (stored_filename == NULL) {
 	  NautilusFileInfo *f2;
@@ -227,7 +235,7 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 	       just remove the association to the older file object, it's obsolete
 	    */
 	    g_object_weak_unref(G_OBJECT(f2), (GWeakNotify) when_file_dies, cvs);
-	    g_signal_handlers_disconnect_by_func(f2, G_CALLBACK(test_cb), cvs);
+	    g_signal_handlers_disconnect_by_func(f2, G_CALLBACK(changed_cb), cvs);
 	    g_hash_table_remove(cvs->filename2obj, filename);
 	    g_hash_table_remove(cvs->obj2filename, f2);
 	  }
@@ -238,7 +246,7 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
 	g_object_weak_ref(G_OBJECT(file), (GWeakNotify) when_file_dies, cvs);
 	g_hash_table_insert(cvs->filename2obj, g_strdup(filename), file);
 	g_hash_table_insert(cvs->obj2filename, file, g_strdup(filename));
-	g_signal_connect(file, "changed", G_CALLBACK(test_cb), cvs);
+	g_signal_connect(file, "changed", G_CALLBACK(changed_cb), cvs);
       }
 
       g_free(filename);
@@ -285,6 +293,7 @@ handle_shell_touch(GHashTable *args, NautilusDropbox *cvs) {
     debug("shell touch for %s", filename);
 
     file = g_hash_table_lookup(cvs->filename2obj, filename);
+
     if (file != NULL) {
       debug("gonna reset %s", filename);
       reset_file(file);
@@ -301,7 +310,7 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
   //debug_enter();
   
   if (dficr->dfic->cancelled == FALSE) {
-    gchar **status= NULL, **options=NULL;
+    gchar **status= NULL;
     gboolean isdir;
 
     isdir = nautilus_file_info_is_directory(dficr->dfic->file) ;
@@ -359,13 +368,6 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 						      (NautilusOperationHandle*) dficr->dfic,
 						      NAUTILUS_OPERATION_COMPLETE);
       }
-
-      /* save the context menu options */
-      g_object_set_data_full(G_OBJECT(dficr->dfic->file),
-			     "nautilus_dropbox_menu_item",
-			     g_strdupv(options),
-			     (GDestroyNotify) g_strfreev);
-
     }
     else {
       /* operation failed, for some reason..., just complete the invoke */
@@ -403,17 +405,6 @@ nautilus_dropbox_cancel_update(NautilusInfoProvider     *provider,
   return;
 }
 
-/*
-  this is the context options plan:
-  1. for each file, whenever we get a file we get the context options too
-  2. when the context options are needed for a group of files or file
-  we take the intersection of all the context options
-  3. when a action is needed to be executed on a group of files:
-  create the menu/menuitmes and install a responder that takes 
-  the group and then sends the command to dropbox_command
-  4. the dropbox command "action", takes a list of paths and an action to do
-  (needs to be implemented on the server)
-*/
 static void
 menu_item_cb(NautilusMenuItem *item,
 	     NautilusDropbox *cvs) {
@@ -441,17 +432,18 @@ menu_item_cb(NautilusMenuItem *item,
     guint i;
     GList *li;
 
-    arglist = g_new(gchar *,g_list_length(files) + 1);
+    arglist = g_new0(gchar *,g_list_length(files) + 1);
 
-    for (li = files, i = 0; li != NULL; li = g_list_next(li), i++) {
+    for (li = files, i = 0; li != NULL; li = g_list_next(li)) {
       char *uri = nautilus_file_info_get_uri(NAUTILUS_FILE_INFO(li->data));
       char *path = g_filename_from_uri(uri, NULL, NULL);
       g_free(uri);
+      if (!path)
+	continue;
       arglist[i] = path;
+      i++;
     }
-    
-    arglist[i] = NULL;
-    
+
     g_hash_table_insert(dcac->command_args,
 			g_strdup("paths"),
 			arglist);
@@ -593,18 +585,44 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
 				GList                *files)
 {
   /*
+   * To avoid useless waiting we will convert the files to filenames here.
+   */
+  int file_count = g_list_length(files);
+
+  if (file_count < 1)
+    return NULL;
+
+  gchar **paths = g_new0(gchar *, file_count + 1);
+  int i = 0;
+  GList* elem;
+
+  for (elem = files; elem; elem = elem->next, i++) {
+    gchar *uri = nautilus_file_info_get_uri(elem->data);
+    gchar *filename_un = uri ? g_filename_from_uri(uri, NULL, NULL) : NULL;
+    gchar *filename = filename_un ? g_filename_to_utf8(filename_un, -1, NULL, NULL, NULL) : NULL;
+
+    g_free(uri);
+    g_free(filename_un);
+
+    if (filename == NULL) {
+      /* oooh, filename wasn't correctly encoded, or isn't a local file.  */
+      g_strfreev(paths);
+      return NULL;
+    }
+
+    paths[i] = filename;
+  }
+
+  /*
    * We have to ask dropbox for the menu but we have to block until it's done.
    * We will only wait 50 ms for Dropbox to tell us.
    */
-
-  if (g_list_length(files) < 1)
-    return NULL;
 
   NautilusDropbox *cvs = NAUTILUS_DROPBOX(provider);
   GAsyncQueue *reply_queue = g_async_queue_new_full((GDestroyNotify)g_hash_table_unref);
   DropboxFileMenuCommand *dfmc = g_new0(DropboxFileMenuCommand, 1);
   dfmc->reply_queue = g_async_queue_ref(reply_queue);
-  dfmc->files = nautilus_file_info_list_copy(files);
+  dfmc->filenames = paths;
   dfmc->dc.request_type = GET_FILE_MENU;
 
   dropbox_command_client_request(&(cvs->dc.dcc), (DropboxCommand *) dfmc);

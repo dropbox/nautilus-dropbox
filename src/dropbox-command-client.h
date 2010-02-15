@@ -62,7 +62,7 @@ typedef struct {
 
 typedef struct {
   DropboxCommand dc;
-  GList *files;
+  gchar **filenames;
   GAsyncQueue *reply_queue;
 } DropboxFileMenuCommand;
 

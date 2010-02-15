@@ -358,7 +358,7 @@ finish_file_menu_command(DropboxFileMenuCommand *dfmc,
   /* cleanup stuff */
   g_hash_table_unref(context_options_response);
   g_async_queue_unref(dfmc->reply_queue);
-  nautilus_file_info_list_free(dfmc->files);
+  g_strfreev(dfmc->filenames);
   g_free(dfmc);
 }
 
@@ -369,40 +369,14 @@ do_file_menu_command(GIOChannel *chan, DropboxFileMenuCommand *dfmc,
   GError *tmp_gerr = NULL;
   GHashTable *context_options_response = NULL, *args;
 
-  args = g_hash_table_new_full((GHashFunc) g_str_hash,
-			       (GEqualFunc) g_str_equal,
-			       (GDestroyNotify) g_free,
-			       (GDestroyNotify) g_strfreev);
-  int file_count = g_list_length(dfmc->files);
-  gchar **paths = g_new(gchar *, file_count + 1);
-  int i = 0;
-  GList* elem;
+  args = g_hash_table_new((GHashFunc) g_str_hash, (GEqualFunc) g_str_equal);
 
-  for(elem = dfmc->files; elem; elem = elem->next) {
-    gchar *filename_un, *uri, *filename;
-    uri = nautilus_file_info_get_uri(elem->data);
-    filename_un = g_filename_from_uri(uri, NULL, NULL);
-    filename = g_filename_to_utf8(filename_un, -1, NULL, NULL, NULL);
-
-    g_free(filename_un);
-    g_free(uri);
-
-    if (filename == NULL) {
-      /* oooh, filename wasn't correctly encoded. mark as  */
-      debug("file wasn't correctly encoded %s", filename_un);
-      continue;
-    }
-
-    paths[i] = filename;
-    i++;
-  }
-  paths[file_count] = NULL;
-  g_hash_table_insert(args, g_strdup("paths"), paths);
+  /* No need to strdup because args doesn't cleanup keys and values. */
+  g_hash_table_insert(args, "paths", dfmc->filenames);
 
   /* send context options command to server */
-  context_options_response =
-    send_command_to_db(chan, "icon_overlay_context_options",
-		       args, &tmp_gerr);
+  context_options_response = send_command_to_db(chan, "icon_overlay_context_options",
+						args, &tmp_gerr);
   g_hash_table_unref(args);
 
   if (tmp_gerr != NULL) {
@@ -422,24 +396,24 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
   GError *tmp_gerr = NULL;
   DropboxFileInfoCommandResponse *dficr;
   GHashTable *file_status_response = NULL, *args, *folder_tag_response = NULL;
-  gchar *filename;
+  gchar *filename = NULL;
 
   {
     gchar *filename_un, *uri;
     /* TODO: might be thread-unsafe */
     uri = nautilus_file_info_get_uri(dfic->file);
-    filename_un = g_filename_from_uri(uri, NULL, NULL);
-    filename = g_filename_to_utf8(filename_un, -1, NULL, NULL, NULL);
-
-    if (filename == NULL) {
-      /* oooh, filename wasn't correctly encoded. mark as  */
-      debug("file wasn't correctly encoded %s", filename_un);
-    }
-
-    g_free(filename_un);
+    filename_un = g_filename_from_uri(uri, NULL, gerr);
     g_free(uri);
+    if (filename_un) {
+      filename = g_filename_to_utf8(filename_un, -1, NULL, NULL, gerr);
+      g_free(filename_un);
+      if (filename == NULL) {
+        /* oooh, filename wasn't correctly encoded. mark as  */
+	debug("file wasn't correctly encoded %s", filename_un);
+      }
+    }
   }
-    
+
   if (filename == NULL) {
     /* oooh, filename wasn't correctly encoded. mark as  */
     return;
