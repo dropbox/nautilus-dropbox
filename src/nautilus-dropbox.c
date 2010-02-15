@@ -30,6 +30,7 @@
 #include <sys/un.h>
 #include <errno.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #include <glib.h>
 #include <glib/gprintf.h>
@@ -44,12 +45,6 @@
 #include "nautilus-dropbox.h"
 #include "nautilus-dropbox-hooks.h"
 
-typedef struct {
-  gchar *title;
-  gchar *tooltip;
-  gchar *verb;
-} DropboxContextMenuItem;
-
 static char *emblems[] = {"dropbox-uptodate", "dropbox-syncing", "dropbox-unsyncable"};
 
 gboolean dropbox_use_nautilus_submenu_workaround;
@@ -58,6 +53,7 @@ gboolean dropbox_use_operation_in_progress_workaround;
 static GType dropbox_type = 0;
 
 /* for old versions of glib */
+#if 0  // Silence Warnings.
 static void my_g_hash_table_get_keys_helper(gpointer key,
 					    gpointer value,
 					    GList **ud) {
@@ -69,6 +65,7 @@ static GList *my_g_hash_table_get_keys(GHashTable *ght) {
   g_hash_table_foreach(ght, (GHFunc) my_g_hash_table_get_keys_helper, &list);
   return list;
 }
+#endif
 
 /* probably my favorite function */
 static gchar *
@@ -100,15 +97,6 @@ canonicalize_path(gchar *path) {
 }
 
 static void
-menu_item_free(gpointer data) {
-  DropboxContextMenuItem *dcmi = (DropboxContextMenuItem *) data;
-  g_free(dcmi->title);
-  g_free(dcmi->tooltip);
-  g_free(dcmi->verb);
-  g_free(dcmi);
-}
-
-static void
 reset_file(NautilusFileInfo *file) {
   debug("resetting file %p", (void *) file);
   nautilus_file_info_invalidate_extension_info(file);
@@ -123,10 +111,13 @@ test_cb(NautilusFileInfo *file, NautilusDropbox *cvs) {
      the file */
   gchar *filename, *pfilename;
   gchar *filename2;
-  
-  pfilename = g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL);
+  gchar *uri;
+
+  uri = nautilus_file_info_get_uri(file);
+  pfilename = g_filename_from_uri(uri, NULL, NULL);
   filename = canonicalize_path(pfilename);
   g_free(pfilename);
+  g_free(uri);
   filename2 =  g_hash_table_lookup(cvs->obj2filename, file);
 
   /* if filename2 is NULL we've never seen this file in update_file_info */
@@ -193,9 +184,11 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
   /* this code adds this file object to our two-way hash of file objects
      so we can shell touch these files later */
   {
-    gchar *pfilename;
+    gchar *pfilename, *uri;
 
-    pfilename = g_filename_from_uri(nautilus_file_info_get_uri(file), NULL, NULL);
+    uri = nautilus_file_info_get_uri(file);
+    pfilename = g_filename_from_uri(uri, NULL, NULL);
+    g_free(uri);
     if (pfilename == NULL) {
       return NAUTILUS_OPERATION_COMPLETE;
     }
@@ -372,45 +365,11 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
       }
 
       /* save the context menu options */
-      {
-	/* great now we have to parse these freaking optionssss also make the menu items */
-	/* this is where python really makes things easy */
-	GHashTable *context_option_hash;
-	int i;
-	
-	context_option_hash = g_hash_table_new_full((GHashFunc) g_str_hash,
-						    (GEqualFunc) g_str_equal,
-						    g_free, menu_item_free);
+      g_object_set_data_full(G_OBJECT(dficr->dfic->file),
+			     "nautilus_dropbox_menu_item",
+			     g_strdupv(options),
+			     (GDestroyNotify) g_strfreev);
 
-	for (i = 0; options[i] != NULL; i++) {
-	  gchar **option_info;
-
-	  /*debug("option string %d: %s", i, options[i]);*/
-	  
-	  option_info = g_strsplit(options[i], "~", 3);
-	  /* if this is a valid string */
-	  if (option_info[0] != NULL && option_info[1] != NULL &&
-	      option_info[2] != NULL && option_info[3] == NULL) {
-	    DropboxContextMenuItem *dcmi = g_new0(DropboxContextMenuItem, 1);
-	    
-	    dcmi->title = g_strdup(option_info[0]);	  
-	    dcmi->tooltip = g_strdup(option_info[1]);
-	    dcmi->verb = g_strdup(option_info[2]);
-    
-	    g_hash_table_insert(context_option_hash, g_strdup(dcmi->verb), dcmi);
-	  }
-	  
-	  g_strfreev(option_info);
-	}
-	
-	/*debug("setting nautilus_dropbox_menu_item"); */
-	g_object_set_data_full(G_OBJECT(dficr->dfic->file),
-			       "nautilus_dropbox_menu_item",
-			       context_option_hash,
-			       (GDestroyNotify) g_hash_table_unref);
-	
-	/* lol that wasn't so bad, glib is a big help */
-      }    
     }
     else {
       /* operation failed, for some reason..., just complete the invoke */
@@ -428,7 +387,9 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
     g_hash_table_unref(dficr->file_status_response);
   if (dficr->context_options_response != NULL)
     g_hash_table_unref(dficr->context_options_response);
-  
+  if (dficr->folder_tag_response != NULL)
+    g_hash_table_unref(dficr->folder_tag_response);
+
   /* unref the objects we didn't create */
   g_closure_unref(dficr->dfic->update_complete);
   g_object_unref(dficr->dfic->file);
@@ -489,9 +450,9 @@ menu_item_cb(NautilusMenuItem *item,
     arglist = g_new(gchar *,g_list_length(files) + 1);
 
     for (li = files, i = 0; li != NULL; li = g_list_next(li), i++) {
-      char *path =
-	g_filename_from_uri(nautilus_file_info_get_uri(NAUTILUS_FILE_INFO(li->data)),
-			    NULL, NULL);
+      char *uri = nautilus_file_info_get_uri(NAUTILUS_FILE_INFO(li->data));
+      char *path = g_filename_from_uri(uri, NULL, NULL);
+      g_free(uri);
       arglist[i] = path;
     }
     
@@ -517,132 +478,102 @@ menu_item_cb(NautilusMenuItem *item,
   dropbox_command_client_request(&(cvs->dc.dcc), (DropboxCommand *) dcac);
 }
 
-static GList *
-nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
-                                GtkWidget            *window,
-				GList                *files) {
-  GList *toret = NULL, *outer_li;
-  GHashTable *set;
+static char from_hex(gchar ch) {
+    return isdigit(ch) ? ch - '0' : tolower(ch) - 'a' + 10;
+}
 
-  /* we only do options for single files... for now */
-  if (g_list_length(files) != 1) {
-    return NULL;
-  }
+// decode in --> out, but dont fill more than n chars into out
+// returns len of out if thing went well, -1 if n wasn't big enough
+// can be used in place (whoa!)
+int GhettoURLDecode(gchar* out, gchar* in, int n) {
+  char *out_initial;
 
-  set = g_hash_table_new((GHashFunc) g_str_hash,
-			 (GEqualFunc) g_str_equal);
-
-  /* first seed the set with the first items options */  
-  {
-    GHashTable *initialset;
-    initialset = (GHashTable *) g_object_get_data(G_OBJECT(files->data),
-						  "nautilus_dropbox_menu_item");
-
-    /* if a single file isn't a dropbox file
-       we don't want it */
-    if (initialset == NULL) {
-      g_hash_table_unref(set);
-      return NULL;
+  for(out_initial = out; out-out_initial < n && *in != '\0'; out++) {
+    if (*in == '%') {
+      *out = from_hex(in[1]) << 4 | from_hex(in[2]);
+      in += 3;
     }
-
-    {
-      GList *keys, *li;
-      keys = glib_check_version(2, 14, 0)
-	? my_g_hash_table_get_keys(initialset)
-	: g_hash_table_get_keys(initialset);
-      
-      for (li = keys; li != NULL; li = g_list_next(li)) {
-	g_hash_table_insert(set, li->data, g_hash_table_lookup(initialset, li->data));
-      }
-      g_list_free(keys);
+    else {
+      *out = *in;
+      in++;
     }
   }
 
-  /* need to do the set intersection of all the menu options */
-  /* THIS IS EFFECTIVELY IGNORED, we only do options for single files... for now */
-  for (outer_li = g_list_next(files); outer_li != NULL; outer_li = g_list_next(outer_li)) {
-    GHashTable *fileset;
-    GList *keys_to_remove = NULL;
-    
-    fileset = (GHashTable *) g_object_get_data(G_OBJECT(outer_li->data),
-					       "nautilus_dropbox_menu_item");
-    /* check if all the values in set are in the
-       this fileset, if they are then keep that file in the set
-       if not, then remove that file from the set */
-    {
-      GList *keys, *li;
+  if (out-out_initial < n) {
+    *out = '\0';
+    return out-out_initial;
+  }
+  return -1;
+}
 
-      keys = glib_check_version(2, 14, 0)
-	? my_g_hash_table_get_keys(set)
-	: g_hash_table_get_keys(set);
+static int
+nautilus_dropbox_parse_menu(gchar			**options,
+			    NautilusMenu		*menu,
+			    GString			*old_action_string,
+			    GList			*toret,
+			    NautilusMenuProvider	*provider,
+			    GList			*files)
+{
+  int ret = 0;
+  int i;
 
-      for (li = keys; li != NULL; li = g_list_next(li)) {
-	if (g_hash_table_lookup(fileset, li->data) == NULL) {
-	  keys_to_remove = g_list_append(keys_to_remove, li->data);
-	}
-      }
-
-      g_list_free(keys);
+  for ( i = 0; options[i] != NULL; i++) {
+    gchar **option_info = g_strsplit(options[i], "~", 3);
+    /* if this is a valid string */
+    if (option_info[0] == NULL || option_info[1] == NULL ||
+	option_info[2] == NULL || option_info[3] != NULL) {
+	g_strfreev(option_info);
+	continue;
     }
 
-    {
-      GList *li;
-      /* now actually remove, since we can't in the iterator */
-      for (li = keys_to_remove; li != NULL; li = g_list_next(li)) {
-	g_hash_table_remove(set, li->data);
-      }
-    }
+    gchar* item_name = option_info[0];
+    gchar* item_inner = option_info[1];
+    gchar* verb = option_info[2];
 
-    g_list_free(keys_to_remove);
-  }
+    GhettoURLDecode(item_name, item_name, strlen(item_name));
+    GhettoURLDecode(verb, verb, strlen(verb));
+    GhettoURLDecode(item_inner, item_inner, strlen(item_inner));
 
-  /* if the hash table is empty, don't show options */
-  if (g_hash_table_size(set) == 0) {
-    g_hash_table_unref(set);
-    return NULL;
-  }
-
-  /* build the menu */
-  {
-    NautilusMenuItem *root_item;
-    NautilusMenu *root_menu;
-    GList *keys, *li;
-
-    root_menu = nautilus_menu_new();
-    root_item = nautilus_menu_item_new("NautilusDropbox::root_item",
-				       "Dropbox", "Dropbox Options", "dropbox");
-    nautilus_menu_item_set_submenu(root_item, root_menu);
-
-    toret = g_list_append(toret, root_item);
-
-    keys = glib_check_version(2, 14, 0)
-      ? my_g_hash_table_get_keys(set)
-      : g_hash_table_get_keys(set);
-
-    for (li = keys; li != NULL; li = g_list_next(li)) {
-      gchar *key;
-      DropboxContextMenuItem *dcmi;
+    // If the inner section has a menu in it then we create a submenu.  The verb will be ignored.
+    // Otherwise add the verb to our map and add the menu item to the list.
+    if (strchr(item_inner, '~') != NULL) {
+      GString *new_action_string = g_string_new(old_action_string->str);
+      gchar **suboptions = g_strsplit(item_inner, "|", -1);
       NautilusMenuItem *item;
-      GString *new_action_string;
-      
-      key = li->data;
-      dcmi = g_hash_table_lookup(set, key);
+      NautilusMenu *submenu = nautilus_menu_new();
 
-      new_action_string = g_string_new("NautilusDropbox::");
-      g_string_append(new_action_string, dcmi->verb);
+      g_string_append(new_action_string, item_name);
+      g_string_append(new_action_string, "::");
+
+      ret += nautilus_dropbox_parse_menu(suboptions, submenu, new_action_string,
+					 toret, provider, files);
 
       item = nautilus_menu_item_new(new_action_string->str,
-				    dcmi->title,
-				    dcmi->tooltip, NULL);
+				    item_name, "", NULL);
+      nautilus_menu_item_set_submenu(item, submenu);
+      nautilus_menu_append_item(menu, item);
 
-      nautilus_menu_append_item(root_menu, item);
+      g_strfreev(suboptions);
+      g_object_unref(item);
+      g_object_unref(submenu);
+      g_string_free(new_action_string, TRUE);
+    } else {
+      NautilusMenuItem *item;
+      GString *new_action_string = g_string_new(old_action_string->str);
+      g_string_append(new_action_string, verb);
+
+      item = nautilus_menu_item_new(new_action_string->str,
+				    item_name,
+				    item_inner, NULL);
+
+      nautilus_menu_append_item(menu, item);
       /* add the file metadata to this item */
-      g_object_set_data_full (G_OBJECT(item), "nautilus_dropbox_files", 
+      g_object_set_data_full (G_OBJECT(item), "nautilus_dropbox_files",
 			      nautilus_file_info_list_copy (files),
 			      (GDestroyNotify) nautilus_file_info_list_free);
       /* add the verb metadata */
-      g_object_set_data_full (G_OBJECT(item), "nautilus_dropbox_verb", 
-			      g_strdup(dcmi->verb),
+      g_object_set_data_full (G_OBJECT(item), "nautilus_dropbox_verb",
+			      g_strdup(verb),
 			      (GDestroyNotify) g_free);
       g_signal_connect (item, "activate", G_CALLBACK (menu_item_cb), provider);
 
@@ -655,14 +586,49 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
 
       g_object_unref(item);
       g_string_free(new_action_string, TRUE);
+      ret++;
+    }
+    g_strfreev(option_info);
+  }
+  return ret;
+}
+
+static GList *
+nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
+                                GtkWidget            *window,
+				GList                *files) {
+  /* we only do options for single files... for now */
+  if (g_list_length(files) != 1) {
+    return NULL;
+  }
+
+  GList *toret = NULL;
+  gchar **options = g_object_get_data(G_OBJECT(files->data),
+				      "nautilus_dropbox_menu_item");
+  if (options && *options && **options)  {
+    /* build the menu */
+    NautilusMenuItem *root_item;
+    NautilusMenu *root_menu;
+
+    root_menu = nautilus_menu_new();
+    root_item = nautilus_menu_item_new("NautilusDropbox::root_item",
+				       "Dropbox", "Dropbox Options", "dropbox");
+
+    toret = g_list_append(toret, root_item);
+    GString *action_string = g_string_new("NautilusDropbox::");
+
+    if (!nautilus_dropbox_parse_menu(options, root_menu, action_string,
+				     toret, provider, files)) {
+	g_object_unref(toret);
+	toret = NULL;
     }
 
-    g_list_free(keys);
+    nautilus_menu_item_set_submenu(root_item, root_menu);
+
+    g_string_free(action_string, TRUE);
     g_object_unref(root_menu);
-    g_hash_table_unref(set);
-    
-    return toret;
   }
+  return toret;
 }
 
 static void
