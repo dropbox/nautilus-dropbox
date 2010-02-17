@@ -340,7 +340,6 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
   }
 }
 
-
 static void
 do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
 		     GError **gerr) {
@@ -354,10 +353,10 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
   {
     gchar *filename_un, *uri;
     uri = nautilus_file_info_get_uri(dfic->file);
-    filename_un = uri ? g_filename_from_uri(uri, NULL, gerr): NULL;
+    filename_un = uri ? g_filename_from_uri(uri, NULL, NULL): NULL;
     g_free(uri);
     if (filename_un) {
-      filename = g_filename_to_utf8(filename_un, -1, NULL, NULL, gerr);
+      filename = g_filename_to_utf8(filename_un, -1, NULL, NULL, NULL);
       g_free(filename_un);
       if (filename == NULL) {
         /* oooh, filename wasn't correctly encoded. mark as  */
@@ -367,10 +366,8 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
   }
 
   if (filename == NULL) {
-    /* Make sure we have an error when we leave. */
-    if (gerr != NULL && *gerr == NULL)
-	*gerr = g_error_new (0, 2, "Unable to read filename");
-    return;
+    /* We couldn't get the filename.  Just return empty. */
+    goto exit;
   }
 
   args = g_hash_table_new_full((GHashFunc) g_str_hash,
@@ -427,6 +424,7 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
   /* great server responded perfectly,
      now let's get this request done,
      ...in the glib main loop */
+exit:
   dficr = g_new0(DropboxFileInfoCommandResponse, 1);
   dficr->dfic = dfic;
   dficr->folder_tag_response = folder_tag_response;
