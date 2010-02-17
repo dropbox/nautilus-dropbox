@@ -546,11 +546,16 @@ nautilus_dropbox_parse_menu(gchar			**options,
     } else {
       NautilusMenuItem *item;
       GString *new_action_string = g_string_new(old_action_string->str);
+      gboolean grayed_out = FALSE;
+
       g_string_append(new_action_string, verb);
 
-      item = nautilus_menu_item_new(new_action_string->str,
-				    item_name,
-				    item_inner, NULL);
+      if (item_name[0] == '!') {
+	  item_name++;
+	  grayed_out = TRUE;
+      }
+
+      item = nautilus_menu_item_new(new_action_string->str, item_name, item_inner, NULL);
 
       nautilus_menu_append_item(menu, item);
       /* add the file metadata to this item */
@@ -562,6 +567,13 @@ nautilus_dropbox_parse_menu(gchar			**options,
 			      g_strdup(verb),
 			      (GDestroyNotify) g_free);
       g_signal_connect (item, "activate", G_CALLBACK (menu_item_cb), provider);
+
+      if (grayed_out) {
+	GValue sensitive = { 0 };
+	g_value_init (&sensitive, G_TYPE_BOOLEAN);
+	g_value_set_boolean (&sensitive, FALSE);
+	g_object_set_property (G_OBJECT(item), "sensitive", &sensitive);
+      }
 
       /* taken from nautilus-file-repairer (http://repairer.kldp.net/):
        * this code is a workaround for a bug of nautilus
