@@ -10,7 +10,19 @@ if [ $(basename $(pwd)) != 'nautilus-dropbox' ]; then
     exit -1
 fi
 
+BUILD=1
+while [ $# != 0 ]; do
+    flag="$1"
+    case "$flag" in
+        -n)
+	    BUILD=0
+            ;;
+    esac
+    shift
+done
+
 # creating an RPM is easier than creating a debian package, surprisingly
+# I call bullcrap on this statement.  They are exactly the same.
 set -e
 
 # get version
@@ -165,10 +177,15 @@ rm -rf \$RPM_BUILD_ROOT
 EOF
 
 cd rpmbuild
-rpmbuild -ba SPECS/nautilus-dropbox.spec
+if [ $BUILD -eq 1 ]; then
+    rpmbuild -ba SPECS/nautilus-dropbox.spec
 
-# sign all rpms
-find . -name '*.rpm' | xargs rpm --addsign
+    # sign all rpms
+    find . -name '*.rpm' | xargs rpm --addsign
+else
+    # Kind of silly but this is the easiest way to get this info the the build_slave.
+    rpmbuild -bs SPECS/nautilus-dropbox.spec > ../buildme
+fi
 
 # restore old macros file
 if [ -e $HOME/.rpmmacros.old ]; then

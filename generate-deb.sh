@@ -1,12 +1,23 @@
 #!/bin/sh
 
-# this script assumes u have already run ./configure
 # you will need dh-make, dpkg-dev, fakeroot, cdbs
 
 if [ $(basename $(pwd)) != 'nautilus-dropbox' ]; then
     echo "This script must be run from the nautilus-dropbox folder"
     exit -1
 fi
+
+BUILD=1
+while [ $# != 0 ]; do
+    flag="$1"
+    case "$flag" in
+        -n)
+	    BUILD=0
+            ;;
+    esac
+    shift
+done
+
 
 # creating a debian package is super bitchy and mostly hard to script
 
@@ -17,6 +28,14 @@ CURVER=$(awk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\],", ""); sub("\)", ""
 
 # clean old package build
 rm -rf nautilus-dropbox{-,_}*
+
+if [ ! -x configure ]; then
+    ./autogen.sh
+fi
+
+if [ ! -e Makefile ]; then
+    ./configure
+fi
 
 # first generate package binary
 make dist
@@ -186,4 +205,9 @@ Description: Dropbox integration for Nautilus
  Check us out at http://www.getdropbox.com/
 EOF
 
-dpkg-buildpackage -rfakeroot -k3565780E
+if [ $BUILD -eq 1 ]; then
+    dpkg-buildpackage -rfakeroot -k3565780E
+else
+    # Kind of silly but this is the easiest way to get this info the the build_slave.
+    echo nautilus-dropbox-$CURVER > ../buildme
+fi
