@@ -1,6 +1,13 @@
 This file isn't a real ChangeLog, we use our code commits for details on technical changes.
 This changelog is a list of logical changes and bug fixes.
 
+Version 0.6.2 (3/16/09):
+-----------------------
+	* Fix segfault when cut and pasting files to a network directory.
+	* Fix missing emblems when filenames have quotes.
+	* Fix infinite loop on non decodable filenames.
+	* License for images changed to Creative Commons.
+
 Version 0.3.0 (7/17/08):
 -----------------------	
 	* Removed some bugs based on incorrect assertion usage
