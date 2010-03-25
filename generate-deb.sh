@@ -79,24 +79,23 @@ Upstream Author(s):
 
 Copyright: 
 
-    Copyright (C) 2009 Evenflow, Inc.
+  Copyright 2008-2010 Dropbox, Inc.
 
-All images included in this package constitute data and are not licensed
-for you to use under the terms of the GPL. You may not use the images
-included in this package for any reason other than redistributing
-this package without first obtaining permission from Evenflow, Inc.
-You are explicitly forbidden from using these images in any other
-software package. This includes the files:
+All images included in this package constitute data and are licensed under the
+Creative Commons Attribution-No Derivative Works 3.0 Unported License [1].  This
+includes the files:
 
-/usr/share/icons/hicolor/16x16/apps/dropbox.png
-/usr/share/icons/hicolor/22x22/apps/dropbox.png
-/usr/share/icons/hicolor/24x24/apps/dropbox.png
-/usr/share/icons/hicolor/32x32/apps/dropbox.png
-/usr/share/icons/hicolor/48x48/apps/dropbox.png
-/usr/share/icons/hicolor/64x64/apps/dropbox.png
-/usr/share/icons/hicolor/64x64/emblems/emblem-dropbox-syncing.png
-/usr/share/icons/hicolor/64x64/emblems/emblem-dropbox-uptodate.png
-/usr/share/icons/hicolor/64x64/emblems/emblem-dropbox-unsyncable.png
+data/icons/hicolor/16x16/apps/dropbox.png
+data/icons/hicolor/22x22/apps/dropbox.png
+data/icons/hicolor/24x24/apps/dropbox.png
+data/icons/hicolor/32x32/apps/dropbox.png
+data/icons/hicolor/48x48/apps/dropbox.png
+data/icons/hicolor/64x64/apps/dropbox.png
+data/icons/hicolor/64x64/emblems/emblem-dropbox-syncing.png
+data/icons/hicolor/64x64/emblems/emblem-dropbox-uptodate.png
+data/icons/hicolor/64x64/emblems/emblem-dropbox-unsyncable.png
+
+[1] http://creativecommons.org/licenses/by-nd/3.0/
 
 All program source in this package is released under the terms of the
 GNU GPL below.
@@ -148,17 +147,26 @@ case "$1" in
     configure)
 	gtk-update-icon-cache /usr/share/icons/hicolor > /dev/null 2>&1
 
-        # stop dropbox
-        dropbox stop > /dev/null 2>&1
-        sleep 0.5
-        killall dropbox > /dev/null 2>&1
-        killall dropboxd > /dev/null 2>&1
-
-        # kill all old installations 
         for I in /home/*/.dropbox-dist; do
-          rm -rf "$I"
+          # require a minimum version of 0.7.110
+          DROPBOX_VERSION="$I/VERSION"
+          if test -e "$DROPBOX_VERSION"; then
+            DROPBOX_VERSION_MAJOR=`cat "$DROPBOX_VERSION" | cut -d . -f 1`
+            DROPBOX_VERSION_MINOR=`cat "$DROPBOX_VERSION" | cut -d . -f 2`
+            DROPBOX_VERSION_MICRO=`cat "$DROPBOX_VERSION" | cut -d . -f 3`
+
+            if [ $DROPBOX_VERSION_MINOR -lt 7 ] || [ $DROPBOX_VERSION_MINOR -eq 7 ] && [ $DROPBOX_VERSION_MICRO -lt 110 ]
+            then
+              # stop dropbox
+              dropbox stop > /dev/null 2>&1
+              sleep 0.5
+              killall dropbox > /dev/null 2>&1
+              killall dropboxd > /dev/null 2>&1
+
+              rm -rf "$I"
+            fi
+          fi
         done
-        rm -rf ~/.dropbox-dist
 
         zenity --info --timeout=5 --text='Dropbox installation successfully completed! Please log out and log back in to complete the integration with your desktop. You can start Dropbox from your applications menu.' > /dev/null 2>&1
         if [ $? -ne 0 ]; then

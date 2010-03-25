@@ -130,17 +130,27 @@ fi
 EOF
 
 cat <<'EOF' >> rpmbuild/SPECS/nautilus-dropbox.spec
-# stop dropbox
-dropbox stop > /dev/null 2>&1
-sleep 0.5
-killall dropbox > /dev/null 2>&1
-killall dropboxd > /dev/null 2>&1
+for I in /home/*/.dropbox-dist;
+do
+  # require a minimum version of 0.7.110
+  DROPBOX_VERSION="$I/VERSION"
+  if test -e "$DROPBOX_VERSION"; then
+    DROPBOX_VERSION_MAJOR=`cat "$DROPBOX_VERSION" | cut -d . -f 1`
+    DROPBOX_VERSION_MINOR=`cat "$DROPBOX_VERSION" | cut -d . -f 2`
+    DROPBOX_VERSION_MICRO=`cat "$DROPBOX_VERSION" | cut -d . -f 3`
 
-# kill all old installations 
-for I in /home/*/.dropbox-dist; do
-  rm -rf "$I"
+    if [ $DROPBOX_VERSION_MINOR -lt 7 ] || [ $DROPBOX_VERSION_MINOR -eq 7 ] && [ $DROPBOX_VERSION_MICRO -lt 110 ]
+    then
+      # stop dropbox
+      dropbox stop > /dev/null 2>&1
+      sleep 0.5
+      killall dropbox > /dev/null 2>&1
+      killall dropboxd > /dev/null 2>&1
+
+      rm -rf "$I"
+    fi
+  fi
 done
-rm -rf ~/.dropbox-dist
 
 zenity --info --timeout=5 --text='Dropbox installation successfully completed! Please log out and log back in to complete the integration with your desktop. You can start Dropbox from your applications menu.' > /dev/null 2>&1
 if [ $? -ne 0 ]; then
