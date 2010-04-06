@@ -143,9 +143,102 @@ cat > debian/nautilus-dropbox.postinst<<'EOF'
 # for details, see http://www.debian.org/doc/debian-policy/ or
 # the debian-policy package
 
+DEFAULTS_FILE="/etc/default/dropbox-repo"
+
 case "$1" in
     configure)
-	gtk-update-icon-cache /usr/share/icons/hicolor > /dev/null 2>&1
+    	gtk-update-icon-cache /usr/share/icons/hicolor > /dev/null 2>&1
+
+        if [ ! -e "$DEFAULTS_FILE" ]; then
+          # Add the Dropbox repository.
+          # Copyright (c) 2009 The Chromium Authors. All rights reserved.
+          # Use of this source code is governed by a BSD-style license.
+
+          # Install the repository signing key (see also:
+          # http://linux.dropbox.com/fedora/rpm-public-key.asc)
+          install_key() {
+            APT_KEY="`which apt-key 2> /dev/null`"
+            if [ -x "$APT_KEY" ]; then
+              "$APT_KEY" add - >/dev/null 2>&1 <<KEYDATA
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+mQENBEt0ibEBCACv4hZRPqwtpU6z8+BB5YZU1a3yjEvg2W68+a6hEwxtCa2U++4d
+zQ+7EqaUq5ybQnwtbDdpFpsOi9x31J+PCpufPUfIG694/0rlEpmzl2GWzY8NqfdB
+FGGm/SPSSwvKbeNcFMRLu5neo7W9kwvfMbGjHmvUbzBUVpCVKD0OEEf1q/Ii0Qce
+kx9CMoLvWq7ZwNHEbNnij7ecnvwNlE2MxNsOSJj+hwZGK+tM19kuYGSKw4b5mR8I
+yThlgiSLIfpSBh1n2KX+TDdk9GR+57TYvlRu6nTPu98P05IlrrCP+KF0hYZYOaMv
+Qs9Rmc09tc/eoQlN0kkaBWw9Rv/dvLVc0aUXABEBAAG0MURyb3Bib3ggQXV0b21h
+dGljIFNpZ25pbmcgS2V5IDxsaW51eEBkcm9wYm94LmNvbT6JATYEEwECACAFAkt0
+ibECGwMGCwkIBwMCBBUCCAMEFgIDAQIeAQIXgAAKCRD8kYszUESRLi/zB/wMscEa
+15rS+0mIpsORknD7kawKwyda+LHdtZc0hD/73QGFINR2P23UTol/R4nyAFEuYNsF
+0C4IAD6y4pL49eZ72IktPrr4H27Q9eXhNZfJhD7BvQMBx75L0F5gSQwuC7GdYNlw
+SlCD0AAhQbi70VBwzeIgITBkMQcJIhLvllYo/AKD7Gv9huy4RLaIoSeofp+2Q0zU
+HNPl/7zymOqu+5Oxe1ltuJT/kd/8hU+N5WNxJTSaOK0sF1/wWFM6rWd6XQUP03Vy
+NosAevX5tBo++iD1WY2/lFVUJkvAvge2WFk3c6tAwZT/tKxspFy4M/tNbDKeyvr6
+85XKJw9ei6GcOGHD
+=5rWG
+-----END PGP PUBLIC KEY BLOCK-----
+KEYDATA
+            fi
+          }
+
+          if [ -r "/etc/lsb-release" ]; then
+            . "/etc/lsb-release"
+          fi
+
+          REPOCONFIG="deb http://linux.dropbox.com/ubuntu $DISTRIB_CODENAME main"
+          APT_GET="`which apt-get 2> /dev/null`"
+          APT_CONFIG="`which apt-config 2> /dev/null`"
+
+          # Parse apt configuration and return requested variable value.
+          apt_config_val() {
+            APTVAR="$1"
+            if [ -x "$APT_CONFIG" ]; then
+              "$APT_CONFIG" dump | sed -e "/^$APTVAR /"'!d' -e "s/^$APTVAR \"\(.*\)\".*/\1/"
+            fi
+          }
+
+          # Set variables for the locations of the apt sources lists.
+          find_apt_sources() {
+            APTDIR=$(apt_config_val Dir)
+            APTETC=$(apt_config_val 'Dir::Etc')
+            APT_SOURCES="$APTDIR$APTETC$(apt_config_val 'Dir::Etc::sourcelist')"
+            APT_SOURCESDIR="$APTDIR$APTETC$(apt_config_val 'Dir::Etc::sourceparts')"
+          }
+
+          # Add the Dropbox repository to the apt sources.
+          # Returns:
+          # 0 - no update necessary
+          # 1 - sources were updated
+          # 2 - error
+          update_sources_lists() {
+            if [ ! "$REPOCONFIG" ]; then
+              return 0
+            fi
+
+            find_apt_sources
+
+            if [ -d "$APT_SOURCESDIR" ]; then
+              # Nothing to do if it's already there.
+              SOURCELIST=$(grep -H "$REPOCONFIG" "$APT_SOURCESDIR/dropbox.list" \
+                2>/dev/null | cut -d ':' -f 1)
+              if [ -n "$SOURCELIST" ]; then
+                return 0
+              fi
+
+              printf "$REPOCONFIG\n" > "$APT_SOURCESDIR/dropbox.list"
+              if [ $? -eq 0 ]; then
+                return 1
+              fi
+            fi
+            return 2
+          }
+
+          install_key
+          update_sources_lists
+
+        fi
 
         for I in /home/*/.dropbox-dist; do
           # require a minimum version of 0.7.110
@@ -168,10 +261,46 @@ case "$1" in
           fi
         done
 
-        zenity --info --timeout=5 --text='Dropbox installation successfully completed! Please log out and log back in to complete the integration with your desktop. You can start Dropbox from your applications menu.' > /dev/null 2>&1
-        if [ $? -ne 0 ]; then
-          echo
-          echo 'Dropbox installation successfully completed! Please log out and log back in to complete the integration with your desktop. You can start Dropbox from your applications menu.'
+        UPDATENOTIFIERDIR=/var/lib/update-notifier/user.d
+        echo "Please restart all running instances of Nautilus, or you will experience problems. i.e. nautilus --quit"
+
+        if [ -d $UPDATENOTIFIERDIR ] ; then
+          # pgrep matches application names from /proc/<pid>/status which is
+          # truncated according to sys/procfs.h definition. Problem is it's
+          # platform dependent. Either 15 or 16 chars.
+          if [ `pgrep -x -c nautilus` -ne 0 ];  then
+            cat > $UPDATENOTIFIERDIR/dropbox-restart-required <<DROPBOXEND
+Name: Nautilus Restart Required
+Priority: High
+Terminal: False
+Command: nautilus -q
+ButtonText: _Restart Nautilus
+DontShowAfterReboot: True
+DisplayIf: pgrep -x nautilus -U \$(id -u) > /dev/null
+Description: Dropbox requires Nautilus to be restarted to function properly.
+DROPBOXEND
+            # sometimes this doesn't happen:
+            touch /var/lib/update-notifier/dpkg-run-stamp
+          else
+            rm -f $UPDATENOTIFIERDIR/dropbox-restart-required
+          fi
+        fi
+
+        echo 'Dropbox installation successfully completed! You can start Dropbox from your applications menu.'
+
+        if [ -d $UPDATENOTIFIERDIR ] ; then
+            cat > $UPDATENOTIFIERDIR/dropbox-start-required <<DROPBOXEND
+Name: Dropbox Start Required
+Priority: High
+Command: dropbox start -i
+Terminal: False
+DontShowAfterReboot: True
+DisplayIf: dropbox running > /dev/null
+Description: Start Dropbox to finish installation.
+ButtonText: _Start Dropbox
+DROPBOXEND
+          # sometimes this doesn't happen:
+          touch /var/lib/update-notifier/dpkg-run-stamp
         fi
 
 	;;
@@ -180,12 +309,76 @@ case "$1" in
     ;;
 
     *)
-        echo "postinst called with unknown argument '\$1'" >&2
+        echo "postinst called with unknown argument '$1'" >&2
         exit 1
     ;;
 esac
 
 set -e
+
+# dh_installdeb will replace this with shell code automatically
+# generated by other debhelper scripts.
+
+#DEBHELPER#
+
+exit 0
+EOF
+
+cat > debian/postrm <<'EOF'
+#!/bin/sh
+# Remove the Dropbox repository.
+# Copyright (c) 2009 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license.
+
+action="$1"
+
+# Only do complete clean-up on purge.
+if [ "$action" != "purge" ] ; then
+  exit 0
+fi
+
+APT_GET="`which apt-get 2> /dev/null`"
+APT_CONFIG="`which apt-config 2> /dev/null`"
+
+# Parse apt configuration and return requested variable value.
+apt_config_val() {
+  APTVAR="$1"
+  if [ -x "$APT_CONFIG" ]; then
+    "$APT_CONFIG" dump | sed -e "/^$APTVAR /"'!d' -e "s/^$APTVAR \"\(.*\)\".*/\1/"
+  fi
+}
+
+uninstall_key() {
+  APT_KEY="`which apt-key 2> /dev/null`"
+  if [ -x "$APT_KEY" ]; then
+    "$APT_KEY" rm 5044912E >/dev/null 2>&1
+  fi
+}
+
+# Set variables for the locations of the apt sources lists.
+find_apt_sources() {
+  APTDIR=$(apt_config_val Dir)
+  APTETC=$(apt_config_val 'Dir::Etc')
+  APT_SOURCES="$APTDIR$APTETC$(apt_config_val 'Dir::Etc::sourcelist')"
+  APT_SOURCESDIR="$APTDIR$APTETC$(apt_config_val 'Dir::Etc::sourceparts')"
+}
+
+# Remove a repository from the apt sources.
+# Returns:
+# 0 - successfully removed, or not configured
+# 1 - failed to remove
+clean_sources_lists() {
+  find_apt_sources
+
+  if [ -d "$APT_SOURCESDIR" ]; then
+    rm -f "$APT_SOURCESDIR/dropbox.list"
+  fi
+
+  return 0
+}
+
+uninstall_key
+clean_sources_lists
 
 # dh_installdeb will replace this with shell code automatically
 # generated by other debhelper scripts.

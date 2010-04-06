@@ -152,12 +152,58 @@ do
   fi
 done
 
-zenity --info --timeout=5 --text='Dropbox installation successfully completed! Please log out and log back in to complete the integration with your desktop. You can start Dropbox from your applications menu.' > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-  echo
-  echo 'Dropbox installation successfully completed! Please log out and log back in to complete the integration with your desktop. You can start Dropbox from your applications menu.'
+DEFAULTS_FILE="/etc/default/dropbox-repo"
+
+if [ ! -e "$DEFAULTS_FILE" ]; then
+    YUM_REPO_FILE="/etc/yum.repos.d/dropbox.repo"
+
+    rpm --import - <<KEYDATA
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+mQENBEt0ibEBCACv4hZRPqwtpU6z8+BB5YZU1a3yjEvg2W68+a6hEwxtCa2U++4d
+zQ+7EqaUq5ybQnwtbDdpFpsOi9x31J+PCpufPUfIG694/0rlEpmzl2GWzY8NqfdB
+FGGm/SPSSwvKbeNcFMRLu5neo7W9kwvfMbGjHmvUbzBUVpCVKD0OEEf1q/Ii0Qce
+kx9CMoLvWq7ZwNHEbNnij7ecnvwNlE2MxNsOSJj+hwZGK+tM19kuYGSKw4b5mR8I
+yThlgiSLIfpSBh1n2KX+TDdk9GR+57TYvlRu6nTPu98P05IlrrCP+KF0hYZYOaMv
+Qs9Rmc09tc/eoQlN0kkaBWw9Rv/dvLVc0aUXABEBAAG0MURyb3Bib3ggQXV0b21h
+dGljIFNpZ25pbmcgS2V5IDxsaW51eEBkcm9wYm94LmNvbT6JATYEEwECACAFAkt0
+ibECGwMGCwkIBwMCBBUCCAMEFgIDAQIeAQIXgAAKCRD8kYszUESRLi/zB/wMscEa
+15rS+0mIpsORknD7kawKwyda+LHdtZc0hD/73QGFINR2P23UTol/R4nyAFEuYNsF
+0C4IAD6y4pL49eZ72IktPrr4H27Q9eXhNZfJhD7BvQMBx75L0F5gSQwuC7GdYNlw
+SlCD0AAhQbi70VBwzeIgITBkMQcJIhLvllYo/AKD7Gv9huy4RLaIoSeofp+2Q0zU
+HNPl/7zymOqu+5Oxe1ltuJT/kd/8hU+N5WNxJTSaOK0sF1/wWFM6rWd6XQUP03Vy
+NosAevX5tBo++iD1WY2/lFVUJkvAvge2WFk3c6tAwZT/tKxspFy4M/tNbDKeyvr6
+85XKJw9ei6GcOGHD
+=5rWG
+-----END PGP PUBLIC KEY BLOCK-----
+KEYDATA
+
+    if [ -d "/etc/yum.repos.d" ]; then
+      cat > "$YUM_REPO_FILE" << REPOCONTENT
+[Dropbox]
+name=Dropbox Repository
+baseurl=http://linux.dropbox.com/fedora/\$releasever/
+gpgkey=http://linux.dropbox.com/fedora/rpm-public-key.asc
+REPOCONTENT
+    fi
 fi
 
+if [ `pgrep -x -c nautilus` -ne 0 ];  then
+  zenity --question --timeout=30 --title=Dropbox --text='The Nautilus File Browser has to be restarted. Any open file browser windows will be closed in the process. Do this now?' > /dev/null 2>&1
+  if [ $? -eq 0 ] ; then
+    echo "Killing nautilus"
+    killall nautilus
+  fi
+fi
+
+if [ `pgrep -x -c dropbox` -eq 0 ];  then
+  zenity --info --timeout=5 --text='Dropbox installation successfully completed! You can start Dropbox from your applications menu.' > /dev/null 2>&1
+  if [ $? -ne 0 ]; then
+      echo
+      echo 'Dropbox installation successfully completed! You can start Dropbox from your applications menu.'
+  fi
+fi
 EOF
 
 cat <<EOF >> rpmbuild/SPECS/nautilus-dropbox.spec
@@ -182,7 +228,7 @@ rm -rf \$RPM_BUILD_ROOT
 %{_datadir}/man/man1/dropbox.1.gz
 
 %changelog
-* $(date +'%a %b %d %Y')  Rian Hunter <rian@getdropbox.com> - $CURVER
+* $(date +'%a %b %d %Y')  Rian Hunter <rian@getdropbox.com> - $CURVER-1
 - This package does not use a changelog
 EOF
 

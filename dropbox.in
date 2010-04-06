@@ -740,6 +740,15 @@ Prints out the current status of the Dropbox daemon.
         console_print(u"Dropbox isn't running!")
 
 @command
+def running(argv):
+    u"""return whether dropbox is running
+dropbox running
+
+Returns 1 if running 0 if not running.
+"""
+    return int(is_dropbox_running())
+
+@command
 @requires_dropbox_running
 def stop(args):
     u"""stop dropboxd
@@ -875,7 +884,6 @@ Note: May only work on current Ubuntu distributions.
     else:
         reroll_autostart(should_autostart)
 
-
 @command
 def help(argv):
     u"""provide help
@@ -926,4 +934,6 @@ def main(argv):
     return commands[argv[i]](argv[i+1:])
 
 if __name__ == "__main__":
-    main(sys.argv)
+    ret = main(sys.argv)
+    if ret is not None:
+        sys.exit(ret)
