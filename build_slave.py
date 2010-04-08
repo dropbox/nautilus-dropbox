@@ -18,11 +18,13 @@ class BuildController(SlaveController):
         self.expected_sockets = ['stdout', 'stderr']
         self.remote_commands.append(self.build_deb)
         self.remote_commands.append(self.build_rpm)
+        self.remote_commands.append(self.generate_ubuntu_repo)
+        self.remote_commands.append(self.generate_redhat_repo)
 
     def get_info_string(self):
         return "nautilus-dropbox"
 
-    def build_deb(self, dist='karmic', arch='i386'):
+    def build_deb(self, dist='hardy', arch='i386'):
         # dist = 'karmic', arch = {i386, amd64}
         assert self.system('sh generate-deb.sh -n') == 0
         with open('buildme') as f:
@@ -37,6 +39,42 @@ class BuildController(SlaveController):
             assert self.system('debsign -k5044912E /var/cache/pbuilder/%s-%s/result/*.changes' %(dist, arch)) == 0
         finally:
             os.chdir('../..')
+
+    def generate_ubuntu_repo(self, base_dist='hardy'):
+        archs = ['i386', 'amd64']
+        assert self.system('rm -rf /home/releng/result/ubuntu') == 0
+        assert self.system('mkdir -p /home/releng/result/ubuntu/pool/main') == 0
+        for arch in archs:
+            assert self.system('cp /var/cache/pbuilder/%s-%s/result/* /home/releng/result/ubuntu/pool/main' %(base_dist, arch)) == 0
+
+        old = os.getcwd()
+        os.chdir('/home/releng/result/ubuntu')
+        try:
+            assert self.system('sh %s/create-ubuntu-repo.sh' % old) == 0
+        finally:
+            os.chdir(old)
+
+    def generate_redhat_repo(self, base_dist='fedora-10', archs='i386,x86_64', dist_name='fc10'):
+        archs = archs.split(',')
+
+        assert self.system('rm -rf /home/releng/result/fedora') == 0
+        assert self.system('mkdir -p /home/releng/result/fedora/pool/') == 0
+        
+        for arch in archs:
+            assert self.system('cp /var/lib/mock/%s-%s/result/*.rpm /home/releng/result/fedora/pool' %(base_dist, arch)) == 0
+
+        files = os.listdir('/home/releng/result/fedora/pool')
+        for f in files:
+            f = '/home/releng/result/fedora/pool/' + f
+            newname = f.replace(dist_name, 'fedora')
+            os.rename(f, newname)
+        
+        old = os.getcwd()
+        os.chdir('/home/releng/result/fedora')
+        try:
+            assert self.system('sh %s/create-yum-repo.sh' % old) == 0
+        finally:
+            os.chdir(old)
 
     def build_rpm(self, config='fedora-10-i386'):
         # fcdists='fedora-10-i386,fedora-10-x86_64'
