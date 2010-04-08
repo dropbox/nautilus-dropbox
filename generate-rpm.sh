@@ -84,7 +84,7 @@ Group:		User Interface/Desktops
 License:	GPL
 URL:		http://www.getdropbox.com/
 Source0:	http://dl.getdropbox.com/u/17/%{name}-%{version}.tar.bz2
-BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id} -u -n)
 
 Requires:	nautilus >= %{nautilus_version}
 Requires:	libnotify >= %{libnotify_version}
