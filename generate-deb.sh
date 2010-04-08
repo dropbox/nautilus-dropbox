@@ -268,7 +268,7 @@ KEYDATA
           # pgrep matches application names from /proc/<pid>/status which is
           # truncated according to sys/procfs.h definition. Problem is it's
           # platform dependent. Either 15 or 16 chars.
-          if [ `pgrep -x -c nautilus` -ne 0 ];  then
+          if pgrep -x nautilus > /dev/null 2>&1 ;  then
             cat > $UPDATENOTIFIERDIR/dropbox-restart-required <<DROPBOXEND
 Name: Nautilus Restart Required
 Priority: High

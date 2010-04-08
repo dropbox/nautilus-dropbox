@@ -157,8 +157,7 @@ DEFAULTS_FILE="/etc/default/dropbox-repo"
 if [ ! -e "$DEFAULTS_FILE" ]; then
     YUM_REPO_FILE="/etc/yum.repos.d/dropbox.repo"
 
-    rpm -q gpg-pubkey-5044912e-4b7489b1 > /dev/null 2>&1
-    if [ $? -ne 0 ];  then
+    if ! rpm -q gpg-pubkey-5044912e-4b7489b1 > /dev/null 2>&1 ;  then
       rpm --import - <<KEYDATA
 -----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: GnuPG v1.4.9 (GNU/Linux)
@@ -191,8 +190,8 @@ REPOCONTENT
     fi
 fi
 
-pgrep -x nautilus > /dev/null 2>&1
-if [ $? -eq 0 ];  then
+
+if pgrep -x nautilus > /dev/null 2>&1 ;  then
   zenity --question --timeout=30 --title=Dropbox --text='The Nautilus File Browser has to be restarted. Any open file browser windows will be closed in the process. Do this now?' > /dev/null 2>&1
   if [ $? -eq 0 ] ; then
     echo "Killing nautilus"
@@ -200,8 +199,7 @@ if [ $? -eq 0 ];  then
   fi
 fi
 
-pgrep -x dropbox > /dev/null 2>&1
-if [ $? -ne 0 ];  then
+if ! pgrep -x dropbox > /dev/null 2>&1 ;  then
   zenity --info --timeout=5 --text='Dropbox installation successfully completed! You can start Dropbox from your applications menu.' > /dev/null 2>&1
   if [ $? -ne 0 ]; then
       echo
