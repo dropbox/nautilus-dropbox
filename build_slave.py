@@ -53,7 +53,7 @@ class BuildController(SlaveController):
         if not path:
             raise Exception("No srpm generated")
 
-        assert self.system('rm -rf /var/cache/pbuilder/%s/result/*' %(config)) == 0
+        assert self.system('rm -rf /var/lib/mock/%s/result/*' %(config)) == 0
 
         try:
             assert self.system('/usr/bin/mock -r %s rebuild %s' % (config, path)) == 0
