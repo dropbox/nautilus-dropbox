@@ -190,14 +190,19 @@ REPOCONTENT
     fi
 fi
 
+PROCS=`pgrep -x nautilus`
 
-if pgrep -x nautilus > /dev/null 2>&1 ;  then
+for PROC in $PROCS; do
+  # Extract the display variable so that we can show a box.  
+  # Hope they have xauth to localhost. 
+  export `cat /proc/$PROC/environ | tr "\0" "\n" | grep DISPLAY` 
+
   zenity --question --timeout=30 --title=Dropbox --text='The Nautilus File Browser has to be restarted. Any open file browser windows will be closed in the process. Do this now?' > /dev/null 2>&1
   if [ $? -eq 0 ] ; then
     echo "Killing nautilus"
-    killall nautilus
+    kill $PROC
   fi
-fi
+done
 
 if ! pgrep -x dropbox > /dev/null 2>&1 ;  then
   zenity --info --timeout=5 --text='Dropbox installation successfully completed! You can start Dropbox from your applications menu.' > /dev/null 2>&1
