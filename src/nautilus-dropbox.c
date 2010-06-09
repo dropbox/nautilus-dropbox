@@ -46,6 +46,7 @@
 #include "nautilus-dropbox-hooks.h"
 
 static char *emblems[] = {"dropbox-uptodate", "dropbox-syncing", "dropbox-unsyncable"};
+gchar *DEFAULT_EMBLEM_PATHS[2] = { EMBLEMDIR , NULL };
 
 gboolean dropbox_use_nautilus_submenu_workaround;
 gboolean dropbox_use_operation_in_progress_workaround;
@@ -308,15 +309,26 @@ gboolean
 nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr) {
 
   //debug_enter();
-  
-  if (dficr->dfic->cancelled == FALSE) {
-    gchar **status= NULL;
+  NautilusOperationResult result = NAUTILUS_OPERATION_FAILED;
+
+  if (!dficr->dfic->cancelled) {
+    gchar **status = NULL;
     gboolean isdir;
 
     isdir = nautilus_file_info_is_directory(dficr->dfic->file) ;
-    
+
+    /* if we have emblems just use them. */
+    if (dficr->emblems_response != NULL &&
+	(status = g_hash_table_lookup(dficr->emblems_response, "emblems")) != NULL) {
+      int i;
+      for ( i = 0; status[i] != NULL; i++) {
+	  if (status[i][0])
+	    nautilus_file_info_add_emblem(dficr->dfic->file, status[i]);
+      }
+      result = NAUTILUS_OPERATION_COMPLETE;
+    }
     /* if the file status command went okay */
-    if ((dficr->file_status_response != NULL &&
+    else if ((dficr->file_status_response != NULL &&
 	(status =
 	 g_hash_table_lookup(dficr->file_status_response, "status")) != NULL) &&
 	((isdir == TRUE &&
@@ -335,12 +347,15 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 	else if (strcmp("photos", tag[0]) == 0) {
 	  nautilus_file_info_add_emblem(dficr->dfic->file, "photos");
 	}
+	else if (strcmp("sandbox", tag[0]) == 0) {
+	  nautilus_file_info_add_emblem(dficr->dfic->file, "star");
+	}
       }
 
       /* set the status emblem */
       {
 	int emblem_code = 0;
-	
+
 	if (strcmp("up to date", status[0]) == 0) {
 	  emblem_code = 1;
 	}
@@ -350,7 +365,7 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 	else if (strcmp("unsyncable", status[0]) == 0) {
 	  emblem_code = 3;
 	}
-	
+
 	if (emblem_code > 0) {
 	  /*
 	    debug("%s to %s", emblems[emblem_code-1],
@@ -360,24 +375,16 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
 	  nautilus_file_info_add_emblem(dficr->dfic->file, emblems[emblem_code-1]);
 	}
       }
+      result = NAUTILUS_OPERATION_COMPLETE;
+    }
+  }
 
-      /* complete the info request */
-      if (!dropbox_use_operation_in_progress_workaround) {
-	nautilus_info_provider_update_complete_invoke(dficr->dfic->update_complete,
-						      dficr->dfic->provider,
-						      (NautilusOperationHandle*) dficr->dfic,
-						      NAUTILUS_OPERATION_COMPLETE);
-      }
-    }
-    else {
-      /* operation failed, for some reason..., just complete the invoke */
-      if (!dropbox_use_operation_in_progress_workaround) {
-	nautilus_info_provider_update_complete_invoke(dficr->dfic->update_complete,
-						      dficr->dfic->provider,
-						      (NautilusOperationHandle*) dficr->dfic,
-						      NAUTILUS_OPERATION_FAILED);
-      }
-    }
+  /* complete the info request */
+  if (!dropbox_use_operation_in_progress_workaround) {
+      nautilus_info_provider_update_complete_invoke(dficr->dfic->update_complete,
+						    dficr->dfic->provider,
+						    (NautilusOperationHandle*) dficr->dfic,
+						    result);
   }
 
   /* destroy the objects we created */
@@ -385,6 +392,8 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
     g_hash_table_unref(dficr->file_status_response);
   if (dficr->folder_tag_response != NULL)
     g_hash_table_unref(dficr->folder_tag_response);
+  if (dficr->emblems_response != NULL)
+    g_hash_table_unref(dficr->emblems_response);
 
   /* unref the objects we didn't create */
   g_closure_unref(dficr->dfic->update_complete);
@@ -714,12 +723,125 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
   return toret;
 }
 
+gboolean
+add_emblem_paths(GHashTable* emblem_paths_response)
+{
+  /* Only run this on the main loop or you'll cause problems. */
+  if (!emblem_paths_response)
+    return FALSE;
+
+  gchar **emblem_paths_list;
+  int i;
+
+  GtkIconTheme *theme = gtk_icon_theme_get_default();
+
+  if (emblem_paths_response &&
+      (emblem_paths_list = g_hash_table_lookup(emblem_paths_response, "path"))) {
+      for (i = 0; emblem_paths_list[i] != NULL; i++) {
+	if (emblem_paths_list[i][0])
+	  gtk_icon_theme_append_search_path(theme, emblem_paths_list[i]);
+      }
+  }
+  g_hash_table_unref(emblem_paths_response);
+  return FALSE;
+}
+
+gboolean
+remove_emblem_paths(GHashTable* emblem_paths_response)
+{
+  /* Only run this on the main loop or you'll cause problems. */
+  if (!emblem_paths_response)
+    return FALSE;
+
+  gchar **emblem_paths_list = g_hash_table_lookup(emblem_paths_response, "path");
+  if (!emblem_paths_list)
+      goto exit;
+
+  // We need to remove the old paths.
+  GtkIconTheme * icon_theme = gtk_icon_theme_get_default();
+  gchar ** paths;
+  gint path_count;
+
+  gtk_icon_theme_get_search_path(icon_theme, &paths, &path_count);
+
+  gint i, j, out = 0;
+  gboolean found = FALSE;
+  for (i = 0; i < path_count; i++) {
+      gboolean keep = TRUE;
+      for (j = 0; emblem_paths_list[j] != NULL; j++) {
+	  if (emblem_paths_list[j][0]) {
+	      if (!g_strcmp0(paths[i], emblem_paths_list[j])) {
+		  found = TRUE;
+		  keep = FALSE;
+		  g_free(paths[i]);
+		  break;
+	      }
+	  }
+      }
+      if (keep) {
+	  paths[out] = paths[i];
+	  out++;
+      }
+  }
+
+  /* If we found one we need to reset the path to
+     accomodate the changes */
+  if (found) {
+    paths[out] = NULL; /* Clear the last one */
+    gtk_icon_theme_set_search_path(icon_theme, (const gchar **)paths, out);
+  }
+
+  g_strfreev(paths);
+exit:
+  g_hash_table_unref(emblem_paths_response);
+  return FALSE;
+}
+
+void get_emblem_paths_cb(GHashTable *emblem_paths_response, NautilusDropbox *cvs)
+{
+  if (!emblem_paths_response) {
+      emblem_paths_response = g_hash_table_new((GHashFunc) g_str_hash,
+					       (GEqualFunc) g_str_equal);
+      g_hash_table_insert(emblem_paths_response, "path", DEFAULT_EMBLEM_PATHS);
+  } else {
+      /* Increase the ref so that finish_general_command doesn't delete it. */
+      g_hash_table_ref(emblem_paths_response);
+  }
+
+  if (cvs->emblem_paths) {
+    g_idle_add((GSourceFunc) remove_emblem_paths, cvs->emblem_paths);
+    cvs->emblem_paths = NULL;
+  }
+
+  cvs->emblem_paths = emblem_paths_response;
+  g_idle_add((GSourceFunc) add_emblem_paths, g_hash_table_ref(emblem_paths_response));
+
+  g_hash_table_foreach(cvs->obj2filename, (GHFunc) reset_file, NULL);
+
+}
+
 static void
 on_connect(NautilusDropbox *cvs) {
   /* this works because you can call a function pointer with
      more arguments than it takes */
   g_hash_table_foreach(cvs->obj2filename, (GHFunc) reset_file, NULL);
+
+  dropbox_command_client_send_command(&(cvs->dc.dcc),
+				      (NautilusDropboxCommandResponseHandler) get_emblem_paths_cb,
+				      cvs, "get_emblem_paths", NULL);
 }
+
+static void
+on_disconnect(NautilusDropbox *cvs) {
+  /* this works because you can call a function pointer with
+     more arguments than it takes */
+  g_hash_table_foreach(cvs->obj2filename, (GHFunc) reset_file, NULL);
+
+  /* This call will free the data too. */
+  g_idle_add((GSourceFunc) remove_emblem_paths, cvs->emblem_paths);
+  cvs->emblem_paths = NULL;
+}
+
 
 static void
 nautilus_dropbox_menu_provider_iface_init (NautilusMenuProviderIface *iface) {
@@ -744,6 +866,7 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
 					    (GEqualFunc) g_direct_equal,
 					    (GDestroyNotify) NULL,
 					    (GDestroyNotify) g_free);
+  cvs->emblem_paths = NULL;
 
   /* setup the connection obj*/
   dropbox_client_setup(&(cvs->dc));
@@ -754,10 +877,10 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
 
   /* add connection handlers */
   dropbox_client_add_on_connect_hook(&(cvs->dc),
-				     (DropboxClientConnectHook) on_connect, 
+				     (DropboxClientConnectHook) on_connect,
 				     cvs);
   dropbox_client_add_on_disconnect_hook(&(cvs->dc),
-					(DropboxClientConnectHook) on_connect, 
+					(DropboxClientConnectHook) on_disconnect,
 					cvs);
   
   /* now start the connection */

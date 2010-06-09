@@ -1,0 +1,25 @@
+syntax: regexp
+~$
+Makefile.in$
+Makefile$
+^src/.deps$
+^src/.libs$
+^configure$
+^autom4te.cache$
+^dropbox$
+^dropbox.1$
+^dropbox.txt$
+^config.h$
+^config.h.in$
+^config.log$
+^config.status$
+^config.sub$
+^aclocal.m4$
+^compile$
+^config.guess$
+^depcomp$
+^install-sh$
+^libtool$
+^ltmain.sh$
+^missing$
+^stamp-h1$

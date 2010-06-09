@@ -105,6 +105,9 @@ AC_DEFINE_UNQUOTED(NAUTILUS_VERSION_MAJOR, [$NAUTILUS_VERSION_MAJOR], [ nautilus
 AC_DEFINE_UNQUOTED(NAUTILUS_VERSION_MINOR, [$NAUTILUS_VERSION_MINOR], [ nautilus version minor])
 AC_DEFINE_UNQUOTED(NAUTILUS_VERSION_MICRO, [$NAUTILUS_VERSION_MICRO], [ nautilus version micro])
 
+EMBLEM_DIR='${datadir}/nautilus-dropbox/emblems'
+AC_SUBST(EMBLEM_DIR)
+
 AC_CONFIG_FILES([
 	Makefile 
 	src/Makefile
@@ -123,6 +126,6 @@ AC_CONFIG_FILES([
 	data/icons/hicolor/48x48/apps/Makefile
 	data/icons/hicolor/64x64/Makefile
 	data/icons/hicolor/64x64/apps/Makefile
-	data/icons/hicolor/64x64/emblems/Makefile])
+	data/emblems/Makefile])
 
 AC_OUTPUT

@@ -1,16 +1,17 @@
 INCLUDES =						\
 	-I$(top_srcdir)					\
-	-I$(top_builddir)				
+	-I$(top_builddir)
 
 nautilus_extensiondir=$(NAUTILUS_EXTENSION_DIR)
 
 nautilus_extension_LTLIBRARIES=libnautilus-dropbox.la
 
 libnautilus_dropbox_la_CFLAGS = 	                \
-	-DDATADIR=\"$(datadir)\"			\
+	-DDATADIR=\"$(datadir)\"					    \
+	-DEMBLEMDIR=\"$(EMBLEM_DIR)\"					\
 	-Wall                                           \
 	$(WARN_CFLAGS)                                  \
-	$(DISABLE_DEPRECATED_CFLAGS)			\
+	$(DISABLE_DEPRECATED_CFLAGS)					\
 	$(NAUTILUS_CFLAGS)                              \
 	$(GLIB_CFLAGS)                                  \
 	$(LIBNOTIFY_CFLAGS)

@@ -30,8 +30,6 @@
 #include <gdk/gdk.h>
 #include <gtk/gtk.h>
 
-#include <libnotify/notification.h>
-
 #include "nautilus-dropbox.h"
 
 static GType type_list[1];
@@ -39,7 +37,7 @@ static GType type_list[1];
 void
 nautilus_module_initialize (GTypeModule *module) {
   g_print ("Initializing %s\n", PACKAGE_STRING);
-  
+
   nautilus_dropbox_register_type (module);
   type_list[0] = NAUTILUS_TYPE_DROPBOX;
 
@@ -54,7 +52,7 @@ nautilus_module_shutdown (void) {
   g_print ("Shutting down dropbox extension\n");
 }
 
-void 
+void
 nautilus_module_list_types (const GType **types,
                             int *num_types) {
   *types = type_list;

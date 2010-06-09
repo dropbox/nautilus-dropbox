@@ -1,1 +1,1 @@
-SUBDIRS = emblems apps
+SUBDIRS = apps

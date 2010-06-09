@@ -49,6 +49,7 @@ struct _NautilusDropbox {
   GObject parent_slot;
   GHashTable *filename2obj;
   GHashTable *obj2filename;
+  GHashTable *emblem_paths;
   DropboxClient dc;
 };
 

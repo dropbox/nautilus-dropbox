@@ -610,6 +610,8 @@ options:
                         INIT, CLEANUP = "\x1b[36m", "\x1b[0m"
                     elif status == u"unsyncable":
                         INIT, CLEANUP = "\x1b[41m", "\x1b[0m"
+                    elif status == u"selsync":
+                        INIT, CLEANUP = "\x1b[37m", "\x1b[0m"
                     else:
                         INIT, CLEANUP = '', ''
 

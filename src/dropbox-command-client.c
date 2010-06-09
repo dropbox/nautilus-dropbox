@@ -341,13 +341,12 @@ send_command_to_db(GIOChannel *chan, const gchar *command_name,
 }
 
 static void
-do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
-		     GError **gerr) {
+do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic, GError **gerr) {
   /* we need to send two requests to dropbox:
      file status, and folder_tags */
   GError *tmp_gerr = NULL;
   DropboxFileInfoCommandResponse *dficr;
-  GHashTable *file_status_response = NULL, *args, *folder_tag_response = NULL;
+  GHashTable *file_status_response = NULL, *args, *folder_tag_response = NULL, *emblems_response = NULL;
   gchar *filename = NULL;
 
   {
@@ -382,7 +381,13 @@ do_file_info_command(GIOChannel *chan, DropboxFileInfoCommand *dfic,
     g_hash_table_insert(args, g_strdup("path"), path_arg);
   }
 
-  
+  emblems_response = send_command_to_db(chan, "get_emblems", args, NULL);
+  if (emblems_response) {
+      /* Don't need to do the other calls. */
+      g_hash_table_unref(args);
+      goto exit;
+  }
+
   /* send status command to server */
   file_status_response = send_command_to_db(chan, "icon_overlay_file_status",
 					    args, &tmp_gerr);
@@ -429,6 +434,7 @@ exit:
   dficr->dfic = dfic;
   dficr->folder_tag_response = folder_tag_response;
   dficr->file_status_response = file_status_response;
+  dficr->emblems_response = emblems_response;
   g_idle_add((GSourceFunc) nautilus_dropbox_finish_file_info_command, dficr);
 
   g_free(filename);
@@ -525,6 +531,7 @@ end_request(DropboxCommand *dc) {
       DropboxFileInfoCommandResponse *dficr = g_new0(DropboxFileInfoCommandResponse, 1);
       dficr->dfic = dfic;
       dficr->file_status_response = NULL;
+      dficr->emblems_response = NULL;
       g_idle_add((GSourceFunc) nautilus_dropbox_finish_file_info_command, dficr);
     }
       break;
@@ -542,6 +549,7 @@ end_request(DropboxCommand *dc) {
     }
   }
 }
+
 
 static gpointer
 dropbox_command_client_thread(DropboxCommandClient *dcc) {
@@ -601,13 +609,13 @@ dropbox_command_client_thread(DropboxCommandClient *dcc) {
 
 	  FD_ZERO(&writers);
 	  FD_SET(sock, &writers);
-	  
+
 	  /* if nothing was ready after 3 seconds, fail out homie */
 	  if (select(sock+1, NULL, &writers, NULL, &tv) == 0) {
 	    /* debug("connection timeout"); */
 	    break;
 	  }
-	  
+
 	  if (connect(sock, (struct sockaddr *) &addr, addr_len) < 0) {
 	    /*	    debug("couldn't connect to command server after 1 second"); */
 	    break;
@@ -625,7 +633,7 @@ dropbox_command_client_thread(DropboxCommandClient *dcc) {
 	/* debug("fcntl2 failed"); */
 	break;
       }
-      
+
       failflag = FALSE;
     } while (0);
 
@@ -657,14 +665,14 @@ dropbox_command_client_thread(DropboxCommandClient *dcc) {
       dcc->command_connected = s;			\
       g_mutex_unlock(dcc->command_connected_mutex);	\
     }
-    
+
     SET_CONNECTED_STATE(TRUE);
 
     g_idle_add((GSourceFunc) on_connect, dcc);
 
     while (1) {
       DropboxCommand *dc;
-      
+
       while (1) {
 	GTimeVal gtv;
 
@@ -852,7 +860,8 @@ void dropbox_command_client_send_command(DropboxCommandClient *dcc,
   va_list ap;
   DropboxGeneralCommand *dgc;
   gchar *na;
-  
+  va_start(ap, command);
+
   dgc = g_new(DropboxGeneralCommand, 1);
   dgc->dc.request_type = GENERAL_COMMAND;
   dgc->command_name = g_strdup(command);
@@ -866,8 +875,7 @@ void dropbox_command_client_send_command(DropboxCommandClient *dcc,
    */
   dgc->handler = h;
   dgc->handler_ud = ud;
-  
-  va_start(ap, command);
+
   while ((na = va_arg(ap, char *)) != NULL) {
     gchar **is_active_arg;
 
