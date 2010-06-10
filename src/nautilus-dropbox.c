@@ -103,6 +103,17 @@ reset_file(NautilusFileInfo *file) {
   nautilus_file_info_invalidate_extension_info(file);
 }
 
+gboolean
+reset_all_files(NautilusDropbox *cvs) {
+  /* Only run this on the main loop or you'll cause problems. */
+
+  /* this works because you can call a function pointer with
+     more arguments than it takes */
+  g_hash_table_foreach(cvs->obj2filename, (GHFunc) reset_file, NULL);
+  return FALSE;
+}
+
+
 static void
 when_file_dies(NautilusDropbox *cvs, NautilusFileInfo *address) {
   gchar *filename;
@@ -808,23 +819,21 @@ void get_emblem_paths_cb(GHashTable *emblem_paths_response, NautilusDropbox *cvs
       g_hash_table_ref(emblem_paths_response);
   }
 
+  g_mutex_lock(cvs->emblem_paths_mutex);
   if (cvs->emblem_paths) {
     g_idle_add((GSourceFunc) remove_emblem_paths, cvs->emblem_paths);
     cvs->emblem_paths = NULL;
   }
-
   cvs->emblem_paths = emblem_paths_response;
+  g_mutex_unlock(cvs->emblem_paths_mutex);
+
   g_idle_add((GSourceFunc) add_emblem_paths, g_hash_table_ref(emblem_paths_response));
-
-  g_hash_table_foreach(cvs->obj2filename, (GHFunc) reset_file, NULL);
-
+  g_idle_add((GSourceFunc) reset_all_files, cvs);
 }
 
 static void
 on_connect(NautilusDropbox *cvs) {
-  /* this works because you can call a function pointer with
-     more arguments than it takes */
-  g_hash_table_foreach(cvs->obj2filename, (GHFunc) reset_file, NULL);
+  reset_all_files(cvs);
 
   dropbox_command_client_send_command(&(cvs->dc.dcc),
 				      (NautilusDropboxCommandResponseHandler) get_emblem_paths_cb,
@@ -833,13 +842,13 @@ on_connect(NautilusDropbox *cvs) {
 
 static void
 on_disconnect(NautilusDropbox *cvs) {
-  /* this works because you can call a function pointer with
-     more arguments than it takes */
-  g_hash_table_foreach(cvs->obj2filename, (GHFunc) reset_file, NULL);
+  reset_all_files(cvs);
 
+  g_mutex_lock(cvs->emblem_paths_mutex);
   /* This call will free the data too. */
   g_idle_add((GSourceFunc) remove_emblem_paths, cvs->emblem_paths);
   cvs->emblem_paths = NULL;
+  g_mutex_unlock(cvs->emblem_paths_mutex);
 }
 
 
@@ -866,6 +875,7 @@ nautilus_dropbox_instance_init (NautilusDropbox *cvs) {
 					    (GEqualFunc) g_direct_equal,
 					    (GDestroyNotify) NULL,
 					    (GDestroyNotify) g_free);
+  cvs->emblem_paths_mutex = g_mutex_new();
   cvs->emblem_paths = NULL;
 
   /* setup the connection obj*/
