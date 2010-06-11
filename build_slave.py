@@ -1,7 +1,7 @@
 import sys
 
-MASTER_ADDR = 'chaos.corp.getdropbox.com'
-MASTER_PORT = 8080
+MASTER_ADDR = 'sonic.corp.getdropbox.com'
+MASTER_PORT = 80
 
 SlaveController = None
 ConfigParser = None
