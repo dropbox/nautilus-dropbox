@@ -35,6 +35,7 @@
 #include <glib.h>
 #include <glib/gprintf.h>
 #include <glib-object.h>
+#include <gtk/gtk.h>
 
 #include <libnautilus-extension/nautilus-extension-types.h>
 #include <libnautilus-extension/nautilus-menu-provider.h>
