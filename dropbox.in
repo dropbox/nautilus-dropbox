@@ -39,7 +39,7 @@ import locale
 from contextlib import closing
 
 INFO = u"Dropbox is the easiest way to share and store your files online. Want to learn more? Head to"
-LINK = u"http://www.getdropbox.com/"
+LINK = u"http://www.dropbox.com/"
 WARNING = u"In order to use Dropbox, you must download the proprietary daemon."
 
 DOWNLOADING = u"Downloading Dropbox... %d%%"
@@ -113,7 +113,7 @@ urllib._urlopener = DropboxURLopener()
 class DownloadState(object):
     def __init__(self):
         try:
-            self.file = urllib.urlopen("http://www.getdropbox.com/download?plat=%s" % plat())
+            self.file = urllib.urlopen("http://www.dropbox.com/download?plat=%s" % plat())
         except IOError:
             FatalVisibleError("Trouble connecting to Dropbox servers. Maybe your internet connection is down, or you need to set your http_proxy environment variable.")
             

@@ -81,8 +81,8 @@ Release:	1%{?dist}
 Summary:	Dropbox integration for Nautilus
 Group:		User Interface/Desktops
 License:	GPL
-URL:		http://www.getdropbox.com/
-Source0:	http://dl.getdropbox.com/u/17/%{name}-%{version}.tar.bz2
+URL:		http://www.dropbox.com/
+Source0:	http://dl.dropbox.com/u/17/%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id} -u -n)
 
 Requires:	nautilus-extensions >= %{nautilus_version}
@@ -102,7 +102,7 @@ BuildRequires:  pango-devel
 Nautilus Dropbox is an extension that integrates
 the Dropbox web service with your GNOME Desktop.
 
-Check us out at http://www.getdropbox.com/
+Check us out at http://www.dropbox.com/
 
 %prep
 %setup -q
@@ -237,7 +237,7 @@ rm -rf \$RPM_BUILD_ROOT
 %{_datadir}/man/man1/dropbox.1.gz
 
 %changelog
-* $(date +'%a %b %d %Y')  Rian Hunter <rian@getdropbox.com> - $CURVER-1
+* $(date +'%a %b %d %Y')  Rian Hunter <rian@dropbox.com> - $CURVER-1
 - This package does not use a changelog
 EOF
 

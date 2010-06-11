@@ -64,18 +64,18 @@ nautilus-dropbox ($CURVER) stable; urgency=low
 
   * Initial Release, This package doesn't use a changelog
 
- -- Rian Hunter <rian@getdropbox.com>  $(date -R)
+ -- Rian Hunter <rian@dropbox.com>  $(date -R)
 EOF
 
 cat > debian/copyright <<EOF
-This package was debianized by Rian Hunter <rian@getdropbox.com> on
+This package was debianized by Rian Hunter <rian@dropbox.com> on
 $(date -R).
 
-It was downloaded from https://www.getdropbox.com/download?dl=packages/nautilus-dropbox-$CURVER.tar.bz2
+It was downloaded from https://www.dropbox.com/download?dl=packages/nautilus-dropbox-$CURVER.tar.bz2
 
 Upstream Author(s): 
 
-    Rian Hunter <rian@getdropbox.com>
+    Rian Hunter <rian@dropbox.com>
 
 Copyright: 
 
@@ -117,7 +117,7 @@ GNU GPL below.
 On Debian systems, the complete text of the GNU General
 Public License can be found in \`/usr/share/common-licenses/GPL'.
 
-The Debian packaging is (C) 2008, Rian Hunter <rian@getdropbox.com> and
+The Debian packaging is (C) 2008, Rian Hunter <rian@dropbox.com> and
 is licensed under the GPL, see above.
 
 # Please also look if there are files or directories which have a
@@ -392,7 +392,7 @@ cat > debian/control <<EOF
 Source: nautilus-dropbox
 Section: gnome
 Priority: optional
-Maintainer: Rian Hunter <rian@getdropbox.com>
+Maintainer: Rian Hunter <rian@dropbox.com>
 Build-Depends: cdbs, debhelper (>= 5), build-essential, libnautilus-extension-dev (>= 2.16.0), libglib2.0-dev (>= 2.14.0), python-gtk2 (>= 2.12), python-docutils
 Standards-Version: 3.7.2
 
@@ -404,7 +404,7 @@ Description: Dropbox integration for Nautilus
  Nautilus Dropbox is an extension that integrates
  the Dropbox web service with your GNOME Desktop.
  .
- Check us out at http://www.getdropbox.com/
+ Check us out at http://www.dropbox.com/
 EOF
 
 if [ $BUILD -eq 1 ]; then
