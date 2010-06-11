@@ -93,6 +93,10 @@ Requires:	pygtk2 >= %{pygtk2_version}
 BuildRequires:	nautilus-devel >= %{nautilus_version}
 BuildRequires:	glib2-devel >= %{glib_version}
 BuildRequires:	python-docutils
+BuildRequires:  cairo-devel
+BuildRequires:  gtk2-devel
+BuildRequires:  atk-devel
+BuildRequires:  pango-devel
 
 %description
 Nautilus Dropbox is an extension that integrates
@@ -227,6 +231,7 @@ rm -rf \$RPM_BUILD_ROOT
 %doc
 %{_libdir}/nautilus/extensions-2.0/*.so*
 %{_datadir}/icons/hicolor/*
+%{_datadir}/nautilus-dropbox/emblems/*
 %{_bindir}/dropbox
 %{_datadir}/applications/dropbox.desktop
 %{_datadir}/man/man1/dropbox.1.gz
