@@ -85,7 +85,7 @@ URL:		http://www.getdropbox.com/
 Source0:	http://dl.getdropbox.com/u/17/%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id} -u -n)
 
-Requires:	nautilus >= %{nautilus_version}
+Requires:	nautilus-extensions >= %{nautilus_version}
 Requires:	glib2 >= %{glib_version}
 Requires:	libgnome >= %{gnome_version}
 Requires:	pygtk2 >= %{pygtk2_version}
