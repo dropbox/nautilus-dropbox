@@ -2,7 +2,7 @@
 
 # you should run this script on fedora
 # you need to have the following packages:
-# rpmdevtools, rpm-build, gawk, nautilus-devel, libnotify-devel, automake,
+# rpmdevtools, rpm-build, gawk, nautilus-devel, automake,
 # autoconf, gnome-common, libtool, gcc
 
 if [ $(basename $(pwd)) != 'nautilus-dropbox' ]; then
@@ -72,7 +72,6 @@ cp nautilus-dropbox-$CURVER.tar.bz2 rpmbuild/SOURCES/
 cat <<EOF > rpmbuild/SPECS/nautilus-dropbox.spec
 %define glib_version 2.14.0
 %define nautilus_version 2.16.0
-%define libnotify_version 0.4.4
 %define libgnome_version 2.16.0
 %define pygtk2_version 2.12
 
@@ -87,13 +86,11 @@ Source0:	http://dl.getdropbox.com/u/17/%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id} -u -n)
 
 Requires:	nautilus >= %{nautilus_version}
-Requires:	libnotify >= %{libnotify_version}
 Requires:	glib2 >= %{glib_version}
 Requires:	libgnome >= %{gnome_version}
 Requires:	pygtk2 >= %{pygtk2_version}
 
 BuildRequires:	nautilus-devel >= %{nautilus_version}
-BuildRequires:	libnotify-devel >= %{libnotify_version}
 BuildRequires:	glib2-devel >= %{glib_version}
 BuildRequires:	python-docutils
 

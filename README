@@ -16,7 +16,6 @@ Building Dropbox Nautilus Extension From Source Tarball
 You will need the following packages (or equivalent):
 
 libnautilus-extension-dev
-libnotify-dev
 
 In the nautilus-dropbox dir just do:
 $ ./configure

@@ -13,8 +13,7 @@ libnautilus_dropbox_la_CFLAGS = 	                \
 	$(WARN_CFLAGS)                                  \
 	$(DISABLE_DEPRECATED_CFLAGS)					\
 	$(NAUTILUS_CFLAGS)                              \
-	$(GLIB_CFLAGS)                                  \
-	$(LIBNOTIFY_CFLAGS)
+	$(GLIB_CFLAGS)
 
 if DEBUG
 libnautilus_dropbox_la_CFLAGS += -DND_DEBUG
@@ -37,4 +36,4 @@ libnautilus_dropbox_la_SOURCES = \
 	dropbox.c
 
 libnautilus_dropbox_la_LDFLAGS = -module -avoid-version
-libnautilus_dropbox_la_LIBADD  = $(NAUTILUS_LIBS) $(GLIB_LIBS) $(LIBNOTIFY_LIBS)
+libnautilus_dropbox_la_LIBADD  = $(NAUTILUS_LIBS) $(GLIB_LIBS)
