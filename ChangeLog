@@ -1,7 +1,14 @@
 This file isn't a real ChangeLog, we use our code commits for details on technical changes.
 This changelog is a list of logical changes and bug fixes.
 
-Version 0.6.2 (3/16/09):
+Version 0.6.3 (6/14/10):
+-----------------------
+	* Add support for get_emblems and get_emblems path so client can tell us what to use.
+	* Remove useless notify dependency.
+	* Remove nautilus dependency so that it's easier to install.
+	* Start using dropbox.com instead of getdropbox.com
+
+Version 0.6.2 (3/16/10):
 -----------------------
 	* Fix segfault when cut and pasting files to a network directory.
 	* Fix missing emblems when filenames have quotes.
