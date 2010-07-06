@@ -187,7 +187,17 @@ KEYDATA
             . "/etc/lsb-release"
           fi
 
-          REPOCONFIG="deb http://linux.dropbox.com/ubuntu $DISTRIB_CODENAME main"
+          # Default to lucid if it's very new.
+          case $DISTRIB_CODENAME in
+            hardy)    REPO="hardy" ;;
+            intrepid) REPO="intrepid" ;;
+            jaunty)   REPO="jaunty" ;;
+            karmic)   REPO="karmic" ;;
+            lucid)    REPO="lucid" ;;
+            *)        REPO="lucid" ;;
+          esac
+
+          REPOCONFIG="deb http://linux.dropbox.com/ubuntu $REPO main"
           APT_GET="`which apt-get 2> /dev/null`"
           APT_CONFIG="`which apt-config 2> /dev/null`"
 
