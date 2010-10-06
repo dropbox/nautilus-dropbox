@@ -36,13 +36,6 @@ import subprocess
 import fcntl
 import errno
 import locale
-#try:
-#    import operator
-#except ImportError:
-def methodcaller(name, *args, **kwargs):
-    def caller(obj):
-        return getattr(obj, name)(*args, **kwargs)
-    return caller
 from contextlib import closing
 
 INFO = u"Dropbox is the easiest way to share and store your files online. Want to learn more? Head to"
@@ -56,6 +49,12 @@ PARENT_DIR = os.path.expanduser("~")
 DROPBOXD_PATH = "%s/.dropbox-dist/dropboxd" % PARENT_DIR
 
 enc = locale.getpreferredencoding()
+
+def methodcaller(name, *args, **kwargs):
+    def caller(obj):
+        return getattr(obj, name)(*args, **kwargs)
+    return caller
+
 def console_print(st=u"", f=sys.stdout, linebreak=True):
     global enc
     assert type(st) is unicode
