@@ -36,6 +36,13 @@ import subprocess
 import fcntl
 import errno
 import locale
+#try:
+#    import operator
+#except ImportError:
+def methodcaller(name, *args, **kwargs):
+    def caller(obj):
+        return getattr(obj, name)(*args, **kwargs)
+    return caller
 from contextlib import closing
 
 INFO = u"Dropbox is the easiest way to share and store your files online. Want to learn more? Head to"
@@ -423,15 +430,45 @@ else:
 
         console_print()
 
+class CommandTicker(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.stop_flag = False
+        self.lock = threading.Lock()
+
+    def stop(self):
+        with self.lock:
+            self.stop_flag = True
+
+    def stopped(self):
+        with self.lock:
+            return self.stop_flag
+
+    def run(self):
+        ticks = ['[.  ]', '[.. ]', '[...]', '[ ..]', '[  .]', '[   ]']
+        i = 0
+        first = True
+        while not self.stopped():
+            if i == len(ticks):
+                first = False
+                i = 0
+            if not first:
+                sys.stderr.write("\r%s\r" % ticks[i])
+                sys.stderr.flush()
+            i += 1
+            time.sleep(0.25)
+        sys.stderr.flush()
+                
+
 class DropboxCommand(object):
     class CouldntConnectError(Exception): pass
     class BadConnectionError(Exception): pass
     class EOFError(Exception): pass
     class CommandError(Exception): pass
 
-    def __init__(self):
+    def __init__(self, timeout=5):
         self.s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.s.settimeout(3)
+        self.s.settimeout(timeout)
         try:
             self.s.connect(os.path.expanduser(u'~/.dropbox/command_socket'))
         except socket.error, e:
@@ -464,7 +501,22 @@ class DropboxCommand(object):
                 
         self.f.flush()
 
-        ok = self.__readline() == u"ok"
+        # Start a ticker
+        ticker_thread = CommandTicker()
+        ticker_thread.start()
+
+        # This is the potentially long-running call. 
+        try:
+            ok = self.__readline() == u"ok"
+        except KeyboardInterrupt:
+            ticker_thread.stop()
+            ticker_thread.join()
+            raise DropboxCommand.BadConnectionError("Keyboard interruption detected")
+        
+        # Tell the ticker to stop. 
+        ticker_thread.stop()
+        ticker_thread.join()
+        
         if ok:
             toret = {}
             for i in range(21):
@@ -504,14 +556,26 @@ class DropboxCommand(object):
             return __spec_command
 
 commands = {}
+aliases = {}
 
 def command(meth):
-    global commands
+    global commands, aliases
     assert meth.__doc__, "All commands need properly formatted docstrings (even %r!!)" % meth
     if hasattr(meth, 'im_func'): # bound method, if we ever have one
         meth = meth.im_func
     commands[meth.func_name] = meth
+    meth_aliases = [unicode(alias) for alias in aliases.iterkeys() if aliases[alias].func_name == meth.func_name]
+    if meth_aliases:
+        meth.__doc__ += u"\nAliases: %s" % ",".join(meth_aliases)
     return meth
+
+def alias(name):
+    def decorator(meth):
+        global commands, aliases
+        assert name not in commands, "This alias is the name of a command."
+        aliases[name] = meth
+        return meth
+    return decorator
 
 def requires_dropbox_running(meth):
     def newmeth(*n, **kw):
@@ -544,8 +608,85 @@ def start_dropbox():
     else:
         return False
 
+# Extracted and modified from os.cmd.Cmd
+def columnize(list, display_list=None, display_width=None):
+    if not list:
+        print u"<empty>"
+        return
+        
+    nonstrings = [i for i in range(len(list)) if not (isinstance(list[i], unicode))]
+    if nonstrings:
+        raise TypeError, ("list[i] not a string for i in %s" %
+                          ", ".join(map(unicode, nonstrings)))
+
+    if not display_width:
+        d = os.popen('stty size', 'r').read().split()
+        if d:
+            display_width = int(d[1])
+        else:
+            for item in list:
+                print item
+            return
+        
+    if not display_list:
+        display_list = list
+        
+    size = len(list)
+    if size == 1:
+        print unicode(display_list[0])
+        return
+
+    for nrows in range(1, len(list)):
+        ncols = (size+nrows-1) // nrows
+        colwidths = []
+        totwidth = -2
+        for col in range(ncols):
+            colwidth = 0
+            for row in range(nrows):
+                i = row + nrows*col
+                if i >= size:
+                    break
+                x = list[i]
+                colwidth = max(colwidth, len(x))
+            colwidths.append(colwidth)
+            totwidth += colwidth + 2
+            if totwidth > display_width:
+                break
+        if totwidth <= display_width:
+            break
+    else:
+        nrows = len(list)
+        ncols = 1
+        colwidths = [0]
+    lines = []
+    for row in range(nrows):
+        texts = []
+        display_texts = []
+        for col in range(ncols):
+            i = row + nrows*col
+            if i >= size:
+                x = ""
+                y = ""
+            else:
+                x = list[i]
+                y = display_list[i]
+            texts.append(x)
+            display_texts.append(y)
+        while texts and not texts[-1]:
+            del texts[-1]
+        original_texts = texts[:]
+        for col in range(len(texts)):
+            texts[col] = texts[col].ljust(colwidths[col])
+        line = u"%s" % unicode("  ".join(texts))
+        for i, text in enumerate(original_texts):
+            line = line.replace(text, display_texts[i])
+        lines.append(line)
+    for line in lines:
+        print line
+
 @command
 @requires_dropbox_running
+@alias('stat')
 def filestatus(args):
     u"""get current sync status of one or more files
 dropbox filestatus [-l] [-a] [FILE]...
@@ -563,12 +704,12 @@ options:
     oparser.add_option("-a", "--all", action="store_true", dest="all")
     (options, args) = oparser.parse_args(args)
 
-    # first check if dropbox is already running
     try:
         with closing(DropboxCommand()) as dc:
             if options.list:
-                # TODO: ls style columns
+                # Listing. 
 
+                # Separate directories from files. 
                 if len(args) == 0:
                     dirs, nondirs = [u"."], []
                 else:
@@ -583,42 +724,53 @@ options:
                     if len(dirs) == 0 and len(nondirs) == 0:
                         exit(1)
 
-                def lowerkey(st):
-                    return st.lower()
+                dirs.sort(key=methodcaller('lower'))
+                nondirs.sort(key=methodcaller('lower'))
 
-                dirs.sort(key=lowerkey)
-                nondirs.sort(key=lowerkey)
-
-                def printstatus(fp):
-                    if not os.path.exists(fp):
-                        console_print(u"%s (File doesn't exist!)" % os.path.basename(fp))
-                        return
-
+                # Gets a string representation for a path. 
+                def path_to_string(file_path):
+                    if not os.path.exists(file_path):
+                        path = u"%s (File doesn't exist!)" % os.path.basename(file_path)
+                        return (path, path)
                     try:
-                        status = dc.icon_overlay_file_status(path=fp).get(u'status', [None])[0]
+                        status = dc.icon_overlay_file_status(path=file_path).get(u'status', [None])[0]
                     except DropboxCommand.CommandError, e:
-                        console_print(u"%s (%s)" % (os.path.basename(fp), e))
-                        return
+                        path =  u"%s (%s)" % (os.path.basename(file_path), e) 
+                        return (path, path)
 
-                    if not sys.stdout.isatty():
-                        console_print(os.path.basename(fp))
-                        return
+                    env_term = os.environ.get('TERM','')
+                    supports_color = (sys.stderr.isatty() and (
+                                        env_term.startswith('vt') or 
+                                        env_term.startswith('linux') or 
+                                        'xterm' in env_term or 
+                                        'color' in env_term
+                                        )
+                                     )
+                    
+                    # TODO: Test when you don't support color.    
+                    if not supports_color:
+                        path = unicode(os.path.basename(file_path))
+                        return (path, path)
 
                     if status == u"up to date":
-                        INIT, CLEANUP = "\x1b[32m", "\x1b[0m"
+                        init, cleanup = "\x1b[32;1m", "\x1b[0m"
                     elif status == u"syncing":
-                        INIT, CLEANUP = "\x1b[36m", "\x1b[0m"
+                        init, cleanup = "\x1b[36;1m", "\x1b[0m"
                     elif status == u"unsyncable":
-                        INIT, CLEANUP = "\x1b[41m", "\x1b[0m"
+                        init, cleanup = "\x1b[41;1m", "\x1b[0m"
                     elif status == u"selsync":
-                        INIT, CLEANUP = "\x1b[37m", "\x1b[0m"
+                        init, cleanup = "\x1b[37;1m", "\x1b[0m"
                     else:
-                        INIT, CLEANUP = '', ''
+                        init, cleanup = '', ''
 
-                    console_print(u"%s%s%s" % (INIT, os.path.basename(fp), CLEANUP))
+                    path = unicode(os.path.basename(file_path))
+                    return (path, u"%s%s%s" % (init, path, cleanup))
 
-                def printdir(name):
-                    for subname in sorted(os.listdir(name), key=lowerkey):
+                # Prints a directory. 
+                def print_directory(name):
+                    clean_paths = []
+                    paths = []
+                    for subname in sorted(os.listdir(name), key=methodcaller('lower')):
                         if type(subname) != unicode:
                             continue
                         
@@ -626,28 +778,40 @@ options:
                             continue
 
                         try:
-                            printstatus(unicode_abspath(os.path.join(name, subname)))
+                            clean, formatted = path_to_string(unicode_abspath(os.path.join(name, subname)))
+                            clean_paths.append(clean)
+                            paths.append(formatted)
                         except (UnicodeEncodeError, UnicodeDecodeError), e:
                             continue
+                    
+                    columnize(clean_paths, paths)
+
                 try:
                     if len(dirs) == 1 and len(nondirs) == 0:
-                        printdir(dirs[0])
+                        print_directory(dirs[0])
                     else:
+                        nondir_paths = []
+                        nondir_clean_paths = []
                         for name in nondirs:
                             try:
-                                printstatus(unicode_abspath(name))
+                                clean, formatted = path_to_string(unicode_abspath(name))
+                                nondir_clean_paths.append(clean)
+                                nondir_paths.append(formatted)
                             except (UnicodeEncodeError, UnicodeDecodeError), e:
                                 continue
-
+                                
+                        columnize(nondir_clean_paths, nondir_paths)
+                        
                         if len(nondirs) == 0:
                             console_print(dirs[0] + u":")
-                            printdir(dirs[0])
+                            print_directory(dirs[0])
                             dirs = dirs[1:]
 
                         for name in dirs:
                             console_print()
                             console_print(name + u":")
-                            printdir(name)
+                            print_directory(name)
+                    
                 except DropboxCommand.EOFError:
                     console_print(u"Dropbox daemon stopped.")
                 except DropboxCommand.BadConnectionError, e:
@@ -789,6 +953,94 @@ def grab_link_url_if_necessary():
     except DropboxCommand.CouldntConnectError, e:
         console_print(u"Dropbox isn't running!")
 
+@command
+@requires_dropbox_running
+def exclude(args):
+    u"""ignores/excludes a directory from syncing
+dropbox exclude [list]
+dropbox exclude add [DIRECTORY] [DIRECTORY] ...
+dropbox exclude remove [DIRECTORY] [DIRECTORY] ...
+
+"list" prints a list of directories currently excluded from syncing.  
+"add" adds one or more directories to the exclusion list, then resynchronizes Dropbox. 
+"remove" removes one or more directories from the exclusion list, then resynchronizes Dropbox.
+With no arguments, executes "list". 
+Any specified path must be within Dropbox.
+"""
+    if len(args) == 0:
+        try:
+            with closing(DropboxCommand()) as dc:
+                try:
+                    lines = [os.path.relpath(path) for path in dc.get_ignore_set()[u'ignore_set']]
+                    lines.sort()
+                    if len(lines) == 0:
+                        console_print(u'No directories are being ignored.') 
+                    else:
+                        console_print(u'Excluded: ') 
+                        for line in lines:
+                            console_print(unicode(line))
+                except KeyError:
+                    console_print(u"Couldn't get ignore set: daemon isn't responding")
+                except DropboxCommand.CommandError, e:
+                    console_print(u"Couldn't get ignore set: " + str(e))
+                except DropboxCommand.BadConnectionError, e:
+                    console_print(u"Dropbox isn't responding!")
+                except DropboxCommand.EOFError:
+                    console_print(u"Dropbox daemon stopped.")
+        except DropboxCommand.CouldntConnectError, e:
+            console_print(u"Dropbox isn't running!")
+    elif len(args) == 1 and args[0] == u"list":
+        exclude([])
+    elif len(args) >= 2:
+        sub_command = args[0]
+        paths = args[1:]
+        absolute_paths = [unicode_abspath(path.decode(sys.getfilesystemencoding())) for path in paths]
+        if sub_command == u"add": 
+            try:
+                with closing(DropboxCommand(timeout=None)) as dc:
+                    try: 
+                        result = dc.ignore_set_add(paths=absolute_paths)
+                        if result[u"ignored"]:
+                            console_print(u"Excluded: ") 
+                            lines = [os.path.relpath(path) for path in result[u"ignored"]]
+                            for line in lines:
+                                console_print(unicode(line))
+                    except KeyError:
+                        console_print(u"Couldn't add ignore path: daemon isn't responding")
+                    except DropboxCommand.CommandError, e:
+                        console_print(u"Couldn't add ignore path: " + str(e))
+                    except DropboxCommand.BadConnectionError, e:
+                        console_print(u"Dropbox isn't responding! [%s]" % e)
+                    except DropboxCommand.EOFError:
+                        console_print(u"Dropbox daemon stopped.")
+            except DropboxCommand.CouldntConnectError, e:
+                console_print(u"Dropbox isn't running!")
+        elif sub_command == u"remove":
+            try:
+                with closing(DropboxCommand(timeout=None)) as dc:
+                    try:
+                        result = dc.ignore_set_remove(paths=absolute_paths)
+                        if result[u"removed"]:
+                            console_print(u"No longer excluded: ") 
+                            lines = [os.path.relpath(path) for path in result[u"removed"]]
+                            for line in lines:
+                                console_print(unicode(line))
+                    except KeyError:
+                        console_print(u"Couldn't remove ignore path: daemon isn't responding")
+                    except DropboxCommand.CommandError, e:
+                        console_print(u"Couldn't remove ignore path: " + str(e))
+                    except DropboxCommand.BadConnectionError, e:
+                        console_print(u"Dropbox isn't responding! [%s]" % e)
+                    except DropboxCommand.EOFError:
+                        console_print(u"Dropbox daemon stopped.")
+            except DropboxCommand.CouldntConnectError, e:
+                console_print(u"Dropbox isn't running!")
+        else: 
+            console_print(exclude.__doc__, linebreak=False)
+            return
+    else:
+        console_print(exclude.__doc__, linebreak=False)
+        return
 
 @command
 def start(argv):
@@ -899,6 +1151,10 @@ With no arguments, print a list of commands and a short description of each. Wit
         if command == argv[0]:
             console_print(commands[command].__doc__.split('\n', 1)[1].decode('ascii'))
             return
+    for alias in aliases:
+        if alias == argv[0]:
+            console_print(aliases[alias].__doc__.split('\n', 1)[1].decode('ascii'))
+            return
     console_print(u"unknown command '%s'" % argv[0], f=sys.stderr)
 
 def usage(argv):
@@ -911,7 +1167,7 @@ def usage(argv):
     for o in out:
         console_print(" %-*s%s" % (spacing, o[0], o[1]))
     console_print()
-
+        
 def main(argv):
     global commands
 
@@ -920,12 +1176,13 @@ def main(argv):
     # separate the argv list at that point
     cut = None
     for i in range(len(argv)):
-        if argv[i] in commands:
+        if argv[i] in commands or argv[i] in aliases:
             cut = i
             break
     
     if cut == None:
         usage(argv)
+        os._exit(0)
         return
 
     # lol no options for now
@@ -933,7 +1190,17 @@ def main(argv):
     globaloptionparser.parse_args(argv[0:i])
 
     # now dispatch and run
-    return commands[argv[i]](argv[i+1:])
+    if argv[i] in commands:
+        commands[argv[i]](argv[i+1:])
+    elif argv[i] in aliases:
+        aliases[argv[i]](argv[i+1:])
+
+    # flush, in case output is rerouted to a file. 
+    console_flush()
+
+    # done
+    os._exit(0)
+    return
 
 if __name__ == "__main__":
     ret = main(sys.argv)
