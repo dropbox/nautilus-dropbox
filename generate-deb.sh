@@ -187,14 +187,15 @@ KEYDATA
             . "/etc/lsb-release"
           fi
 
-          # Default to lucid if it's very new.
+          # Default to maverick if it's very new.
           case $DISTRIB_CODENAME in
             hardy)    REPO="hardy" ;;
             intrepid) REPO="intrepid" ;;
             jaunty)   REPO="jaunty" ;;
             karmic)   REPO="karmic" ;;
             lucid)    REPO="lucid" ;;
-            *)        REPO="lucid" ;;
+            maverick) REPO="maverick" ;;
+            *)        REPO="maverick" ;;
           esac
 
           REPOCONFIG="deb http://linux.dropbox.com/ubuntu $REPO main"
