@@ -1,6 +1,10 @@
 This file isn't a real ChangeLog, we use our code commits for details on technical changes.
 This changelog is a list of logical changes and bug fixes.
 
+Version 0.6.5 (10/25/10):
+------------------------
+	* Detect older clients in selective sync CLI commands.
+
 Version 0.6.4 (10/25/10):
 ------------------------
 	* Support Selective sync in the CLI.  (Requires Dropbox version 0.8.109 or later)
