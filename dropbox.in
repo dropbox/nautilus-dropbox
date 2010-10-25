@@ -981,7 +981,10 @@ Any specified path must be within Dropbox.
                 except KeyError:
                     console_print(u"Couldn't get ignore set: daemon isn't responding")
                 except DropboxCommand.CommandError, e:
-                    console_print(u"Couldn't get ignore set: " + str(e))
+                    if e.args[0].startswith(u"No command exists by that name"):
+                        console_print(u"This version of the client does not support this command.")
+                    else:
+                        console_print(u"Couldn't get ignore set: " + str(e))
                 except DropboxCommand.BadConnectionError, e:
                     console_print(u"Dropbox isn't responding!")
                 except DropboxCommand.EOFError:
@@ -1007,7 +1010,10 @@ Any specified path must be within Dropbox.
                     except KeyError:
                         console_print(u"Couldn't add ignore path: daemon isn't responding")
                     except DropboxCommand.CommandError, e:
-                        console_print(u"Couldn't add ignore path: " + str(e))
+                        if e.args[0].startswith(u"No command exists by that name"):
+                            console_print(u"This version of the client does not support this command.")
+                        else:
+                            console_print(u"Couldn't get ignore set: " + str(e))
                     except DropboxCommand.BadConnectionError, e:
                         console_print(u"Dropbox isn't responding! [%s]" % e)
                     except DropboxCommand.EOFError:
@@ -1027,7 +1033,10 @@ Any specified path must be within Dropbox.
                     except KeyError:
                         console_print(u"Couldn't remove ignore path: daemon isn't responding")
                     except DropboxCommand.CommandError, e:
-                        console_print(u"Couldn't remove ignore path: " + str(e))
+                        if e.args[0].startswith(u"No command exists by that name"):
+                            console_print(u"This version of the client does not support this command.")
+                        else:
+                            console_print(u"Couldn't get ignore set: " + str(e))
                     except DropboxCommand.BadConnectionError, e:
                         console_print(u"Dropbox isn't responding! [%s]" % e)
                     except DropboxCommand.EOFError:
