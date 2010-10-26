@@ -20,9 +20,38 @@ class BuildController(SlaveController):
         self.remote_commands.append(self.build_rpm)
         self.remote_commands.append(self.generate_ubuntu_repo)
         self.remote_commands.append(self.generate_redhat_repo)
+        self.remote_commands.append(self.generate_packages)
 
     def get_info_string(self):
         return "nautilus-dropbox"
+
+    def generate_packages(self):
+        if os.path.exists('/tmp/nautilus-dropbox-release.tar.gz'):
+            assert self.system('rm -f /tmp/nautilus-dropbox-release.tar.gz') == 0
+        assert self.system('rm -rf /home/releng/result/packages') == 0
+        assert self.system('mkdir -p /home/releng/result/packages') == 0
+
+        # Ubuntu
+        files = os.listdir('/home/releng/result/ubuntu/pool/main/')
+        for f in files:
+            if f.endswith('.deb'):
+                assert self.system('ln -s ../ubuntu/pool/main/%s /home/releng/result/packages' % f) == 0
+
+        # RedHat
+        files = os.listdir('/home/releng/result/fedora/pool')
+        for f in files:
+            if re.match(r'nautilus-dropbox-[0-9.-]*\.fedora\.(i386|x86_64)\.rpm', f):
+                assert self.system('ln -s ../fedora/pool/%s /home/releng/result/packages' % f) == 0
+
+        # Source
+        assert self.system('cp nautilus-dropbox-*.tar.bz2 /home/releng/result/packages') == 0
+
+        # Get dropbox.py
+        assert self.system('make') == 0
+
+        # Tar it up
+        assert self.system('cp /home/releng/nautilus-dropbox/dropbox /home/releng/result/packages/dropbox.py')
+        assert self.system('tar czvf /tmp/nautilus-dropbox-release.tar.gz /home/releng/result/fedora/ /home/releng/result/ubuntu/ /home/releng/result/packages/')
 
     def build_deb(self, dist='hardy', arch='i386'):
         # dist = 'karmic', arch = {i386, amd64}
