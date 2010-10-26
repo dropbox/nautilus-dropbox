@@ -432,22 +432,20 @@ else:
 class CommandTicker(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
-        self.stop_flag = False
-        self.lock = threading.Lock()
+        self.stop_event = threading.Event()
+        self.stopped = False
 
     def stop(self):
-        with self.lock:
-            self.stop_flag = True
-
-    def stopped(self):
-        with self.lock:
-            return self.stop_flag
+        self.stopped = True
+        self.stop_event.set()
 
     def run(self):
         ticks = ['[.  ]', '[.. ]', '[...]', '[ ..]', '[  .]', '[   ]']
         i = 0
         first = True
-        while not self.stopped():
+        while True:
+            self.stop_event.wait(0.25)
+            if self.stopped: break
             if i == len(ticks):
                 first = False
                 i = 0
@@ -455,7 +453,6 @@ class CommandTicker(threading.Thread):
                 sys.stderr.write("\r%s\r" % ticks[i])
                 sys.stderr.flush()
             i += 1
-            time.sleep(0.25)
         sys.stderr.flush()
                 
 
