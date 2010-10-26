@@ -37,6 +37,7 @@ import fcntl
 import errno
 import locale
 from contextlib import closing
+from posixpath import curdir, sep, pardir, join, abspath, commonprefix
 
 INFO = u"Dropbox is the easiest way to share and store your files online. Want to learn more? Head to"
 LINK = u"http://www.dropbox.com/"
@@ -50,10 +51,39 @@ DROPBOXD_PATH = "%s/.dropbox-dist/dropboxd" % PARENT_DIR
 
 enc = locale.getpreferredencoding()
 
+# Futures
+
 def methodcaller(name, *args, **kwargs):
     def caller(obj):
         return getattr(obj, name)(*args, **kwargs)
     return caller
+
+def relpath(path, start=curdir):
+    """Return a relative version of a path"""
+
+    if not path:
+        raise ValueError("no path specified")
+
+    if type(start) is unicode:
+        start_list = unicode_abspath(start).split(sep)
+    else:
+        start_list = abspath(start).split(sep)
+
+    if type(path) is unicode:
+        path_list = unicode_abspath(path).split(sep)
+    else:
+        path_list = abspath(path).split(sep)
+
+    # Work out how much of the filepath is shared by start and path.
+    i = len(commonprefix([start_list, path_list]))
+
+    rel_list = [pardir] * (len(start_list)-i) + path_list[i:]
+    if not rel_list:
+        return curdir
+    return join(*rel_list)
+
+# End Futures
+
 
 def console_print(st=u"", f=sys.stdout, linebreak=True):
     global enc
@@ -967,7 +997,7 @@ Any specified path must be within Dropbox.
         try:
             with closing(DropboxCommand()) as dc:
                 try:
-                    lines = [os.path.relpath(path) for path in dc.get_ignore_set()[u'ignore_set']]
+                    lines = [relpath(path) for path in dc.get_ignore_set()[u'ignore_set']]
                     lines.sort()
                     if len(lines) == 0:
                         console_print(u'No directories are being ignored.') 
@@ -1001,7 +1031,7 @@ Any specified path must be within Dropbox.
                         result = dc.ignore_set_add(paths=absolute_paths)
                         if result[u"ignored"]:
                             console_print(u"Excluded: ") 
-                            lines = [os.path.relpath(path) for path in result[u"ignored"]]
+                            lines = [relpath(path) for path in result[u"ignored"]]
                             for line in lines:
                                 console_print(unicode(line))
                     except KeyError:
@@ -1024,7 +1054,7 @@ Any specified path must be within Dropbox.
                         result = dc.ignore_set_remove(paths=absolute_paths)
                         if result[u"removed"]:
                             console_print(u"No longer excluded: ") 
-                            lines = [os.path.relpath(path) for path in result[u"removed"]]
+                            lines = [relpath(path) for path in result[u"removed"]]
                             for line in lines:
                                 console_print(unicode(line))
                     except KeyError:
@@ -1165,6 +1195,7 @@ With no arguments, print a list of commands and a short description of each. Wit
 def usage(argv):
     console_print(u"Dropbox command-line interface\n")
     console_print(u"commands:\n")
+    console_print(u"Note: use dropbox help <command> to view usage for a specific command.\n")
     out = []
     for command in commands:
         out.append((command, commands[command].__doc__.splitlines()[0]))
@@ -1172,7 +1203,7 @@ def usage(argv):
     for o in out:
         console_print(" %-*s%s" % (spacing, o[0], o[1]))
     console_print()
-        
+    
 def main(argv):
     global commands
 
@@ -1195,17 +1226,17 @@ def main(argv):
     globaloptionparser.parse_args(argv[0:i])
 
     # now dispatch and run
+    result = None
     if argv[i] in commands:
-        commands[argv[i]](argv[i+1:])
+        result = commands[argv[i]](argv[i+1:])
     elif argv[i] in aliases:
-        aliases[argv[i]](argv[i+1:])
+        result = aliases[argv[i]](argv[i+1:])
 
     # flush, in case output is rerouted to a file. 
     console_flush()
 
     # done
-    os._exit(0)
-    return
+    return result
 
 if __name__ == "__main__":
     ret = main(sys.argv)
