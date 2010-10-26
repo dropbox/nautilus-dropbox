@@ -53,7 +53,7 @@ class BuildController(SlaveController):
 
         # Tar it up
         assert self.system('cp /home/releng/nautilus-dropbox/dropbox /home/releng/result/packages/dropbox.py') == 0
-        assert self.system('tar czvf /tmp/nautilus-dropbox-release.tar.gz /home/releng/result/fedora/ /home/releng/result/ubuntu/ /home/releng/result/packages/') == 0
+        assert self.system('cd /home/releng/result/; tar czvf /tmp/nautilus-dropbox-release.tar.gz fedora/ ubuntu/ packages/') == 0
 
     def build_deb(self, dist='hardy', arch='i386'):
         # dist = 'karmic', arch = {i386, amd64}
