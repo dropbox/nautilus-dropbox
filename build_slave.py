@@ -11,6 +11,8 @@ from urllib import urlopen
 # remote python magic
 exec urlopen("http://%s:%d/public.py" % (MASTER_ADDR, MASTER_PORT)).read()
 import os
+import os.path
+import re
 
 class BuildController(SlaveController):
     def __init__(self):
