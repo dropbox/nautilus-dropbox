@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with nautilus-dropbox.  If not, see <http://www.gnu.org/licenses/>.
 #
-
 from __future__ import with_statement
 
 import sys
@@ -463,10 +462,8 @@ class CommandTicker(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self.stop_event = threading.Event()
-        self.stopped = False
 
     def stop(self):
-        self.stopped = True
         self.stop_event.set()
 
     def run(self):
@@ -475,7 +472,7 @@ class CommandTicker(threading.Thread):
         first = True
         while True:
             self.stop_event.wait(0.25)
-            if self.stopped: break
+            if self.stop_event.isSet(): break
             if i == len(ticks):
                 first = False
                 i = 0
@@ -535,13 +532,11 @@ class DropboxCommand(object):
         try:
             ok = self.__readline() == u"ok"
         except KeyboardInterrupt:
+            raise DropboxCommand.BadConnectionError("Keyboard interruption detected")
+        finally:    
+            # Tell the ticker to stop. 
             ticker_thread.stop()
             ticker_thread.join()
-            raise DropboxCommand.BadConnectionError("Keyboard interruption detected")
-        
-        # Tell the ticker to stop. 
-        ticker_thread.stop()
-        ticker_thread.join()
         
         if ok:
             toret = {}
@@ -1157,7 +1152,7 @@ options:
 Note: May only work on current Ubuntu distributions.
 """
     if len(argv) != 1:
-        console_print(''.join(autostart.__doc__.split('\n')[1:]),linebreak=False)
+        console_print(''.join(autostart.__doc__.split('\n', 1)[1:]).decode('ascii'))
         return
 
     s = argv[0].lower()
