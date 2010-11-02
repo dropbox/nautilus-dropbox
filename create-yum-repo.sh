@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-DISTS="9 10 11 12 13"
+DISTS="9 10 11 12 13 14"
 ARCHS="i386 x86_64"
 
 for DIST in $DISTS; do
