@@ -632,13 +632,13 @@ def start_dropbox():
 # Extracted and modified from os.cmd.Cmd
 def columnize(list, display_list=None, display_width=None):
     if not list:
-        print u"<empty>"
+        console_print(u"<empty>")
         return
         
-    nonstrings = [i for i in range(len(list)) if not (isinstance(list[i], unicode))]
-    if nonstrings:
+    non_unicode = [i for i in range(len(list)) if not (isinstance(list[i], unicode))]
+    if non_unicode:
         raise TypeError, ("list[i] not a string for i in %s" %
-                          ", ".join(map(unicode, nonstrings)))
+                          ", ".join(map(unicode, non_unicode)))
 
     if not display_width:
         d = os.popen('stty size', 'r').read().split()
@@ -646,7 +646,7 @@ def columnize(list, display_list=None, display_width=None):
             display_width = int(d[1])
         else:
             for item in list:
-                print item
+                console_print(item)
             return
         
     if not display_list:
@@ -654,7 +654,7 @@ def columnize(list, display_list=None, display_width=None):
         
     size = len(list)
     if size == 1:
-        print unicode(display_list[0])
+        console_print(display_list[0])
         return
 
     for nrows in range(1, len(list)):
@@ -698,12 +698,12 @@ def columnize(list, display_list=None, display_width=None):
         original_texts = texts[:]
         for col in range(len(texts)):
             texts[col] = texts[col].ljust(colwidths[col])
-        line = u"%s" % unicode("  ".join(texts))
+        line = u"%s" % "  ".join(texts)
         for i, text in enumerate(original_texts):
             line = line.replace(text, display_texts[i])
         lines.append(line)
     for line in lines:
-        print line
+        console_print(line)
 
 @command
 @requires_dropbox_running
@@ -743,6 +743,7 @@ options:
                             continue
 
                     if len(dirs) == 0 and len(nondirs) == 0:
+                        #TODO: why? 
                         exit(1)
 
                 dirs.sort(key=methodcaller('lower'))
@@ -770,7 +771,7 @@ options:
                     
                     # TODO: Test when you don't support color.    
                     if not supports_color:
-                        path = unicode(os.path.basename(file_path))
+                        path = os.path.basename(file_path)
                         return (path, path)
 
                     if status == u"up to date":
@@ -784,13 +785,13 @@ options:
                     else:
                         init, cleanup = '', ''
 
-                    path = unicode(os.path.basename(file_path))
+                    path = os.path.basename(file_path)
                     return (path, u"%s%s%s" % (init, path, cleanup))
 
                 # Prints a directory. 
                 def print_directory(name):
                     clean_paths = []
-                    paths = []
+                    formatted_paths = []
                     for subname in sorted(os.listdir(name), key=methodcaller('lower')):
                         if type(subname) != unicode:
                             continue
@@ -801,27 +802,28 @@ options:
                         try:
                             clean, formatted = path_to_string(unicode_abspath(os.path.join(name, subname)))
                             clean_paths.append(clean)
-                            paths.append(formatted)
+                            formatted_paths.append(formatted)
                         except (UnicodeEncodeError, UnicodeDecodeError), e:
                             continue
                     
-                    columnize(clean_paths, paths)
+                    columnize(clean_paths, formatted_paths)
 
                 try:
                     if len(dirs) == 1 and len(nondirs) == 0:
                         print_directory(dirs[0])
                     else:
-                        nondir_paths = []
+                        nondir_formatted_paths = []
                         nondir_clean_paths = []
                         for name in nondirs:
                             try:
                                 clean, formatted = path_to_string(unicode_abspath(name))
                                 nondir_clean_paths.append(clean)
-                                nondir_paths.append(formatted)
+                                nondir_formatted_paths.append(formatted)
                             except (UnicodeEncodeError, UnicodeDecodeError), e:
                                 continue
-                                
-                        columnize(nondir_clean_paths, nondir_paths)
+
+                        if nondir_clean_paths:        
+                            columnize(nondir_clean_paths, nondir_formatted_paths)
                         
                         if len(nondirs) == 0:
                             console_print(dirs[0] + u":")
@@ -839,11 +841,14 @@ options:
                     console_print(u"Dropbox isn't responding!")
             else:
                 if len(args) == 0:
-                    args = [name for name in os.listdir(u".") if type(name) == unicode]
+                    args = [name for name in sorted(os.listdir(u"."), key=methodcaller('lower')) if type(name) == unicode]
                 indent = max(len(st)+1 for st in args)
                 for file in args:
+
                     try:
-                        fp = unicode_abspath(file.decode(enc))
+                        if type(file) is not unicode:
+                            file = file.decode(enc)
+                        fp = unicode_abspath(file)
                     except (UnicodeEncodeError, UnicodeDecodeError), e:
                         continue
                     if not os.path.exists(fp):
