@@ -1,6 +1,12 @@
 This file isn't a real ChangeLog, we use our code commits for details on technical changes.
 This changelog is a list of logical changes and bug fixes.
 
+Version 0.6.7 (11/04/10):
+------------------------
+	* Support Fedora 14
+	* Fix stop command never exiting
+	* Fix help text for autostart command
+
 Version 0.6.6 (10/25/10):
 ------------------------
 	* Fix slowdown with certain commands (ls, exclude).
