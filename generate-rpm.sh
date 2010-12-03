@@ -140,7 +140,7 @@ do
     DROPBOX_VERSION_MINOR=`cat "$DROPBOX_VERSION" | cut -d . -f 2`
     DROPBOX_VERSION_MICRO=`cat "$DROPBOX_VERSION" | cut -d . -f 3`
 
-    if [ $DROPBOX_VERSION_MINOR -lt 7 ] || [ $DROPBOX_VERSION_MINOR -eq 7 ] && [ $DROPBOX_VERSION_MICRO -lt 110 ]
+    if [ $DROPBOX_VERSION_MAJOR -lt 1 ] && ( [ $DROPBOX_VERSION_MINOR -lt 7 ] || [ $DROPBOX_VERSION_MINOR -eq 7 ] && [ $DROPBOX_VERSION_MICRO -lt 110 ] )
     then
       # stop dropbox
       dropbox stop > /dev/null 2>&1

@@ -39,7 +39,7 @@ Version 0.3.0 (7/17/08):
 	* Removed some bugs based on incorrect assertion usage
 	* Notifications when browser or nautilus fails to open
 	* Now affected file opens when you get a notification.
-	
+
 Version 0.2.0 (7/9/08):
 -----------------------	
 	* Fixed slow startup time due to handle_shell_touch being O(n) operation
