@@ -24,7 +24,7 @@ done
 set -e
 
 # get version
-CURVER=$(awk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\],", ""); sub("\)", ""); print $0}' configure.in)
+CURVER=$(mawk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\],", ""); sub("\)", ""); print $0}' configure.in)
 
 # clean old package build
 rm -rf nautilus-dropbox{-,_}*
@@ -55,6 +55,9 @@ cat > debian/rules <<EOF
 
 include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/autotools.mk
+
+# Avoid postinst-has-useless-call-to-ldconfig and pkg-has-shlibs-control-file-but-no-actual-shared-libs
+DEB_DH_MAKESHLIBS_ARGS=-Xnautilus-dropbox
 
 EOF
 chmod a+x debian/rules
@@ -119,9 +122,6 @@ Public License can be found in \`/usr/share/common-licenses/GPL'.
 
 The Debian packaging is (C) 2008, Rian Hunter <rian@dropbox.com> and
 is licensed under the GPL, see above.
-
-# Please also look if there are files or directories which have a
-# different copyright/license attached and list them here.
 EOF
 
 
@@ -264,9 +264,6 @@ KEYDATA
               # stop dropbox
               dropbox stop > /dev/null 2>&1
               sleep 0.5
-              killall dropbox > /dev/null 2>&1
-              killall dropboxd > /dev/null 2>&1
-
               rm -rf "$I"
             fi
           fi
@@ -341,6 +338,7 @@ cat > debian/postrm <<'EOF'
 # Copyright (c) 2009 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license.
 
+set -e
 action="$1"
 
 # Only do complete clean-up on purge.
