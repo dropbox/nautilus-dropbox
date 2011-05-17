@@ -187,7 +187,7 @@ KEYDATA
             . "/etc/lsb-release"
           fi
 
-          # Default to maverick if it's very new.
+          # Default to natty if it's very new.
           case $DISTRIB_CODENAME in
             hardy)    REPO="hardy" ;;
             intrepid) REPO="intrepid" ;;
@@ -195,7 +195,8 @@ KEYDATA
             karmic)   REPO="karmic" ;;
             lucid)    REPO="lucid" ;;
             maverick) REPO="maverick" ;;
-            *)        REPO="maverick" ;;
+            natty)    REPO="natty" ;;
+            *)        REPO="natty" ;;
           esac
 
           REPOCONFIG="deb http://linux.dropbox.com/ubuntu $REPO main"

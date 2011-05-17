@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-DISTS="hardy intrepid jaunty karmic lucid maverick"
+DISTS="hardy intrepid jaunty karmic lucid maverick natty"
 ARCHS="i386 amd64 source"
 
 mkdir .cache
