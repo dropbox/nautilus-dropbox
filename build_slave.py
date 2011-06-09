@@ -1,6 +1,6 @@
 import sys
 
-MASTER_ADDR = 'sonic.corp.getdropbox.com'
+MASTER_ADDR = 'sonic.corp.dropbox.com'
 MASTER_PORT = 80
 
 SlaveController = None
