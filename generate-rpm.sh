@@ -117,11 +117,30 @@ make %{?_smp_mflags}
 rm -rf \$RPM_BUILD_ROOT
 make install DESTDIR=\$RPM_BUILD_ROOT
 
-rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/*.la
-rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/*.a
-
+if [ -d \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0 ]; then
+    rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/*.la
+    rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/*.a
+fi
+if [ -d \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0 ]; then
+    rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/*.la
+    rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/*.a
+fi
 
 %post
+if [ -e \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/libnautilus-dropbox.so ]; then
+    if [ ! -d \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0 ]; then
+        mkdir \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0
+    fi
+    ln -s \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/libnautilus-dropbox.so \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/
+fi
+
+if [ -e \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/libnautilus-dropbox.so ]; then
+    if [ ! -d \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0 ]; then
+        mkdir \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0
+    fi
+    ln -s \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/libnautilus-dropbox.so \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/
+fi
+
 /sbin/ldconfig
 update-desktop-database
 touch --no-create %{_datadir}/icons/hicolor
@@ -216,6 +235,13 @@ EOF
 
 cat <<EOF >> rpmbuild/SPECS/nautilus-dropbox.spec
 %postun
+if [ -e \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/libnautilus-dropbox.so ]; then
+    rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/libnautilus-dropbox.so
+fi
+if [ -e \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/libnautilus-dropbox.so ]; then
+    rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/libnautilus-dropbox.so
+fi
+
 /sbin/ldconfig
 update-desktop-database
 touch --no-create %{_datadir}/icons/hicolor
