@@ -1,6 +1,6 @@
 # Initialization
 
-AC_INIT([nautilus-dropbox],0.6.7)
+AC_INIT([nautilus-dropbox],0.6.8)
 
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 
@@ -122,6 +122,8 @@ AC_CONFIG_FILES([
 	data/icons/hicolor/48x48/apps/Makefile
 	data/icons/hicolor/64x64/Makefile
 	data/icons/hicolor/64x64/apps/Makefile
+	data/icons/hicolor/256x256/Makefile
+	data/icons/hicolor/256x256/apps/Makefile
 	data/emblems/Makefile])
 
 AC_OUTPUT
