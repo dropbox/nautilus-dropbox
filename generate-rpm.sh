@@ -80,7 +80,7 @@ Version:	$CURVER
 Release:	1%{?dist}
 Summary:	Dropbox integration for Nautilus
 Group:		User Interface/Desktops
-License:	GPL
+License:	GPLv3
 URL:		http://www.dropbox.com/
 Source0:	http://dl.dropbox.com/u/17/%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id} -u -n)

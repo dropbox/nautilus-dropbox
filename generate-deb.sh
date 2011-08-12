@@ -101,24 +101,24 @@ data/icons/hicolor/64x64/emblems/emblem-dropbox-unsyncable.png
 [1] http://creativecommons.org/licenses/by-nd/3.0/
 
 All program source in this package is released under the terms of the
-GNU GPL below.
+GNU GPL version 3 below.
 
     This package is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
+    the Free Software Foundation; either version 3 of the License, or
     (at your option) any later version.
- 
+
     This package is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
- 
+
     You should have received a copy of the GNU General Public License
     along with this package; if not, write to the Free Software
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 
 On Debian systems, the complete text of the GNU General
-Public License can be found in \`/usr/share/common-licenses/GPL'.
+Public License can be found in \`/usr/share/common-licenses/GPL-3'.
 
 The Debian packaging is (C) 2008, Rian Hunter <rian@dropbox.com> and
 is licensed under the GPL, see above.
