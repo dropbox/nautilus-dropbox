@@ -1,6 +1,10 @@
 This file isn't a real ChangeLog, we use our code commits for details on technical changes.
 This changelog is a list of logical changes and bug fixes.
 
+Version 0.6.9 (08/12/11):
+------------------------
+	* Fix inconsistency in licensing
+
 Version 0.6.8 (09/06/11):
 ------------------------
 	* Supports Fedora 15
