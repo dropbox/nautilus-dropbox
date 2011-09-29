@@ -74,6 +74,7 @@ cat <<EOF > rpmbuild/SPECS/nautilus-dropbox.spec
 %define nautilus_version 2.16.0
 %define libgnome_version 2.16.0
 %define pygtk2_version 2.12
+%define pygpgme_version 0.1
 
 Name:		nautilus-dropbox
 Version:	$CURVER
@@ -89,6 +90,7 @@ Requires:	nautilus-extensions >= %{nautilus_version}
 Requires:	glib2 >= %{glib_version}
 Requires:	libgnome >= %{gnome_version}
 Requires:	pygtk2 >= %{pygtk2_version}
+Requires:	python-gpgme >= %{pygpgme_version}
 
 BuildRequires:	nautilus-devel >= %{nautilus_version}
 BuildRequires:	glib2-devel >= %{glib_version}

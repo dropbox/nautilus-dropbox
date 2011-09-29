@@ -408,7 +408,7 @@ Standards-Version: 3.7.2
 
 Package: nautilus-dropbox
 Architecture: any
-Depends: libnautilus-extension1 (>= 2.16.0), libglib2.0-0 (>= 2.14.0), python (>= 2.5), python-gtk2 (>= 2.12), \${shlibs:Depends}, \${misc:Depends}
+Depends: libnautilus-extension1 (>= 2.16.0), libglib2.0-0 (>= 2.14.0), python (>= 2.5), python-gtk2 (>= 2.12), python-gpgme (>= 0.1), \${shlibs:Depends}, \${misc:Depends}
 Suggests: nautilus (>= 2.16.0)
 Description: Dropbox integration for Nautilus
  Nautilus Dropbox is an extension that integrates
