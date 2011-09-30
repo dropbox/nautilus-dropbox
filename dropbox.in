@@ -226,7 +226,8 @@ def download_uri_to_buffer(uri):
     buf = StringIO.StringIO()
     download_chunk = download_file_chunk(socket, buf, size)
 
-    collections.deque(download_chunk, maxlen=0)
+    for _ in download_chunk:
+        pass
 
     buf.seek(0)
     return buf
