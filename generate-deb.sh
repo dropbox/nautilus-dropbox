@@ -208,7 +208,8 @@ KEYDATA
             lucid)    REPO="lucid" ;;
             maverick) REPO="maverick" ;;
             natty)    REPO="natty" ;;
-            *)        REPO="natty" ;;
+            oneiric)  REPO="oneiric" ;;
+            *)        REPO="oneiric" ;;
           esac
 
           REPOCONFIG="deb http://linux.dropbox.com/ubuntu $REPO main"
