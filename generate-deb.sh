@@ -59,6 +59,18 @@ include /usr/share/cdbs/1/class/autotools.mk
 # Avoid postinst-has-useless-call-to-ldconfig and pkg-has-shlibs-control-file-but-no-actual-shared-libs
 DEB_DH_MAKESHLIBS_ARGS=-Xnautilus-dropbox
 
+debian/nautilus-dropbox/usr/lib/nautilus/extensions-2.0/libnautilus-dropbox.so:
+	mkdir -p debian/nautilus-dropbox/usr/lib/nautilus/extensions-2.0
+	ln -s ../extensions-3.0/libnautilus-dropbox.so debian/nautilus-dropbox/usr/lib/nautilus/extensions-2.0/
+
+debian/nautilus-dropbox/usr/lib/nautilus/extensions-3.0/libnautilus-dropbox.so:
+	mkdir -p debian/nautilus-dropbox/usr/lib/nautilus/extensions-3.0
+	ln -s ../extensions-2.0/libnautilus-dropbox.so debian/nautilus-dropbox/usr/lib/nautilus/extensions-3.0/
+
+install/nautilus-dropbox:: debian/nautilus-dropbox/usr/lib/nautilus/extensions-3.0/libnautilus-dropbox.so  debian/nautilus-dropbox/usr/lib/nautilus/extensions-2.0/libnautilus-dropbox.so
+	rm debian/nautilus-dropbox/usr/lib/nautilus/extensions-?.0/*.la
+	rm debian/nautilus-dropbox/usr/lib/nautilus/extensions-?.0/*.a
+
 EOF
 chmod a+x debian/rules
 
