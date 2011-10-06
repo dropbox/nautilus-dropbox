@@ -11,6 +11,6 @@ dropbox: dropbox.in serializeimages.py
 
 dropbox.1: dropbox.txt.in dropbox docgen.py
 	python docgen.py $(PACKAGE_VERSION) < dropbox.txt.in > dropbox.txt
-	python rst2man.py dropbox.txt > dropbox.1
+	$(RST2MAN) dropbox.txt > dropbox.1
 
 SUBDIRS = data src

@@ -35,6 +35,9 @@ AC_PATH_PROG([PYTHON], [python])
 AC_DEFUN([PYTHON_CHECK_MODULE], [
 AC_MSG_CHECKING([for $1])
 
+AC_PATH_PROG([RST2MAN], [rst2man], [python rst2man.py])
+AC_SUBST(RST2MAN)
+
 cat <<EOF | python
 try:
  import $2
