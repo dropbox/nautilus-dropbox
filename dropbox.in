@@ -1069,6 +1069,35 @@ def grab_link_url_if_necessary():
 
 @command
 @requires_dropbox_running
+def lansync(argv):
+    u"""enables or disables LAN sync
+dropbox lansync [y/n]
+
+options:
+  y  dropbox will use LAN sync (default)
+  n  dropbox will not use LAN sync
+"""
+    if len(argv) != 1:
+        console_print(lansync.__doc__, linebreak=False)
+        return
+
+    s = argv[0].lower()
+    if s.startswith('y') or s.startswith('-y'):
+        should_lansync = True
+    elif s.startswith('n') or s.startswith('-n'):
+        should_lansync = False
+    else:
+        should_lansync = None
+
+    if should_lansync is None:
+        console_print(lansync.__doc__,linebreak=False)
+    else:
+        with closing(DropboxCommand()) as dc:
+            dc.set_lan_sync(lansync='enabled' if should_lansync else 'disabled')
+
+
+@command
+@requires_dropbox_running
 def exclude(args):
     u"""ignores/excludes a directory from syncing
 dropbox exclude [list]
