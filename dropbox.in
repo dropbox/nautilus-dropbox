@@ -49,6 +49,7 @@ from posixpath import curdir, sep, pardir, join, abspath, commonprefix
 INFO = u"Dropbox is the easiest way to share and store your files online. Want to learn more? Head to"
 LINK = u"http://www.dropbox.com/"
 WARNING = u"In order to use Dropbox, you must download the proprietary daemon."
+GPG_WARNING = u"Note: python-gpgme is not installed, we will not be able to verify binary signatures."
 
 DOWNLOADING = u"Downloading Dropbox... %d%%"
 UNPACKING = u"Unpacking Dropbox... %d%%"
@@ -430,7 +431,8 @@ if GUI_AVAILABLE:
                 self.progress.set_property('width-request', 300)
 
                 self.label = gtk.Label()
-                self.label.set_markup('%s <span foreground="#000099" underline="single" weight="bold">%s</span>\n\n%s' % (INFO, LINK, WARNING))
+                GPG_WARNING_MSG = (u"\n\n" + GPG_WARNING) if not gpgme else u""
+                self.label.set_markup('%s <span foreground="#000099" underline="single" weight="bold">%s</span>\n\n%s%s' % (INFO, LINK, WARNING, GPG_WARNING_MSG))
                 self.label.set_line_wrap(True)
                 self.label.set_property('width-request', 300)
                 self.label.show()
@@ -517,8 +519,9 @@ else:
             write(save)
             flush()
         console_print(u"%s %s\n" % (INFO, LINK))
+        GPG_WARNING_MSG = (u"\n%s" % GPG_WARNING) if not gpgme else u""
 
-        if not yes_no_question(WARNING):
+        if not yes_no_question("%s%s" % (WARNING, GPG_WARNING_MSG)):
             return
 
         download = DownloadState()
@@ -533,8 +536,6 @@ else:
             console_print()
             write(save)
 
-        if not gpgme:
-            console_print(u"Package python-gpgme not installed. Skipping verification of downloaded binary signature ", f=sys.stderr)
         one_member = download.unpack()
 
         try:
