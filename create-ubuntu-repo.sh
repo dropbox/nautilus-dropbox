@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-DISTS="hardy intrepid jaunty karmic lucid maverick natty oneiric"
+#DISTS and DISTRO must be defined.
 ARCHS="i386 amd64 source"
 
 mkdir .cache
@@ -42,7 +42,7 @@ EOF
 APT::FTPArchive::Release::Codename "$DIST";
 APT::FTPArchive::Release::Origin "Dropbox.com";
 APT::FTPArchive::Release::Components "main";
-APT::FTPArchive::Release::Label "Dropbox Ubuntu Repository";
+APT::FTPArchive::Release::Label "Dropbox $DISTRO Repository";
 APT::FTPArchive::Release::Architectures "$ARCHS";
 APT::FTPArchive::Release::Suite "$DIST";
 EOF

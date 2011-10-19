@@ -29,6 +29,8 @@ CURVER=$(mawk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\],", ""); sub("\)", "
 # clean old package build
 rm -rf nautilus-dropbox{-,_}*
 
+. ./distro-info.sh
+
 if [ ! -x configure ]; then
     ./autogen.sh
 fi
@@ -91,6 +93,7 @@ It was downloaded from https://www.dropbox.com/download?dl=packages/nautilus-dro
 Upstream Author(s): 
 
     Rian Hunter <rian@dropbox.com>
+    David Euresti <david@dropbox.com>
 
 Copyright: 
 
@@ -137,7 +140,7 @@ is licensed under the GPL, see above.
 EOF
 
 
-cat > debian/nautilus-dropbox.postinst<<'EOF'
+cat > debian/nautilus-dropbox.postinst<<EOF
 #!/bin/sh
 # postinst script for nautilus-dropbox
 #
@@ -156,12 +159,34 @@ cat > debian/nautilus-dropbox.postinst<<'EOF'
 # the debian-policy package
 
 DEFAULTS_FILE="/etc/default/dropbox-repo"
+UBUNTU_CODENAMES="$UBUNTU_CODENAMES"
+DEBIAN_CODENAMES="$DEBIAN_CODENAMES"
 
+EOF
+
+# We split this into two so that we can replace variables in the first part but
+# not have to escape everything in the 2nd part.  NB: Apparently the 'EOF' vs
+# EOF makes a difference.
+
+cat >> debian/nautilus-dropbox.postinst<<'EOF'
 case "$1" in
     configure)
     	gtk-update-icon-cache /usr/share/icons/hicolor > /dev/null 2>&1
 
-        if [ ! -e "$DEFAULTS_FILE" ]; then
+        DISTRO=`lsb_release -s -i`
+
+        if [ "$DISTRO" = "Ubuntu" ]; then
+          DISTS=$UBUNTU_CODENAMES
+          DISTRO="ubuntu"
+        elif [ "$DISTRO" = "Debian" ]; then
+          DISTS=$DEBIAN_CODENAMES
+          DISTRO="debian"
+        else
+          echo "You are not running Debian or Ubuntu.  Not adding Dropbox repository."
+          DISTRO=""
+        fi
+
+        if [ -n "$DISTRO" -a ! -e "$DEFAULTS_FILE" ]; then
           # Add the Dropbox repository.
           # Copyright (c) 2009 The Chromium Authors. All rights reserved.
           # Use of this source code is governed by a BSD-style license.
@@ -195,24 +220,17 @@ KEYDATA
             fi
           }
 
-          if [ -r "/etc/lsb-release" ]; then
-            . "/etc/lsb-release"
-          fi
+          DISTRIB_CODENAME=`lsb_release -s -c`
 
-          # Default to natty if it's very new.
-          case $DISTRIB_CODENAME in
-            hardy)    REPO="hardy" ;;
-            intrepid) REPO="intrepid" ;;
-            jaunty)   REPO="jaunty" ;;
-            karmic)   REPO="karmic" ;;
-            lucid)    REPO="lucid" ;;
-            maverick) REPO="maverick" ;;
-            natty)    REPO="natty" ;;
-            oneiric)  REPO="oneiric" ;;
-            *)        REPO="oneiric" ;;
-          esac
+          for DIST in $DISTS; do
+              REPO=$DIST
+              if [ "$DIST" = "$DISTRIB_CODENAME" ]; then
+                break
+              fi
+          done
 
-          REPOCONFIG="deb http://linux.dropbox.com/ubuntu $REPO main"
+          REPOCONFIG="deb http://linux.dropbox.com/$DISTRO $REPO main"
+
           APT_GET="`which apt-get 2> /dev/null`"
           APT_CONFIG="`which apt-config 2> /dev/null`"
 
