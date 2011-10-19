@@ -56,7 +56,7 @@ class BuildController(SlaveController):
         assert self.system('rm -rf %s' % result) == 0
         assert self.system('mkdir -p %s/pool/main' % result) == 0
         for arch in archs:
-            assert self.system('cp /var/cache/pbuilder/%s-%s/result/* %s/pool/main' %(dist, arch, distro)) == 0
+            assert self.system('cp /var/cache/pbuilder/%s-%s/result/* %s/pool/main' %(dist, arch, result)) == 0
 
         old = os.getcwd()
         os.chdir(result)
