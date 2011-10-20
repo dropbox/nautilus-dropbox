@@ -91,6 +91,8 @@ Requires:	glib2 >= %{glib_version}
 Requires:	libgnome >= %{gnome_version}
 Requires:	pygtk2 >= %{pygtk2_version}
 
+%{?with_suggest_tags:Suggests: python-gpgme}
+
 BuildRequires:	nautilus-devel >= %{nautilus_version}
 BuildRequires:	glib2-devel >= %{glib_version}
 BuildRequires:	python-docutils
@@ -98,7 +100,6 @@ BuildRequires:  cairo-devel
 BuildRequires:  gtk2-devel
 BuildRequires:  atk-devel
 BuildRequires:  pango-devel
-BuildRequires:	python-gpgme >= %{pygpgme_version}
 
 %description
 Nautilus Dropbox is an extension that integrates
