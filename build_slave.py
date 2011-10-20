@@ -125,34 +125,40 @@ class BuildController(SlaveController):
         else:
             assert self.system('find /var/lib/mock/%s/result/ -name *.rpm | xargs /usr/bin/expect sign-rpm.exp' %(config,)) == 0
 
+    def system2(self, s):
+        print "!! %r" % s
+        ret = super(BuildController, self).system(s)
+        print "!! %r -> %s" % (s, ret)
+        return ret
+
     def build_all(self):
 
-        self.system('hg pull -u')
-        self.system('hg purge')
+        #self.system('hg pull -u')
+        #self.system('hg purge --all')
 
-        UBUNTU_CODENAMES=""
-        DEBIAN_CODENAMES=""
-        REDHAT_CODENAMES=""
+        info = {}
+        execfile("distro-info.sh", {}, info)
 
-        execfile("distro-info.sh")
+        #print UBUNTU_CODENAMES
+        #self.system("echo %s" % UBUNTU_CODENAMES)
 
-        assert self.system('rm -rf /home/releng/result') == 0
-        assert self.system('mkdir -p /home/releng/result/packages') == 0
+        #assert self.system('rm -rf /home/releng/result') == 0
+        #assert self.system('mkdir -p /home/releng/result/packages') == 0
 
         # Ubuntu
-        self.build_deb('hardy', 'i386')
-        self.build_deb('hardy', 'amd64')
-        self.generate_deb_repo('Ubuntu', UBUNTU_CODENAMES, 'hardy', ['amd64', 'i386'])
+        #self.build_deb('hardy', 'i386')
+        #self.build_deb('hardy', 'amd64')
+        #self.generate_deb_repo('Ubuntu', info['UBUNTU_CODENAMES'], 'hardy', ['amd64', 'i386'])
 
         # Debian
-        self.build_deb('squeeze', 'i386')
-        self.build_deb('squeeze', 'amd64')
-        self.generate_deb_repo('Debian', DEBIAN_CODENAMES, 'squeeze', ['amd64', 'i386'])
+        #self.build_deb('squeeze', 'i386')
+        #self.build_deb('squeeze', 'amd64')
+        #self.generate_deb_repo('Debian', info['DEBIAN_CODENAMES'], 'squeeze', ['amd64', 'i386'])
 
         # Redhat
         self.build_rpm('fedora-10-i386')
         self.build_rpm('fedora-10-x86_64')
-        self.generate_yum_repo('Redhat', REDHAT_CODENAMES, 'fedora-10', ['i386', 'x86_64'], 'fc10')
+        self.generate_yum_repo('Redhat', info['REDHAT_CODENAMES'], 'fedora-10', ['i386', 'x86_64'], 'fc10')
 
         self.generate_packages()
 

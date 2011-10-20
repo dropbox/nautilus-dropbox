@@ -31,12 +31,12 @@ PKG_CHECK_MODULES(GLIB, glib-2.0 >= $GLIB_REQUIRED)
 
 AC_PATH_PROG([PYTHON], [python])
 
+AC_PATH_PROG([RST2MAN], [rst2man], [python rst2man.py])
+AC_SUBST(RST2MAN)
+
 # define module checking macro
 AC_DEFUN([PYTHON_CHECK_MODULE], [
 AC_MSG_CHECKING([for $1])
-
-AC_PATH_PROG([RST2MAN], [rst2man], [python rst2man.py])
-AC_SUBST(RST2MAN)
 
 cat <<EOF | python
 try:
