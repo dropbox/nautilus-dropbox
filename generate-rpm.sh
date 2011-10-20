@@ -91,7 +91,7 @@ Requires:	glib2 >= %{glib_version}
 Requires:	libgnome >= %{gnome_version}
 Requires:	pygtk2 >= %{pygtk2_version}
 
-%{?with_suggest_tags:Suggests: python-gpgme}
+%{?with_suggest_tags:Suggests: pygpgme}
 
 BuildRequires:	nautilus-devel >= %{nautilus_version}
 BuildRequires:	glib2-devel >= %{glib_version}
