@@ -90,7 +90,8 @@ class BuildController(SlaveController):
                 assert self.system('ln -s ../../%s/pool/main/%s /home/releng/result/packages/%s' %
                                    (distro, f, distro)) == 0
 
-    def generate_yum_repo(self, distro, codenames, dist, archs, dist_name):
+    def generate_yum_repo(self, distro_upper, codenames, dist, archs, dist_name):
+        distro = distro_upper.lower()
         assert self.system('rm -rf /home/releng/result/fedora') == 0
         assert self.system('mkdir -p /home/releng/result/fedora/pool/') == 0
 
