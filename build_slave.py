@@ -11,6 +11,17 @@ exec urlopen("http://%s:%d/public.py" % (MASTER_ADDR, MASTER_PORT)).read()
 import os
 import os.path
 import re
+import subprocess
+
+def cmd(args):
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = proc.communicate()
+    if proc.returncode != 0:
+        print "Error calling %s (%d)" % (' '.join(args), proc.returncode)
+        print "stdout: %s" % stdout
+        print "stderr: %s" % stderr
+        raise Exception("Error in call")
+    return stdout.strip()
 
 class BuildController(SlaveController):
     def __init__(self):
@@ -33,7 +44,12 @@ class BuildController(SlaveController):
         assert self.system('cp /home/releng/nautilus-dropbox/dropbox /home/releng/result/packages/dropbox.py') == 0
 
         # Tar it up
-        assert self.system('cd /home/releng/result/; tar czvf /tmp/nautilus-dropbox-release.tar.gz fedora/ ubuntu/ packages/') == 0
+        assert self.system('cd /home/releng/result/; tar czvf /tmp/nautilus-dropbox-release.tar.gz *') == 0
+
+        rev = cmd('hg id -n'.split())
+
+        # SCP it to sonic
+        assert self.system('scp /tmp/nautilus-dropbox-release.tar.gz sonic:/var/www/builds/nautilus-dropbox/nautilus-dropbox-release-%s.tar.gz' % rev) == 0
 
     def build_deb(self, dist, arch):
         assert self.system('sh generate-deb.sh -n') == 0
@@ -66,6 +82,7 @@ class BuildController(SlaveController):
         finally:
             os.chdir(old)
 
+        # Add pacakge symlinks
         files = os.listdir(os.path.join(result, 'pool', 'main'))
         assert self.system('mkdir -p /home/releng/result/packages/%s' % distro) == 0
         for f in files:
@@ -93,11 +110,13 @@ class BuildController(SlaveController):
         finally:
             os.chdir(old)
 
-        # RedHat
+        # Add pacakge symlinks
+        assert self.system('mkdir -p /home/releng/result/packages/%s' % distro) == 0
         files = os.listdir('/home/releng/result/fedora/pool')
         for f in files:
             if re.match(r'nautilus-dropbox-[0-9.-]*\.fedora\.(i386|x86_64)\.rpm', f):
-                assert self.system('ln -s ../fedora/pool/%s /home/releng/result/packages' % f) == 0
+                assert self.system('ln -s ../%s/pool/%s /home/releng/result/packages/%s' %
+                                   (distro, f, distro)) == 0
 
     def build_rpm(self, config):
         # config='fedora-10-i386,fedora-10-x86_64'
@@ -125,35 +144,26 @@ class BuildController(SlaveController):
         else:
             assert self.system('find /var/lib/mock/%s/result/ -name *.rpm | xargs /usr/bin/expect sign-rpm.exp' %(config,)) == 0
 
-    def system2(self, s):
-        print "!! %r" % s
-        ret = super(BuildController, self).system(s)
-        print "!! %r -> %s" % (s, ret)
-        return ret
-
     def build_all(self):
 
-        #self.system('hg pull -u')
-        #self.system('hg purge --all')
+        self.system('hg pull -u')
+        self.system('hg purge --all')
 
         info = {}
         execfile("distro-info.sh", {}, info)
 
-        #print UBUNTU_CODENAMES
-        #self.system("echo %s" % UBUNTU_CODENAMES)
-
-        #assert self.system('rm -rf /home/releng/result') == 0
-        #assert self.system('mkdir -p /home/releng/result/packages') == 0
+        assert self.system('rm -rf /home/releng/result') == 0
+        assert self.system('mkdir -p /home/releng/result/packages') == 0
 
         # Ubuntu
-        #self.build_deb('hardy', 'i386')
-        #self.build_deb('hardy', 'amd64')
-        #self.generate_deb_repo('Ubuntu', info['UBUNTU_CODENAMES'], 'hardy', ['amd64', 'i386'])
+        self.build_deb('hardy', 'i386')
+        self.build_deb('hardy', 'amd64')
+        self.generate_deb_repo('Ubuntu', info['UBUNTU_CODENAMES'], 'hardy', ['amd64', 'i386'])
 
         # Debian
-        #self.build_deb('squeeze', 'i386')
-        #self.build_deb('squeeze', 'amd64')
-        #self.generate_deb_repo('Debian', info['DEBIAN_CODENAMES'], 'squeeze', ['amd64', 'i386'])
+        self.build_deb('squeeze', 'i386')
+        self.build_deb('squeeze', 'amd64')
+        self.generate_deb_repo('Debian', info['DEBIAN_CODENAMES'], 'squeeze', ['amd64', 'i386'])
 
         # Redhat
         self.build_rpm('fedora-10-i386')
