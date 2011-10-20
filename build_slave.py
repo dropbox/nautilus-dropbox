@@ -116,7 +116,7 @@ class BuildController(SlaveController):
         files = os.listdir('/home/releng/result/fedora/pool')
         for f in files:
             if re.match(r'nautilus-dropbox-[0-9.-]*\.fedora\.(i386|x86_64)\.rpm', f):
-                assert self.system('ln -s ../%s/pool/%s /home/releng/result/packages/%s' %
+                assert self.system('ln -s ../../%s/pool/%s /home/releng/result/packages/%s' %
                                    (distro, f, distro)) == 0
 
     def build_rpm(self, config):
