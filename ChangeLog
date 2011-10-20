@@ -1,6 +1,14 @@
 This file isn't a real ChangeLog, we use our code commits for details on technical changes.
 This changelog is a list of logical changes and bug fixes.
 
+Version 0.7.0 (10/19/11):
+------------------------
+	* Verify signature of downloaded tarballs
+	* Fix version conflict with rst2man during build
+	* Add lansync CLI command to disable LAN sync (Requires Dropbox version 1.2.45 or later)
+	* Add support for oneiric
+	* Add support for Debian
+
 Version 0.6.9 (08/12/11):
 ------------------------
 	* Fix inconsistency in licensing
@@ -44,13 +52,13 @@ Version 0.6.2 (3/16/10):
 	* License for images changed to Creative Commons.
 
 Version 0.3.0 (7/17/08):
------------------------	
+-----------------------
 	* Removed some bugs based on incorrect assertion usage
 	* Notifications when browser or nautilus fails to open
 	* Now affected file opens when you get a notification.
 
 Version 0.2.0 (7/9/08):
------------------------	
+-----------------------
 	* Fixed slow startup time due to handle_shell_touch being O(n) operation
 	it's now an O(1) operation on average.
 	* Fixed issue where auto download of dropbox would "fail" sometimes.
@@ -62,4 +70,4 @@ Version 0.2.0 (7/9/08):
 Version 0.1.0 (7/3/08):
 -----------------------
 	* Initial Release!
-	
+

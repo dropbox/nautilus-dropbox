@@ -97,7 +97,7 @@ Upstream Author(s):
 
 Copyright: 
 
-  Copyright 2008-2010 Dropbox, Inc.
+  Copyright 2008-2011 Dropbox, Inc.
 
 All images included in this package constitute data and are licensed under the
 Creative Commons Attribution-No Derivative Works 3.0 Unported License [1].  This
