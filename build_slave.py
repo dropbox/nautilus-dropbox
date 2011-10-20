@@ -166,10 +166,10 @@ class BuildController(SlaveController):
         self.build_deb('squeeze', 'amd64')
         self.generate_deb_repo('Debian', info['DEBIAN_CODENAMES'], 'squeeze', ['amd64', 'i386'])
 
-        # Redhat
+        # Fedora
         self.build_rpm('fedora-10-i386')
         self.build_rpm('fedora-10-x86_64')
-        self.generate_yum_repo('Redhat', info['REDHAT_CODENAMES'], 'fedora-10', ['i386', 'x86_64'], 'fc10')
+        self.generate_yum_repo('Fedora', info['FEDORA_CODENAMES'], 'fedora-10', ['i386', 'x86_64'], 'fc10')
 
         self.generate_packages()
 

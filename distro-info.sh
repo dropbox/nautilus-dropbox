@@ -2,4 +2,4 @@
 # This file also gets execfile'd by python so don't do anything here besides set variables.
 UBUNTU_CODENAMES="hardy intrepid jaunty karmic lucid maverick natty oneiric"
 DEBIAN_CODENAMES="squeeze wheezy sid"
-REDHAT_CODENAMES="9 10 11 12 13 14 15"
+FEDORA_CODENAMES="9 10 11 12 13 14 15"
