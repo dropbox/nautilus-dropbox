@@ -125,9 +125,7 @@ if [ -d \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0 ]; then
     rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/*.a
     mkdir -p \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0
     ln -s ../extensions-2.0/libnautilus-dropbox.so \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/
-fi
-
-if [ -d \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0 ]; then
+elif [ -d \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0 ]; then
     rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/*.la
     rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/*.a
     mkdir -p \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0
