@@ -56,6 +56,7 @@ UNPACKING = u"Unpacking Dropbox... %d%%"
 
 PARENT_DIR = os.path.expanduser("~")
 DROPBOXD_PATH = "%s/.dropbox-dist/dropboxd" % PARENT_DIR
+DESKTOP_FILE = u"@DESKTOP_FILE_DIR@/dropbox.desktop"
 
 enc = locale.getpreferredencoding()
 
@@ -1251,13 +1252,12 @@ def reroll_autostart(should_autostart):
     # UBUNTU
     if u".config" in contents:
         autostart_dir = os.path.join(home_dir, u".config", u"autostart")
-        autostart_link = os.path.join(autostart_dir, u"%s.desktop" % "dropbox") #BUILD_KEY.lower()
-        desktop_file = u"/usr/local/share/applications/%s.desktop" % "dropbox" #BUILD_KEY.lower()
+        autostart_link = os.path.join(autostart_dir, u"dropbox.desktop")
         if should_autostart:
-            if os.path.exists(desktop_file):
+            if os.path.exists(DESKTOP_FILE):
                 if not os.path.exists(autostart_dir):
                     os.makedirs(autostart_dir)
-                shutil.copyfile(desktop_file, autostart_link)
+                shutil.copyfile(DESKTOP_FILE, autostart_link)
         elif os.path.exists(autostart_link):
             os.remove(autostart_link)
 
