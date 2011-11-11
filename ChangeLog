@@ -1,6 +1,12 @@
 This file isn't a real ChangeLog, we use our code commits for details on technical changes.
 This changelog is a list of logical changes and bug fixes.
 
+Version 0.7.1 (11/11/11):
+------------------------
+	* Use the correct location for the dropbox.desktop file
+	* Cleanup better on uninstall
+	* Support Fedora 16
+
 Version 0.7.0 (10/19/11):
 ------------------------
 	* Verify signature of downloaded tarballs
