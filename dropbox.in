@@ -36,6 +36,7 @@ import tarfile
 import tempfile
 import threading
 import time
+import traceback
 import urllib
 
 try:
@@ -477,7 +478,6 @@ if GUI_AVAILABLE:
 
                     self.set_resizable(False)
                 except:
-                    import traceback
                     traceback.print_exc()
 
                 self.ok.grab_focus()
@@ -1228,7 +1228,7 @@ options:
         try:
             download()
         except:
-            pass
+            traceback.print_exc()
         else:
             if GUI_AVAILABLE:
                 start_dropbox()
