@@ -61,23 +61,23 @@ include /usr/share/cdbs/1/class/autotools.mk
 # Avoid postinst-has-useless-call-to-ldconfig and pkg-has-shlibs-control-file-but-no-actual-shared-libs
 DEB_DH_MAKESHLIBS_ARGS=-Xnautilus-dropbox
 
-debian/nautilus-dropbox/usr/lib/nautilus/extensions-2.0/libnautilus-dropbox.so:
-	mkdir -p debian/nautilus-dropbox/usr/lib/nautilus/extensions-2.0
-	ln -s ../extensions-3.0/libnautilus-dropbox.so debian/nautilus-dropbox/usr/lib/nautilus/extensions-2.0/
+debian/tmp/usr/lib/nautilus/extensions-2.0/libnautilus-dropbox.so:
+	mkdir -p debian/tmp/usr/lib/nautilus/extensions-2.0
+	ln -s ../extensions-3.0/libnautilus-dropbox.so debian/tmp/usr/lib/nautilus/extensions-2.0/
 
-debian/nautilus-dropbox/usr/lib/nautilus/extensions-3.0/libnautilus-dropbox.so:
-	mkdir -p debian/nautilus-dropbox/usr/lib/nautilus/extensions-3.0
-	ln -s ../extensions-2.0/libnautilus-dropbox.so debian/nautilus-dropbox/usr/lib/nautilus/extensions-3.0/
+debian/tmp/usr/lib/nautilus/extensions-3.0/libnautilus-dropbox.so:
+	mkdir -p debian/tmp/usr/lib/nautilus/extensions-3.0
+	ln -s ../extensions-2.0/libnautilus-dropbox.so debian/tmp/usr/lib/nautilus/extensions-3.0/
 
-install/nautilus-dropbox:: debian/nautilus-dropbox/usr/lib/nautilus/extensions-3.0/libnautilus-dropbox.so  debian/nautilus-dropbox/usr/lib/nautilus/extensions-2.0/libnautilus-dropbox.so
-	rm debian/nautilus-dropbox/usr/lib/nautilus/extensions-?.0/*.la
-	rm debian/nautilus-dropbox/usr/lib/nautilus/extensions-?.0/*.a
+install/dropbox:: debian/tmp/usr/lib/nautilus/extensions-3.0/libnautilus-dropbox.so  debian/tmp/usr/lib/nautilus/extensions-2.0/libnautilus-dropbox.so
+	rm debian/tmp/usr/lib/nautilus/extensions-?.0/*.la
+	rm debian/tmp/usr/lib/nautilus/extensions-?.0/*.a
 
 EOF
 chmod a+x debian/rules
 
 cat > debian/changelog <<EOF
-nautilus-dropbox ($CURVER) stable; urgency=low
+dropbox ($CURVER) stable; urgency=low
 
   * Initial Release, This package doesn't use a changelog
 
@@ -140,9 +140,9 @@ is licensed under the GPL, see above.
 EOF
 
 
-cat > debian/nautilus-dropbox.postinst<<EOF
+cat > debian/dropbox.postinst<<EOF
 #!/bin/sh
-# postinst script for nautilus-dropbox
+# postinst script for dropbox
 #
 # see: dh_installdeb(1)
 
@@ -168,7 +168,7 @@ EOF
 # not have to escape everything in the 2nd part.  NB: Apparently the 'EOF' vs
 # EOF makes a difference.
 
-cat >> debian/nautilus-dropbox.postinst<<'EOF'
+cat >> debian/dropbox.postinst<<'EOF'
 case "$1" in
     configure)
     	gtk-update-icon-cache /usr/share/icons/hicolor > /dev/null 2>&1
@@ -290,7 +290,8 @@ KEYDATA
             VERSION=`cat "$DROPBOX_VERSION"`
 
             case "$VERSION" in
-              1.2.4[3-6]|0.*.*)
+              1.3.[0-7]|1.2.4[3-6]|0.*.*)
+                # 1.3.0-1.3.7 had a bug that prevents auto-update.
                 # 1.2.43-1.2.46 had a bug that prevents auto-update.
                 # stop dropbox
                 pkill -xf $I/dropbox > /dev/null 2>&1
@@ -391,7 +392,8 @@ apt_config_val() {
 uninstall_key() {
   APT_KEY="`which apt-key 2> /dev/null`"
   if [ -x "$APT_KEY" ]; then
-    "$APT_KEY" rm 5044912E >/dev/null 2>&1
+    # don't fail if the key wasn't found
+    "$APT_KEY" rm 5044912E >/dev/null 2>&1 || true
   fi
 }
 
@@ -431,23 +433,41 @@ rm -rf /var/lib/update-notifier/user.d/dropbox-start-required
 exit 0
 EOF
 
+echo "6" > debian/compat
+
+cat > debian/dropbox.install <<EOF
+debian/tmp/usr/*
+
+EOF
+
 cat > debian/control <<EOF
-Source: nautilus-dropbox
+Source: dropbox
 Section: gnome
 Priority: optional
 Maintainer: Rian Hunter <rian@dropbox.com>
 Build-Depends: cdbs, debhelper (>= 5), build-essential, libnautilus-extension-dev (>= 2.16.0), libglib2.0-dev (>= 2.14.0), python-gtk2 (>= 2.12), python-docutils
 Standards-Version: 3.7.2
 
-Package: nautilus-dropbox
+Package: dropbox
+Replaces: nautilus-dropbox
+Breaks: nautilus-dropbox
+Provides: nautilus-dropbox
 Architecture: any
-Depends: libnautilus-extension1 (>= 2.16.0), libglib2.0-0 (>= 2.14.0), python (>= 2.5), python-gtk2 (>= 2.12), \${shlibs:Depends}, \${misc:Depends}
+Depends: procps, python-gtk2 (>= 2.12), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 1.20.0), libc6 (>= 2.4), libcairo2 (>= 1.6.0), libglib2.0-0 (>= 2.16.0), libgtk2.0-0 (>= 2.12.0), libpango1.0-0 (>= 1.20.1)
 Suggests: nautilus (>= 2.16.0), python-gpgme (>= 0.1)
 Description: Dropbox integration for Nautilus
  Nautilus Dropbox is an extension that integrates
  the Dropbox web service with your GNOME Desktop.
  .
  Check us out at http://www.dropbox.com/
+
+Package: nautilus-dropbox
+Depends: dropbox, \${misc:Depends}
+Architecture: all
+Section: oldlibs
+Description: transitional dummy package for dropbox
+ This is a transitional dummy package. It can safely be removed.
+
 EOF
 
 if [ $BUILD -eq 1 ]; then
