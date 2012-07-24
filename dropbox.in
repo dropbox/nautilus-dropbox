@@ -933,6 +933,7 @@ options:
                 if len(args) == 0:
                     args = [name for name in sorted(os.listdir(u"."), key=methodcaller('lower')) if type(name) == unicode]
                 if len(args) == 0:
+                    # Bail early if there's nothing to list to avoid crashing on indent below
                     console_print(u"<empty>")
                     return
                 indent = max(len(st)+1 for st in args)
