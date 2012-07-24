@@ -932,6 +932,9 @@ options:
             else:
                 if len(args) == 0:
                     args = [name for name in sorted(os.listdir(u"."), key=methodcaller('lower')) if type(name) == unicode]
+                if len(args) == 0:
+                    console_print(u"<empty>")
+                    return
                 indent = max(len(st)+1 for st in args)
                 for file in args:
 
