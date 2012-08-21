@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2008 Evenflow, Inc.
+# Copyright (c) Dropbox, Inc.
 #
 # dropbox
 # Dropbox frontend script
@@ -788,9 +788,8 @@ def columnize(list, display_list=None, display_width=None):
         original_texts = texts[:]
         for col in range(len(texts)):
             texts[col] = texts[col].ljust(colwidths[col])
-        line = u"%s" % "  ".join(texts)
-        for i, text in enumerate(original_texts):
-            line = line.replace(text, display_texts[i])
+            texts[col].replace(original_texts[col], display_texts[col])
+        line = u"  ".join(texts)
         lines.append(line)
     for line in lines:
         console_print(line)
