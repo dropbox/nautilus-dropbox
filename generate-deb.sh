@@ -192,7 +192,7 @@ case "$1" in
           # Use of this source code is governed by a BSD-style license.
 
           # Install the repository signing key (see also:
-          # http://linux.dropbox.com/fedora/rpm-public-key.asc)
+          # https://linux.dropbox.com/fedora/rpm-public-key.asc)
           install_key() {
             APT_KEY="`which apt-key 2> /dev/null`"
             if [ -x "$APT_KEY" ]; then
@@ -459,7 +459,7 @@ Description: Dropbox integration for Nautilus
  Nautilus Dropbox is an extension that integrates
  the Dropbox web service with your GNOME Desktop.
  .
- Check us out at http://www.dropbox.com/
+ Check us out at https://www.dropbox.com/
 
 Package: nautilus-dropbox
 Depends: dropbox, \${misc:Depends}

@@ -48,7 +48,7 @@ from contextlib import closing, contextmanager
 from posixpath import curdir, sep, pardir, join, abspath, commonprefix
 
 INFO = u"Dropbox is the easiest way to share and store your files online. Want to learn more? Head to"
-LINK = u"http://www.dropbox.com/"
+LINK = u"https://www.dropbox.com/"
 WARNING = u"In order to use Dropbox, you must download the proprietary daemon."
 GPG_WARNING = u"Note: python-gpgme is not installed, we will not be able to verify binary signatures."
 
@@ -61,7 +61,7 @@ DESKTOP_FILE = u"@DESKTOP_FILE_DIR@/dropbox.desktop"
 
 enc = locale.getpreferredencoding()
 
-# Available from http://linux.dropbox.com/fedora/rpm-public-key.asc
+# Available from https://linux.dropbox.com/fedora/rpm-public-key.asc
 DROPBOX_PUBLIC_KEY = """
 -----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: SKS 1.1.0
@@ -246,7 +246,7 @@ urllib._urlopener = DropboxURLopener()
 class DownloadState(object):
     def __init__(self):
         try:
-            self.socket = urllib.urlopen("http://www.dropbox.com/download?plat=%s" % plat())
+            self.socket = urllib.urlopen("https://www.dropbox.com/download?plat=%s" % plat())
         except IOError:
             FatalVisibleError("Trouble connecting to Dropbox servers. Maybe your internet connection is down, or you need to set your http_proxy environment variable")
 
@@ -261,7 +261,7 @@ class DownloadState(object):
 
     def unpack(self):
         # download signature
-        signature = download_uri_to_buffer("http://www.dropbox.com/download?plat=%s&signature=1" % plat())
+        signature = download_uri_to_buffer("https://www.dropbox.com/download?plat=%s&signature=1" % plat())
 
         self.local_file.seek(0)
         if gpgme:

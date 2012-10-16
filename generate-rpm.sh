@@ -82,8 +82,8 @@ Release:	1%{?dist}
 Summary:	Dropbox integration for Nautilus
 Group:		User Interface/Desktops
 License:	GPLv3
-URL:		http://www.dropbox.com/
-Source0:	http://dl.dropbox.com/u/17/%{name}-%{version}.tar.bz2
+URL:		https://www.dropbox.com/
+Source0:	https://dl.dropbox.com/u/17/%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id} -u -n)
 
 Requires:	nautilus-extensions >= %{nautilus_version}
@@ -105,7 +105,7 @@ BuildRequires:  pango-devel
 Nautilus Dropbox is an extension that integrates
 the Dropbox web service with your GNOME Desktop.
 
-Check us out at http://www.dropbox.com/
+Check us out at https://www.dropbox.com/
 
 %prep
 %setup -q
@@ -198,7 +198,7 @@ KEYDATA
 [Dropbox]
 name=Dropbox Repository
 baseurl=http://linux.dropbox.com/fedora/\$releasever/
-gpgkey=http://linux.dropbox.com/fedora/rpm-public-key.asc
+gpgkey=https://linux.dropbox.com/fedora/rpm-public-key.asc
 REPOCONTENT
     fi
 fi
