@@ -90,7 +90,7 @@ $(date -R).
 
 It was downloaded from https://www.dropbox.com/download?dl=packages/nautilus-dropbox-$CURVER.tar.bz2
 
-Upstream Author(s): 
+Upstream Authors: 
 
     Rian Hunter <rian@dropbox.com>
     David Euresti <david@dropbox.com>
@@ -135,7 +135,7 @@ GNU GPL version 3 below.
 On Debian systems, the complete text of the GNU General
 Public License can be found in \`/usr/share/common-licenses/GPL-3'.
 
-The Debian packaging is (C) 2008, Rian Hunter <rian@dropbox.com> and
+The Debian packaging is Copyright (C) 2008, Rian Hunter <rian@dropbox.com> and
 is licensed under the GPL, see above.
 EOF
 
@@ -446,20 +446,22 @@ Section: gnome
 Priority: optional
 Maintainer: Rian Hunter <rian@dropbox.com>
 Build-Depends: cdbs, debhelper (>= 5), build-essential, libnautilus-extension-dev (>= 2.16.0), libglib2.0-dev (>= 2.14.0), python-gtk2 (>= 2.12), python-docutils
-Standards-Version: 3.7.2
+Standards-Version: 3.9.4.0
 
 Package: dropbox
 Replaces: nautilus-dropbox
 Breaks: nautilus-dropbox
 Provides: nautilus-dropbox
 Architecture: any
-Depends: procps, python-gtk2 (>= 2.12), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 1.20.0), libc6 (>= 2.4), libcairo2 (>= 1.6.0), libglib2.0-0 (>= 2.16.0), libgtk2.0-0 (>= 2.12.0), libpango1.0-0 (>= 1.20.1)
+Depends: procps, python-gtk2 (>= 2.12), python (>= 2.5), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 1.20.0), libc6 (>= 2.4), libcairo2 (>= 1.6.0), libglib2.0-0 (>= 2.16.0), libgtk2.0-0 (>= 2.12.0), libpango1.0-0 (>= 1.20.1)
 Suggests: nautilus (>= 2.16.0), python-gpgme (>= 0.1)
-Description: Dropbox integration for Nautilus
- Nautilus Dropbox is an extension that integrates
- the Dropbox web service with your GNOME Desktop.
+Homepage: https://www.dropbox.com/
+Description: cloud synchronization engine - CLI and Nautilus extension
+ Dropbox is a free service that lets you bring your photos, docs, and videos
+ anywhere and share them easily.
  .
- Check us out at https://www.dropbox.com/
+ This package provides a command-line tool and a Nautilus extension that
+ integrates the Dropbox web service with your GNOME Desktop.
 
 Package: nautilus-dropbox
 Depends: dropbox, \${misc:Depends}
