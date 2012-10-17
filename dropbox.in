@@ -342,7 +342,8 @@ if GUI_AVAILABLE:
                                                   gobject.IO_HUP,
                                                   self.handle_data_waiting)
                 self.label.hide()
-                self.dont_show_again_align.hide()
+                if self.dont_show_again_align is not None:
+                    self.dont_show_again_align.hide()
                 self.progress.show()
 
             def update_progress(self, text, fraction):
@@ -458,6 +459,8 @@ if GUI_AVAILABLE:
                 self.hbox.show()
 
                 self.vbox.add(self.hbox)
+
+                self.dont_show_again_align = None
 
                 try:
                     if can_reroll_autostart():
