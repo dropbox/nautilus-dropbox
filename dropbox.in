@@ -22,7 +22,6 @@
 from __future__ import with_statement
 
 import errno
-import fcntl
 import locale
 import optparse
 import os
@@ -35,9 +34,10 @@ import sys
 import tarfile
 import tempfile
 import threading
+import thread
 import time
 import traceback
-import urllib
+import urllib2
 
 try:
     import gpgme
@@ -51,6 +51,11 @@ INFO = u"Dropbox is the easiest way to share and store your files online. Want t
 LINK = u"https://www.dropbox.com/"
 WARNING = u"In order to use Dropbox, you must download the proprietary daemon."
 GPG_WARNING = u"Note: python-gpgme is not installed, we will not be able to verify binary signatures."
+ERROR_CONNECTING = u"Trouble connecting to Dropbox servers. Maybe your internet connection is down, or you need to set your http_proxy environment variable."
+ERROR_SIGNATURE = u"Downloaded binary does not match Dropbox signature, aborting install."
+
+DOWNLOAD_LOCATION_FMT = "https://www.dropbox.com/download?plat=%s"
+SIGNATURE_LOCATION_FMT = "https://www.dropbox.com/download?plat=%s&signature=1"
 
 DOWNLOADING = u"Downloading Dropbox... %d%%"
 UNPACKING = u"Unpacking Dropbox... %d%%"
@@ -197,76 +202,58 @@ def gpgme_context(keys):
         del os.environ['GNUPGHOME']
         shutil.rmtree(_gpghome, ignore_errors=True)
 
+class SignatureVerifyError(Exception):
+    pass
+
 def verify_signature(key_file, sig_file, plain_file):
     with gpgme_context([key_file]) as ctx:
         sigs = ctx.verify(sig_file, plain_file, None)
         return sigs[0].status == None
 
-def download_file_chunk(socket, buf, size):
+def download_file_chunk(url, buf):
+    opener = urllib2.build_opener()
+    opener.addheaders = [('User-Agent', "DropboxLinuxDownloader/@PACKAGE_VERSION@")]
+    sock = opener.open(url)
+
+    size = int(sock.info()['content-length'])
+    bufsize = max(size / 200, 4096)
     progress = 0
-    with closing(socket) as f:
+
+    with closing(sock) as f:
+        yield (0, True)
         while True:
             try:
-                chunk = os.read(f.fileno(), 4096)
+                chunk = f.read(bufsize)
                 progress += len(chunk)
                 buf.write(chunk)
-                yield (progress, True)
+                yield (float(progress)/size, True)
                 if progress == size:
                     break
             except OSError, e:
                 if hasattr(e, 'errno') and e.errno == errno.EAGAIN:
                     # nothing left to read
-                    yield (progress, False)
+                    yield (float(progress)/size, False)
                 else:
                     raise
 
-def download_uri_to_buffer(uri):
-    try:
-        socket = urllib.urlopen(uri)
-    except IOError:
-        FatalVisibleError("Trouble connecting to Dropbox servers. Maybe your internet connection is down, or you need to set your http_proxy environment variable.")
-
-    fcntl.fcntl(socket, fcntl.F_SETFL, os.O_NONBLOCK)
-    size = int(socket.info()['content-length'])
-
-    buf = StringIO.StringIO()
-    download_chunk = download_file_chunk(socket, buf, size)
-
-    for _ in download_chunk:
-        pass
-
-    buf.seek(0)
-    return buf
-
-# This sets a custom User-Agent
-class DropboxURLopener(urllib.FancyURLopener):
-    version = "DropboxLinuxDownloader/@PACKAGE_VERSION@"
-urllib._urlopener = DropboxURLopener()
-
 class DownloadState(object):
     def __init__(self):
-        try:
-            self.socket = urllib.urlopen("https://www.dropbox.com/download?plat=%s" % plat())
-        except IOError:
-            FatalVisibleError("Trouble connecting to Dropbox servers. Maybe your internet connection is down, or you need to set your http_proxy environment variable")
-
-        fcntl.fcntl(self.socket, fcntl.F_SETFL, os.O_NONBLOCK)
-        self.size = int(self.socket.info()['content-length'])
-
         self.local_file = StringIO.StringIO()
-        self.download_chunk = download_file_chunk(self.socket, self.local_file, self.size)
 
     def copy_data(self):
-        return self.download_chunk
+        return download_file_chunk(DOWNLOAD_LOCATION_FMT % plat(), self.local_file)
 
     def unpack(self):
         # download signature
-        signature = download_uri_to_buffer("https://www.dropbox.com/download?plat=%s&signature=1" % plat())
-
+        signature = StringIO.StringIO()
+        for _ in download_file_chunk(SIGNATURE_LOCATION_FMT % plat(), signature):
+            pass
+        signature.seek(0)
         self.local_file.seek(0)
+
         if gpgme:
             if not verify_signature(StringIO.StringIO(DROPBOX_PUBLIC_KEY), signature, self.local_file):
-                FatalVisibleError("Downloaded binary does not match Dropbox signature, aborting install.")
+                raise SignatureVerifyError()
 
         self.local_file.seek(0)
         archive = tarfile.open(fileobj=self.local_file, mode='r:gz')
@@ -297,6 +284,8 @@ if GUI_AVAILABLE:
         import pango
         import webbrowser
 
+        gtk.gdk.threads_init()
+
         load_serialized_images()
 
         global FatalVisibleError
@@ -311,9 +300,40 @@ if GUI_AVAILABLE:
             gtk.main_quit()
             sys.exit(-1)
 
-        def gtk_flush_events():
-            while gtk.events_pending():
-                gtk.main_iteration()
+        class GeneratorTask(object):
+            def __init__(self, generator, loop_callback, on_done=None, on_exception=None):
+                self.generator = generator
+                self.loop_callback = loop_callback
+                self.on_done = on_done
+                self.on_exception = on_exception
+
+            def _run(self, *args, **kwargs):
+                self._stopped = False
+                try:
+                    for ret in self.generator(*args, **kwargs):
+                        if ret is None:
+                            ret = ()
+                        if not isinstance(ret, tuple):
+                            ret = (ret,)
+                        gobject.idle_add(self.loop_callback, *ret)
+
+                        if self._stopped:
+                            thread.exit()
+                except Exception, ex:
+                    print ex
+                    if self.on_exception is not None:
+                        gobject.idle_add(self.on_exception, ex)
+                else:
+                    if self.on_done is not None:
+                        gobject.idle_add(self.on_done)
+
+            def start(self, *args, **kwargs):
+                t = threading.Thread(target=self._run, args=args, kwargs=kwargs)
+                t.setDaemon(True)
+                t.start()
+
+            def stop(self):
+                self._stopped = True
 
         class DownloadDialog(gtk.Dialog):
             def handle_delete_event(self, wid, ev, data=None):
@@ -323,8 +343,8 @@ if GUI_AVAILABLE:
                 reroll_autostart(not button.get_active())
 
             def handle_cancel(self, button):
-                if self.watch:
-                    gobject.source_remove(self.watch)
+                if self.task:
+                    self.task.stop()
                 if self.download:
                     self.download.cancel()
                 gtk.main_quit()
@@ -334,51 +354,50 @@ if GUI_AVAILABLE:
                 # begin download
                 self.ok.hide()
                 self.download = DownloadState()
-                self.one_chunk = self.download.copy_data()
-                self.watch = gobject.io_add_watch(self.download.socket,
-                                                  gobject.IO_IN |
-                                                  gobject.IO_PRI |
-                                                  gobject.IO_ERR |
-                                                  gobject.IO_HUP,
-                                                  self.handle_data_waiting)
+
                 self.label.hide()
                 if self.dont_show_again_align is not None:
                     self.dont_show_again_align.hide()
                 self.progress.show()
 
+                def download_progress(progress, status):
+                    if not status:
+                        self.task.stop()
+                    self.update_progress(DOWNLOADING, progress)
+
+                def finished():
+                    self.update_progress(DOWNLOADING, 1.0)
+                    self.unpack_dropbox()
+
+                def error(ex):
+                    FatalVisibleError(ERROR_CONNECTING)
+
+                self.update_progress(DOWNLOADING, 0)
+                self.task = GeneratorTask(self.download.copy_data,
+                                          download_progress,
+                                          finished, error).start()
+
             def update_progress(self, text, fraction):
                 self.progress.set_text(text % int(fraction*100))
                 self.progress.set_fraction(fraction)
-                gtk_flush_events()
-
-            def handle_data_waiting(self, fd, condition):
-                if condition == gobject.IO_HUP:
-                    FatalVisibleError("Connection to server unexpectedly closed.")
-                elif condition == gobject.IO_ERR:
-                    FatalVisibleError("Unexpected error occurred with download.")
-                try:
-                    while True:
-                        progress, status = self.one_chunk.next()
-                        if not status:
-                            break
-                        self.update_progress(DOWNLOADING, float(progress)/self.download.size)
-                except StopIteration:
-                    self.update_progress(DOWNLOADING, 1.0)
-                    self.unpack_dropbox()
-                    return False
-                else:
-                    self.update_progress(DOWNLOADING, float(progress)/self.download.size)
-                    return True
 
             def unpack_dropbox(self):
-                one_member = self.download.unpack()
-                try:
-                    while True:
-                        name, i, total = one_member.next()
-                        self.update_progress(UNPACKING, float(i)/total)
-                except StopIteration:
+                def unpack_progress(name, i, total):
+                    self.update_progress(UNPACKING, float(i)/total)
+
+                def finished():
                     self.update_progress(UNPACKING, 1.0)
                     gtk.main_quit()
+
+                def error(ex):
+                    if isinstance(ex, SignatureVerifyError):
+                        FatalVisibleError(ERROR_SIGNATURE)
+                    else:
+                        FatalVisibleError(ERROR_CONNECTING)
+
+                self.task = GeneratorTask(self.download.unpack,
+                                          unpack_progress,
+                                          finished, error).start()
 
             def mouse_down(self, widget, event):
                 if self.hovering:
@@ -408,7 +427,6 @@ if GUI_AVAILABLE:
                                                      title = "Dropbox Installation")
 
                 self.download = None
-                self.watch = None
                 self.hovering = False
                 self.clicked_link = False
                 self.user_cancelled = False
@@ -529,24 +547,27 @@ else:
             return
 
         download = DownloadState()
-        one_chunk = download.copy_data()
 
         try:
-            while True:
-                progress = one_chunk.next()[0]
-                setprogress(DOWNLOADING, float(progress)/download.size)
-        except StopIteration:
+            for progress, status in download.copy_data():
+                if not status:
+                    break
+                setprogress(DOWNLOADING, progress)
+        except Exception:
+            FatalVisibleError(ERROR_CONNECTING)
+        else:
             setprogress(DOWNLOADING, 1.0)
             console_print()
             write(save)
 
-        one_member = download.unpack()
-
         try:
-            while True:
-                name, i, total = one_member.next()
+            for name, i, total in download.unpack():
                 setprogress(UNPACKING, float(i)/total)
-        except StopIteration:
+        except SignatureVerifyError:
+            FatalVisibleError(ERROR_SIGNATURE)
+        except Exception:
+            FatalVisibleError(ERROR_CONNECTING)
+        else:
             setprogress(UNPACKING, 1.0)
 
         console_print()
