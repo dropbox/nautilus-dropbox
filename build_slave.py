@@ -1,13 +1,4 @@
-MASTER_ADDR = 'sonic.corp.dropbox.com'
-MASTER_PORT = 80
 
-SlaveController = None
-ConfigParser = None
-run_slave_forever = None
-
-from urllib import urlopen
-# remote python magic
-exec urlopen("http://%s:%d/public.py" % (MASTER_ADDR, MASTER_PORT)).read()
 import os
 import os.path
 import re
@@ -23,14 +14,11 @@ def cmd(args):
         raise Exception("Error in call")
     return stdout.strip()
 
-class BuildController(SlaveController):
-    def __init__(self):
-        super(BuildController, self).__init__()
-        self.expected_sockets = ['stdout', 'stderr']
-        self.remote_commands.append(self.build_all)
-
-    def get_info_string(self):
-        return "nautilus-dropbox"
+class BuildController(object):
+    def system(args):
+        proc = subprocess.Popen(args, shell=True)
+        stdout, stderr = proc.communicate()
+        return proc.returncode
 
     def generate_packages(self):
         if os.path.exists('/tmp/nautilus-dropbox-release.tar.gz'):
@@ -174,4 +162,4 @@ class BuildController(SlaveController):
         self.generate_packages()
 
 if __name__ == "__main__":
-    run_slave_forever(BuildController)
+    BuildController().build_all()
