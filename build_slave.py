@@ -15,7 +15,7 @@ def cmd(args):
     return stdout.strip()
 
 class BuildController(object):
-    def system(args):
+    def system(self, args):
         proc = subprocess.Popen(args, shell=True)
         stdout, stderr = proc.communicate()
         return proc.returncode
