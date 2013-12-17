@@ -812,7 +812,7 @@ def columnize(list, display_list=None, display_width=None):
         original_texts = texts[:]
         for col in range(len(texts)):
             texts[col] = texts[col].ljust(colwidths[col])
-            texts[col].replace(original_texts[col], display_texts[col])
+            texts[col] = texts[col].replace(original_texts[col], display_texts[col])
         line = u"  ".join(texts)
         lines.append(line)
     for line in lines:
