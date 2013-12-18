@@ -145,9 +145,9 @@ class BuildController(object):
         assert self.system('mkdir -p /home/releng/result/packages') == 0
 
         # Ubuntu
-        self.build_deb('hardy', 'i386')
-        self.build_deb('hardy', 'amd64')
-        self.generate_deb_repo('Ubuntu', info['UBUNTU_CODENAMES'], 'hardy', ['amd64', 'i386'])
+        self.build_deb('lucid', 'i386')
+        self.build_deb('lucid', 'amd64')
+        self.generate_deb_repo('Ubuntu', info['UBUNTU_CODENAMES'], 'lucid', ['amd64', 'i386'])
 
         # Debian
         self.build_deb('squeeze', 'i386')
