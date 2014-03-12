@@ -430,6 +430,7 @@ if GUI_AVAILABLE:
                 self.hovering = False
                 self.clicked_link = False
                 self.user_cancelled = False
+                self.task = None
 
                 self.ok = ok = gtk.Button(stock=gtk.STOCK_OK)
                 ok.connect('clicked', self.handle_ok)
