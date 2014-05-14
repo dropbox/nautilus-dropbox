@@ -229,7 +229,7 @@ KEYDATA
               fi
           done
 
-          REPOCONFIG="deb [arch=i386,amd64] http://linux.dropbox.com/$DISTRO $REPO main"
+          REPOCONFIG="deb http://linux.dropbox.com/$DISTRO $REPO main"
 
           APT_GET="`which apt-get 2> /dev/null`"
           APT_CONFIG="`which apt-config 2> /dev/null`"
