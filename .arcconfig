@@ -1,0 +1,6 @@
+{
+  "project_id" : "Nautilus Dropbox",
+  "conduit_uri" : "https://tails.corp.dropbox.com/api/",
+  "copyright_holder" : "Dropbox",
+  "immutable_history": false
+}

@@ -290,9 +290,8 @@ KEYDATA
             VERSION=`cat "$DROPBOX_VERSION"`
 
             case "$VERSION" in
-              1.3.[0-7]|1.2.4[3-6]|0.*.*)
-                # 1.3.0-1.3.7 had a bug that prevents auto-update.
-                # 1.2.43-1.2.46 had a bug that prevents auto-update.
+              2.[0-9].*|1.*.*|0.*.*)
+                # Anything below 2.10 is deprecated!
                 # stop dropbox
                 pkill -xf $I/dropbox > /dev/null 2>&1
                 sleep 0.5
