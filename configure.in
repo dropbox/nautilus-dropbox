@@ -1,6 +1,6 @@
 # Initialization
 
-AC_INIT([nautilus-dropbox],2.10.0)
+AC_INIT([nautilus-dropbox],2015.02.12)
 
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 
