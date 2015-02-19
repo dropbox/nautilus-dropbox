@@ -81,23 +81,18 @@ dropbox ($CURVER) stable; urgency=low
 
   * Initial Release, This package doesn't use a changelog
 
- -- Rian Hunter <rian@dropbox.com>  $(date -R)
+ -- Dropbox <support@dropbox.com>  $(date -R)
 EOF
 
 cat > debian/copyright <<EOF
-This package was debianized by Rian Hunter <rian@dropbox.com> on
+This package was debianized by Dropbox <support@dropbox.com> on
 $(date -R).
 
 It was downloaded from https://www.dropbox.com/download?dl=packages/nautilus-dropbox-$CURVER.tar.bz2
 
-Upstream Authors: 
-
-    Rian Hunter <rian@dropbox.com>
-    David Euresti <david@dropbox.com>
-
 Copyright: 
 
-  Copyright 2008-2012 Dropbox, Inc.
+  Copyright Dropbox, Inc.
 
 All images included in this package constitute data and are licensed under the
 Creative Commons Attribution-No Derivative Works 3.0 Unported License [1].  This
@@ -118,24 +113,23 @@ data/icons/hicolor/64x64/emblems/emblem-dropbox-unsyncable.png
 All program source in this package is released under the terms of the
 GNU GPL version 3 below.
 
-    This package is free software; you can redistribute it and/or modify
+    This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or
+    the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
-    This package is distributed in the hope that it will be useful,
+    This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with this package; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 On Debian systems, the complete text of the GNU General
 Public License can be found in \`/usr/share/common-licenses/GPL-3'.
 
-The Debian packaging is Copyright (C) 2008, Rian Hunter <rian@dropbox.com> and
+The Debian packaging is Copyright (C) Dropbox, Inc. and
 is licensed under the GPL, see above.
 EOF
 
@@ -443,7 +437,7 @@ cat > debian/control <<EOF
 Source: dropbox
 Section: gnome
 Priority: optional
-Maintainer: Rian Hunter <rian@dropbox.com>
+Maintainer: Dropbox <support@dropbox.com>
 Build-Depends: cdbs, debhelper (>= 5), build-essential, libnautilus-extension-dev (>= 2.16.0), libglib2.0-dev (>= 2.14.0), python-gtk2 (>= 2.12), python-docutils
 Standards-Version: 3.9.4.0
 
@@ -452,7 +446,7 @@ Replaces: nautilus-dropbox
 Breaks: nautilus-dropbox
 Provides: nautilus-dropbox
 Architecture: any
-Depends: procps, python-gtk2 (>= 2.12), python (>= 2.5), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 1.20.0), libc6 (>= 2.4), libcairo2 (>= 1.6.0), libglib2.0-0 (>= 2.16.0), libgtk2.0-0 (>= 2.12.0), libpango1.0-0 (>= 1.20.1)
+Depends: procps, python-gtk2 (>= 2.12), python (>= 2.5), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 1.20.0), libc6 (>= 2.4), libcairo2 (>= 1.6.0), libglib2.0-0 (>= 2.16.0), libgtk2.0-0 (>= 2.12.0), libpango1.0-0 (>= 1.20.1), lsb-release
 Suggests: nautilus (>= 2.16.0), python-gpgme (>= 0.1)
 Homepage: https://www.dropbox.com/
 Description: cloud synchronization engine - CLI and Nautilus extension

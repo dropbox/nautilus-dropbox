@@ -268,7 +268,7 @@ rm -rf \$RPM_BUILD_ROOT
 %{_datadir}/man/man1/dropbox.1.gz
 
 %changelog
-* $(date +'%a %b %d %Y')  Rian Hunter <rian@dropbox.com> - $CURVER-1
+* $(date +'%a %b %d %Y')  Dropbox <support@dropbox.com> - $CURVER-1
 - This package does not use a changelog
 EOF
 
