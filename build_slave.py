@@ -34,7 +34,7 @@ class BuildController(object):
         # Tar it up
         assert self.system('cd /home/releng/result/; tar czvf /tmp/nautilus-dropbox-release.tar.gz *') == 0
 
-        rev = cmd('hg id -n'.split())
+        rev = cmd('git describe --tags --always'.split())
 
         # SCP it to sonic
         assert self.system('scp /tmp/nautilus-dropbox-release.tar.gz sonic:/var/www/builds/nautilus-dropbox/nautilus-dropbox-release-%s.tar.gz' % rev) == 0
@@ -135,8 +135,8 @@ class BuildController(object):
 
     def build_all(self):
 
-        self.system('hg pull -u')
-        self.system('hg purge --all')
+        self.system('git pull')
+        self.system('git clean -fdx')
 
         info = {}
         execfile("distro-info.sh", {}, info)
