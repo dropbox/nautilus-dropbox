@@ -15,10 +15,15 @@ Building Dropbox Nautilus Extension From Source Tarball
 
 You will need the following packages (or equivalent):
 
-libnautilus-extension-dev
+  - libnautilus-extension-dev
+  - gnome-common
+  
+and you'll need the Python packages
+
+  - docutils
 
 In the nautilus-dropbox dir just do:
-$ ./configure
+$ ./autogen.sh
 $ make
 $ sudo make install
 
