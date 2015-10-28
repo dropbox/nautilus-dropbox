@@ -1,5 +1,22 @@
-This file isn't a real ChangeLog, we use our code commits for details on technical changes.
-This changelog is a list of logical changes and bug fixes.
+# Change Log
+All notable changes to this project will be documented in this file.
+Date based versioning is now used in this project.  This is so that it doesn't get confused with the Dropbox desktop client.
+
+## [Unreleased]
+### Added
+- Support for `sharelink`, `proxy`, and `throttle` CLI commands.
+- Support for Fedora 22
+- Support for Ubuntu 15.10
+
+## [2015.02.12]
+### Added
+- Support for Fedora 21
+- Support for Ubuntu 15.04 and 14.10
+
+### Changed
+- New version numbering format
+
+## Old Change Log.
 
 Version 0.7.1 (11/11/11):
 ------------------------
