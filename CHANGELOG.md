@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project.  This is so that it doesn't get confused with the Dropbox desktop client.
 
 ## [Unreleased]
+
+## [2015.10.28]
 ### Added
 - Support for `sharelink`, `proxy`, and `throttle` CLI commands.
 - Support for Fedora 22
