@@ -1185,6 +1185,7 @@ Prints out the current status of the Dropbox daemon.
                 else:
                     for line in lines:
                         console_print(line)
+                grab_link_url_if_necessary()
             except KeyError:
                 console_print(u"Couldn't get status: daemon isn't responding")
             except DropboxCommand.CommandError, e:
