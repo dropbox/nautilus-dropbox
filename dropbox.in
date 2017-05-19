@@ -100,14 +100,15 @@ def relpath(path, start=curdir):
     if not path:
         raise ValueError("no path specified")
 
-    if type(start) is unicode:
-        start_list = unicode_abspath(start).split(sep)
-    else:
-        start_list = abspath(start).split(sep)
-
     if type(path) is unicode:
+        if isinstance(start,str):
+            start = start.decode(sys.getfilesystemencoding())
+        start_list = unicode_abspath(start).split(sep)
         path_list = unicode_abspath(path).split(sep)
     else:
+        if isinstance(start,unicode):
+            start = start.encode(sys.getfilesystemencoding())
+        start_list = abspath(start).split(sep)
         path_list = abspath(path).split(sep)
 
     # Work out how much of the filepath is shared by start and path.
