@@ -724,7 +724,7 @@ def requires_dropbox_running(meth):
     return newmeth
 
 def start_dropbox():
-    db_path = os.path.expanduser(u"~/.dropbox-dist/dropboxd").encode(sys.getfilesystemencoding())
+    db_path = DROPBOXD_PATH.encode(sys.getfilesystemencoding())
     if os.access(db_path, os.X_OK):
         f = open("/dev/null", "w")
         # we don't reap the child because we're gonna die anyway, let init do it
