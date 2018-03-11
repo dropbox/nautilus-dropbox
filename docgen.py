@@ -1,4 +1,6 @@
+import os
 import sys
+import time
 import datetime
 
 # heeeheee
@@ -17,9 +19,10 @@ for cmd in commands:
     formatted_commands += split[2].decode('ascii').replace('\n', '\n  | ')
     formatted_commands += '\n\n'
 
+date = datetime.datetime.utcfromtimestamp(int(os.environ.get('SOURCE_DATE_EPOCH', time.time()))).date()
 sys.stdout.write(sys.stdin.read().replace\
                      ('@AUTHORS@', authors).replace\
-                     ('@DATE@', datetime.date.today().isoformat()).replace\
+                     ('@DATE@', date.isoformat()).replace\
                      ('@PACKAGE_VERSION@', sys.argv[1]).replace\
                      ('@SYNOPSIS@', '| '+'\n| '.join(commands[cmd].__doc__.split('\n', 2)[1].decode('ascii').replace(cmd, "`%s`" % cmd).replace("dropbox", "``dropbox``") for cmd in commands)).replace\
                      ('@COMMANDS@', formatted_commands))
