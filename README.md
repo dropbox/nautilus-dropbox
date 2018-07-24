@@ -1,17 +1,13 @@
-Hi Friend!
+# Dropbox Nautilus Extension
 
-This is *the* Dropbox extension for Nautilus!!!
-
-Now you can use your favorite sync, versioning, and backup software with GNU/Linux!
-Yes!! Radical!!! Gnarly!!!!
+This is the Dropbox extension for Nautilus.
 
 Check us out at https://www.dropbox.com/
 
 <3,
 The Dropbox Team
 
-Building Dropbox Nautilus Extension From Source Tarball
---------------------------------------------------
+## Building Dropbox Nautilus Extension From Source Tarball
 
 You will need to install the following dependencies (instructions are Ubuntu-specific):
 
