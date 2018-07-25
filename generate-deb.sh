@@ -447,7 +447,7 @@ Breaks: nautilus-dropbox
 Provides: nautilus-dropbox
 Architecture: any
 Depends: procps, python-gtk2 (>= 2.12), python (>= 2.5), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 1.20.0), libc6 (>= 2.4), libcairo2 (>= 1.6.0), libglib2.0-0 (>= 2.16.0), libgtk2.0-0 (>= 2.12.0), libpango1.0-0 (>= 1.20.1), lsb-release
-Suggests: nautilus (>= 2.16.0), python-gpgme (>= 0.1)
+Suggests: nautilus (>= 2.16.0), python-gpg (>= 1.8.0)
 Homepage: https://www.dropbox.com/
 Description: cloud synchronization engine - CLI and Nautilus extension
  Dropbox is a free service that lets you bring your photos, docs, and videos

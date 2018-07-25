@@ -40,9 +40,15 @@ import traceback
 import urllib2
 
 try:
-    import gpgme
-except ImportError:
+    import gpg
     gpgme = None
+except ImportError:
+    gpg = None
+    # Still support gpgme for now. Remove this once we only support 17.10+.
+    try:
+        import gpgme
+    except ImportError:
+        gpgme = None
 
 from contextlib import closing, contextmanager
 from posixpath import curdir, sep, pardir, join, abspath, commonprefix
@@ -50,7 +56,7 @@ from posixpath import curdir, sep, pardir, join, abspath, commonprefix
 INFO = u"Dropbox is the easiest way to share and store your files online. Want to learn more? Head to"
 LINK = u"https://www.dropbox.com/"
 WARNING = u"In order to use Dropbox, you must download the proprietary daemon."
-GPG_WARNING = u"Note: python-gpgme is not installed, we will not be able to verify binary signatures."
+GPG_WARNING = u"Note: python-gpg (python-gpgme for Ubuntu 17.04 and lower) is not installed, we will not be able to verify binary signatures."
 ERROR_CONNECTING = u"Trouble connecting to Dropbox servers. Maybe your internet connection is down, or you need to set your http_proxy environment variable."
 ERROR_SIGNATURE = u"Downloaded binary does not match Dropbox signature, aborting install."
 
@@ -67,7 +73,7 @@ DESKTOP_FILE = u"@DESKTOP_FILE_DIR@/dropbox.desktop"
 enc = locale.getpreferredencoding()
 
 # Available from https://linux.dropbox.com/fedora/rpm-public-key.asc
-DROPBOX_PUBLIC_KEY = """
+DROPBOX_PUBLIC_KEY = b"""
 -----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: SKS 1.1.0
 
@@ -179,7 +185,7 @@ def unicode_abspath(path):
     return os.path.abspath(path.encode(sys.getfilesystemencoding())).decode(sys.getfilesystemencoding())
 
 @contextmanager
-def gpgme_context(keys):
+def gpg_context(keys):
     gpg_conf_contents = ''
     _gpghome = tempfile.mkdtemp(prefix='tmp.gpghome')
 
@@ -188,12 +194,20 @@ def gpgme_context(keys):
         fp = open(os.path.join(_gpghome, 'gpg.conf'), 'wb')
         fp.write(gpg_conf_contents)
         fp.close()
-        ctx = gpgme.Context()
+        if gpg:
+            ctx = gpg.Context()
+        else:
+            ctx = gpgme.Context()
 
         loaded = []
         for key_file in keys:
-            result = ctx.import_(key_file)
-            key = ctx.get_key(result.imports[0][0])
+            if gpg:
+                ctx.op_import(key_file.read())
+                result = ctx.op_import_result()
+                key = ctx.get_key(result.imports[0].fpr)
+            else:
+                result = ctx.import_(key_file)
+                key = ctx.get_key(result.imports[0][0])
             loaded.append(key)
 
         ctx.signers = loaded
@@ -207,9 +221,15 @@ class SignatureVerifyError(Exception):
     pass
 
 def verify_signature(key_file, sig_file, plain_file):
-    with gpgme_context([key_file]) as ctx:
+    with gpg_context([key_file]) as ctx:
+        if gpg:
+            ctx.op_verify(sig_file.read(), plain_file.read(), None)
+            result = ctx.op_verify_result()
+            return result.signatures[0].status == 0
+        # gpgme exists
         sigs = ctx.verify(sig_file, plain_file, None)
         return sigs[0].status == None
+
 
 def download_file_chunk(url, buf):
     opener = urllib2.build_opener()
@@ -252,7 +272,7 @@ class DownloadState(object):
         signature.seek(0)
         self.local_file.seek(0)
 
-        if gpgme:
+        if gpg or gpgme:
             if not verify_signature(StringIO.StringIO(DROPBOX_PUBLIC_KEY), signature, self.local_file):
                 raise SignatureVerifyError()
 
@@ -454,7 +474,7 @@ if GUI_AVAILABLE:
                 self.progress.set_property('width-request', 300)
 
                 self.label = gtk.Label()
-                GPG_WARNING_MSG = (u"\n\n" + GPG_WARNING) if not gpgme else u""
+                GPG_WARNING_MSG = (u"\n\n" + GPG_WARNING) if not gpg and not gpgme else u""
                 self.label.set_markup('%s <span foreground="#000099" underline="single" weight="bold">%s</span>\n\n%s%s' % (INFO, LINK, WARNING, GPG_WARNING_MSG))
                 self.label.set_line_wrap(True)
                 self.label.set_property('width-request', 300)
@@ -543,7 +563,7 @@ else:
             write(save)
             flush()
         console_print(u"%s %s\n" % (INFO, LINK))
-        GPG_WARNING_MSG = (u"\n%s" % GPG_WARNING) if not gpgme else u""
+        GPG_WARNING_MSG = (u"\n%s" % GPG_WARNING) if not gpg and not gpgme else u""
 
         if not yes_no_question("%s%s" % (WARNING, GPG_WARNING_MSG)):
             return
