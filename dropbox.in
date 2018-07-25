@@ -59,6 +59,7 @@ WARNING = u"In order to use Dropbox, you must download the proprietary daemon."
 GPG_WARNING = u"Note: python-gpg (python-gpgme for Ubuntu 17.04 and lower) is not installed, we will not be able to verify binary signatures."
 ERROR_CONNECTING = u"Trouble connecting to Dropbox servers. Maybe your internet connection is down, or you need to set your http_proxy environment variable."
 ERROR_SIGNATURE = u"Downloaded binary does not match Dropbox signature, aborting install."
+ERROR_INVALID_DROPBOX = u"Could not run Dropbox. Make sure your computer meets the minimum requirements:\nhttps://www.dropbox.com/help/desktop-web/system-requirements#desktop"
 
 DOWNLOAD_LOCATION_FMT = "https://www.dropbox.com/download?plat=%s"
 SIGNATURE_LOCATION_FMT = "https://www.dropbox.com/download?plat=%s&signature=1"
@@ -288,6 +289,35 @@ class DownloadState(object):
         if not self.local_file.closed:
             self.local_file.close()
 
+    def is_dropbox_valid(self):
+        """
+        Validate that Dropbox runs, so we can show an error
+        message to the user if it doesn't work.
+
+        Returns True if Dropbox can run, false otherwise.
+        """
+        db_path = DROPBOXD_PATH.encode(sys.getfilesystemencoding())
+        f = open("/dev/null", "w")
+        try:
+            a = subprocess.Popen([db_path, "/testrun", "0"], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
+                                 stderr=sys.stderr, stdout=f, close_fds=True)
+        except Exception, ex:
+            print ex
+            return False
+
+        # in seconds
+        interval = 0.5
+        wait_for = 30
+        for i in xrange(int(wait_for / interval)):
+            ret_val = a.poll()
+            if ret_val is None:
+                time.sleep(interval)
+                continue
+            return ret_val == 0
+
+        return False
+
+
 def load_serialized_images():
     global box_logo_pixbuf, window_icon
     import gtk
@@ -408,6 +438,8 @@ if GUI_AVAILABLE:
 
                 def finished():
                     self.update_progress(UNPACKING, 1.0)
+                    if not self.download.is_dropbox_valid():
+                        FatalVisibleError(ERROR_INVALID_DROPBOX)
                     gtk.main_quit()
 
                 def error(ex):
@@ -591,6 +623,9 @@ else:
             FatalVisibleError(ERROR_CONNECTING)
         else:
             setprogress(UNPACKING, 1.0)
+
+        if not download.is_dropbox_valid():
+            FatalVisibleError(ERROR_INVALID_DROPBOX)
 
         console_print()
 
