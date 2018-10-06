@@ -879,6 +879,15 @@ def columnize(list, display_list=None, display_width=None):
         console_print(line)
 
 @command
+def update(args):
+    u"""download latest version of dropbox
+dropbox update
+
+Downloads the latest version of dropbox.
+"""
+    download()
+
+@command
 @requires_dropbox_running
 @alias('stat')
 def filestatus(args):
