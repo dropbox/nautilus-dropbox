@@ -55,8 +55,7 @@ else
 fi
 ])
 
-PYTHON_CHECK_MODULE(pygtk, gtk)
-PYTHON_CHECK_MODULE(gobject, gobject)
+PYTHON_CHECK_MODULE(gi, gi)
 PYTHON_CHECK_MODULE(docutils, docutils)
 
 # Make dependency CFLAGS and LIBS available
