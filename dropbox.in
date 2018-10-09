@@ -281,6 +281,9 @@ class DownloadState(object):
         archive = tarfile.open(fileobj=self.local_file, mode='r:gz')
         total_members = len(archive.getmembers())
         for i, member in enumerate(archive.getmembers()):
+            filename = os.path.join(PARENT_DIR, member.name)
+            if os.path.exists(filename) and not os.path.isdir(filename):
+                os.unlink(filename)
             archive.extract(member, PARENT_DIR)
             yield member.name, i, total_members
         archive.close()
@@ -874,6 +877,15 @@ def columnize(list, display_list=None, display_width=None):
         lines.append(line)
     for line in lines:
         console_print(line)
+
+@command
+def update(args):
+    u"""download latest version of dropbox
+dropbox update
+
+Downloads the latest version of dropbox.
+"""
+    download()
 
 @command
 @requires_dropbox_running
