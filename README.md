@@ -15,10 +15,7 @@ higher, and Fedora 21 or higher. If your device does not meet these requirements
 you are still able to use the Dropbox desktop application. However your results
 may vary.
 
-For more details, see:
-
-    https://www.dropbox.com/help/desktop-web/system-requirements#linux
-
+For more details, see: https://www.dropbox.com/help/desktop-web/system-requirements#linux
 
 ## Building Dropbox Nautilus Extension From Source Tarball
 
