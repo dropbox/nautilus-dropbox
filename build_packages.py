@@ -107,7 +107,7 @@ class BuildController(object):
                                    (distro, f, distro)) == 0
 
     def build_rpm(self, config):
-        # config='fedora-10-i386,fedora-10-x86_64'
+        # config='fedora-21-i386,fedora-21-x86_64'
         assert self.system('sh generate-rpm.sh -n') == 0
 
         path = None
@@ -134,7 +134,7 @@ class BuildController(object):
 
     def build_all(self):
 
-        #self.system('git pull')
+        self.system('git pull')
         self.system('git clean -fdx')
 
         info = {}
@@ -144,7 +144,7 @@ class BuildController(object):
         assert self.system('mkdir -p /home/releng/result/packages') == 0
 
         # Ubuntu
-        #self.build_deb('trusty', 'i386')
+        self.build_deb('trusty', 'i386')
         self.build_deb('trusty', 'amd64')
         self.generate_deb_repo('Ubuntu', info['UBUNTU_CODENAMES'], 'trusty', ['amd64', 'i386'])
 
