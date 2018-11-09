@@ -1,4 +1,3 @@
-
 import os
 import os.path
 import re
@@ -47,7 +46,7 @@ class BuildController(object):
         os.chdir(deb_path +'/debian')
         try:
             assert self.system('sudo DIST=%s ARCH=%s pbuilder update' % (dist, arch)) == 0
-            assert self.system('rm -rf /var/cache/pbuilder/%s-%s/result/*' %(dist, arch)) == 0
+            assert self.system('sudo rm -rf /var/cache/pbuilder/%s-%s/result/*' %(dist, arch)) == 0
             assert self.system('DIST=%s ARCH=%s pdebuild' % (dist, arch)) == 0
             # auto-sign doesn't work on i386 in this version of pdebuild.  So we sign in a separate step.
             assert self.system('debsign -k5044912E /var/cache/pbuilder/%s-%s/result/*.changes' %(dist, arch)) == 0
@@ -135,7 +134,7 @@ class BuildController(object):
 
     def build_all(self):
 
-        self.system('git pull')
+        #self.system('git pull')
         self.system('git clean -fdx')
 
         info = {}
@@ -145,19 +144,19 @@ class BuildController(object):
         assert self.system('mkdir -p /home/releng/result/packages') == 0
 
         # Ubuntu
-        self.build_deb('lucid', 'i386')
-        self.build_deb('lucid', 'amd64')
-        self.generate_deb_repo('Ubuntu', info['UBUNTU_CODENAMES'], 'lucid', ['amd64', 'i386'])
+        #self.build_deb('trusty', 'i386')
+        self.build_deb('trusty', 'amd64')
+        self.generate_deb_repo('Ubuntu', info['UBUNTU_CODENAMES'], 'trusty', ['amd64', 'i386'])
 
         # Debian
-        self.build_deb('squeeze', 'i386')
-        self.build_deb('squeeze', 'amd64')
-        self.generate_deb_repo('Debian', info['DEBIAN_CODENAMES'], 'squeeze', ['amd64', 'i386'])
+        self.build_deb('jessie', 'i386')
+        self.build_deb('jessie', 'amd64')
+        self.generate_deb_repo('Debian', info['DEBIAN_CODENAMES'], 'jessie', ['amd64', 'i386'])
 
         # Fedora
-        self.build_rpm('fedora-10-i386')
-        self.build_rpm('fedora-10-x86_64')
-        self.generate_yum_repo('Fedora', info['FEDORA_CODENAMES'], 'fedora-10', ['i386', 'x86_64'], 'fc10')
+        self.build_rpm('fedora-21-i386')
+        self.build_rpm('fedora-21-x86_64')
+        self.generate_yum_repo('Fedora', info['FEDORA_CODENAMES'], 'fedora-21', ['i386', 'x86_64'], 'fc21')
 
         self.generate_packages()
 

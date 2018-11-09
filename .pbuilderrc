@@ -1,0 +1,49 @@
+# Codenames for Debian suites according to their alias. Update these when
+# needed.
+STABLE_CODENAME="stretch"
+STABLE_BACKPORTS_SUITE="$STABLE_CODENAME-backports"
+
+# List of Debian suites.
+DEBIAN_SUITES=("jessie")
+
+# List of Ubuntu suites. Update these when needed.
+UBUNTU_SUITES=("trusty")
+
+# Mirrors to use. Update these to your preferred mirror.
+DEBIAN_MIRROR="ftp.us.debian.org"
+UBUNTU_MIRROR="mirrors.kernel.org"
+
+# Optionally set the architecture to the host architecture if none set. Note
+# that you can set your own default (i.e. ${ARCH:="i386"}).
+#: ${ARCH:="$(dpkg --print-architecture)"}
+
+NAME="$DIST"
+if [ -n "${ARCH}" ]; then
+    NAME="$NAME-$ARCH"
+    DEBOOTSTRAPOPTS=("--arch" "$ARCH" "${DEBOOTSTRAPOPTS[@]}")
+fi
+BASETGZ="/var/cache/pbuilder/$NAME-base.tgz"
+# Optionally, set BASEPATH (and not BASETGZ) if using cowbuilder
+# BASEPATH="/var/cache/pbuilder/$NAME/base.cow/"
+DISTRIBUTION="$DIST"
+BUILDRESULT="/var/cache/pbuilder/$NAME/result/"
+APTCACHE="/var/cache/pbuilder/$NAME/aptcache/"
+BUILDPLACE="/var/cache/pbuilder/build/"
+
+if $(echo ${DEBIAN_SUITES[@]} | grep -q $DIST); then
+    # Debian configuration
+    MIRRORSITE="http://$DEBIAN_MIRROR/debian/"
+    COMPONENTS="main contrib non-free"
+    # This is for enabling backports for the Debian stable suite.
+    if $(echo "$STABLE_CODENAME stable" | grep -q $DIST); then
+        EXTRAPACKAGES="$EXTRAPACKAGES debian-backports-keyring"
+        OTHERMIRROR="$OTHERMIRROR | deb http://www.backports.org/debian $STABLE_BACKPORTS_SUITE $COMPONENTS"
+    fi
+elif $(echo ${UBUNTU_SUITES[@]} | grep -q $DIST); then
+    # Ubuntu configuration
+    MIRRORSITE="http://$UBUNTU_MIRROR/ubuntu/"
+    COMPONENTS="main restricted universe multiverse"
+else
+    echo "Unknown distribution: $DIST"
+    exit 1
+fi

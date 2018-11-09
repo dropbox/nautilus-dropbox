@@ -2,23 +2,32 @@
 All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project.  This is so that it doesn't get confused with the Dropbox desktop client.
 
-## [Unreleased]
+Version 2018.11.08:
+------------------
+	* Add support for Fedora 23 - 29, Debian stretch
+	* Drop support for Fedora releases older than 21, Ubuntu releases
+	older than trusty, and Debian releases older than jessie
+	* Display link url on `status`
+	* Fix canonicalize_path
+	* Make `exclude` work with unicode paths
+	* Fix bug that caused the Dropbox tray icon to not show up in XFCE & LXDE
+	* Add "update" command, which updates the Dropbox client
+	* Unlink files that are going to be replaced by the unpack
+	* Validate that Dropbox runs after downloading it
+	* Use python-gpg instead of python-gpgme if it's installed, since
+	python-gpgme is not available in Ubuntu 18.04.
 
-## [2015.10.28]
-### Added
-- Support for `sharelink`, `proxy`, and `throttle` CLI commands.
-- Support for Fedora 22
-- Support for Ubuntu 15.10
+Version 2015.10.28:
+------------------
+	* Add support for `sharelink`, `proxy`, and `throttle` CLI commands
+	* Add support for Fedora 22
+	* Add support for Ubuntu 15.10
 
-## [2015.02.12]
-### Added
-- Support for Fedora 21
-- Support for Ubuntu 15.04 and 14.10
-
-### Changed
-- New version numbering format
-
-## Old Change Log.
+Version 2015.02.12:
+------------------
+	* Add support for Fedora 21
+	* Add support for Ubuntu 15.04 and 14.10
+	* New version numbering format
 
 Version 0.7.1 (11/11/11):
 ------------------------

@@ -1,6 +1,7 @@
 #!/bin/sh
 
-# you should run this script on fedora
+set -e
+
 # you need to have the following packages:
 # rpmdevtools, rpm-build, gawk, nautilus-devel, automake,
 # autoconf, gnome-common, libtool, gcc
@@ -10,26 +11,12 @@ if [ $(basename $(pwd)) != 'nautilus-dropbox' ]; then
     exit -1
 fi
 
-BUILD=1
-while [ $# != 0 ]; do
-    flag="$1"
-    case "$flag" in
-        -n)
-	    BUILD=0
-            ;;
-    esac
-    shift
-done
-
-# creating an RPM is easier than creating a debian package, surprisingly
-# I call bullcrap on this statement.  They are exactly the same.
-set -e
 
 # get version
 if which gawk; then
-    CURVER=$(gawk '/^AC_INIT/{sub("AC_INIT\\(\\[nautilus-dropbox\\],", ""); sub("\\)", ""); print $0}' configure.in)
+    CURVER=$(gawk '/^AC_INIT/{sub("AC_INIT\\(\\[nautilus-dropbox\\],", ""); sub("\\)", ""); print $0}' configure.ac)
 else
-    CURVER=$(awk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\],", ""); sub("\)", ""); print $0}' configure.in)    
+    CURVER=$(awk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\],", ""); sub("\)", ""); print $0}' configure.ac)
 fi
 
 # backup old rpmmacros file
@@ -70,11 +57,11 @@ make dist
 cp nautilus-dropbox-$CURVER.tar.bz2 rpmbuild/SOURCES/
 
 cat <<EOF > rpmbuild/SPECS/nautilus-dropbox.spec
-%define glib_version 2.14.0
-%define nautilus_version 2.16.0
-%define libgnome_version 2.16.0
-%define pygtk2_version 2.12
-%define pygpgme_version 0.1
+%define glib_version 2.42.1
+%define nautilus_version 3.14.2
+%define libgnome_version 2.32.1
+%define pygtk2_version 2.24.0
+%define pygpgme_version 0.3
 
 Name:		nautilus-dropbox
 Version:	$CURVER
@@ -273,15 +260,11 @@ rm -rf \$RPM_BUILD_ROOT
 EOF
 
 cd rpmbuild
-if [ $BUILD -eq 1 ]; then
-    rpmbuild -ba SPECS/nautilus-dropbox.spec
 
-    # sign all rpms
-    find . -name '*.rpm' | xargs rpm --addsign
-else
-    # Kind of silly but this is the easiest way to get this info the the build_slave.
-    rpmbuild -bs SPECS/nautilus-dropbox.spec > ../buildme
-fi
+# Kind of silly but this is the easiest way to communicate this info
+# to build_packages.py.
+rpmbuild -bs SPECS/nautilus-dropbox.spec > ../buildme
+
 
 # restore old macros file
 if [ -e $HOME/.rpmmacros.old ]; then

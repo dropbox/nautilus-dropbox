@@ -2,26 +2,12 @@
 
 # you will need dh-make, dpkg-dev, fakeroot, cdbs
 
+set -e
+
 if [ $(basename $(pwd)) != 'nautilus-dropbox' ]; then
     echo "This script must be run from the nautilus-dropbox folder"
     exit -1
 fi
-
-BUILD=1
-while [ $# != 0 ]; do
-    flag="$1"
-    case "$flag" in
-        -n)
-	    BUILD=0
-            ;;
-    esac
-    shift
-done
-
-
-# creating a debian package is super bitchy and mostly hard to script
-
-set -e
 
 # get version
 CURVER=$(mawk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\],", ""); sub("\)", ""); print $0}' configure.in)
@@ -438,7 +424,7 @@ Source: dropbox
 Section: gnome
 Priority: optional
 Maintainer: Dropbox <support@dropbox.com>
-Build-Depends: cdbs, debhelper (>= 5), build-essential, libnautilus-extension-dev (>= 2.16.0), libglib2.0-dev (>= 2.14.0), python-gtk2 (>= 2.12), python-docutils
+Build-Depends: cdbs, debhelper (>= 9), build-essential, libnautilus-extension-dev (>= 3.10.1), libglib2.0-dev (>= 2.40.0), python-gtk2 (>= 2.24.0), python-docutils
 Standards-Version: 3.9.4.0
 
 Package: dropbox
@@ -446,8 +432,8 @@ Replaces: nautilus-dropbox
 Breaks: nautilus-dropbox
 Provides: nautilus-dropbox
 Architecture: any
-Depends: procps, python-gtk2 (>= 2.12), python (>= 2.5), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 1.20.0), libc6 (>= 2.4), libcairo2 (>= 1.6.0), libglib2.0-0 (>= 2.16.0), libgtk2.0-0 (>= 2.12.0), libpango1.0-0 (>= 1.20.1), lsb-release
-Suggests: nautilus (>= 2.16.0), python-gpg (>= 1.8.0)
+Depends: procps, python-gtk2 (>= 2.24.0), python (>= 2.7), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 2.10.0), libc6 (>= 2.19), libcairo2 (>= 1.13.0), libglib2.0-0 (>= 2.40.0), libgtk2.0-0 (>= 2.24.23), libpango1.0-0 (>= 1.36.3), lsb-release
+Suggests: nautilus (>= 3.10.1), python-gpg (>= 1.8.0)
 Homepage: https://www.dropbox.com/
 Description: cloud synchronization engine - CLI and Nautilus extension
  Dropbox is a free service that lets you bring your photos, docs, and videos
@@ -465,9 +451,6 @@ Description: transitional dummy package for dropbox
 
 EOF
 
-if [ $BUILD -eq 1 ]; then
-    dpkg-buildpackage -rfakeroot -k3565780E
-else
-    # Kind of silly but this is the easiest way to get this info the the build_slave.
-    echo nautilus-dropbox-$CURVER > ../buildme
-fi
+# Kind of silly but this is the easiest way to communicate this info
+# to build_packages.py.
+echo nautilus-dropbox-$CURVER > ../buildme
