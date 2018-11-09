@@ -10,7 +10,7 @@ if [ $(basename $(pwd)) != 'nautilus-dropbox' ]; then
 fi
 
 # get version
-CURVER=$(mawk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\],", ""); sub("\)", ""); print $0}' configure.in)
+CURVER=$(mawk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\],", ""); sub("\)", ""); print $0}' configure.ac)
 
 # clean old package build
 rm -rf nautilus-dropbox{-,_}*
