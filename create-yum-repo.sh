@@ -1,4 +1,6 @@
-#!/bin/sh -e
+#!/bin/sh
+
+set -e
 
 # DISTS must be defined.
 ARCHS="i386 x86_64"

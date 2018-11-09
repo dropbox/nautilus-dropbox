@@ -1,4 +1,6 @@
-#!/bin/sh -e
+#!/bin/sh
+
+set -e
 
 #DISTS and DISTRO must be defined.
 ARCHS="i386 amd64 source"
@@ -48,7 +50,7 @@ APT::FTPArchive::Release::Suite "$DIST";
 EOF
 
     apt-ftparchive -c apt-release.conf release dists/$DIST > dists/$DIST/Release
-    gpg -abs --digest-algo SHA512 or --digest-algo SHA256 -o dists/$DIST/Release.gpg dists/$DIST/Release
+    gpg -abs --digest-algo SHA256 -o dists/$DIST/Release.gpg dists/$DIST/Release
 
 done
 rm -rf apt-release.conf apt-ftparchive.conf
