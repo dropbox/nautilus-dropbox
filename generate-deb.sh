@@ -419,12 +419,20 @@ debian/tmp/usr/*
 
 EOF
 
+# NOTE: When updating dependencies, make sure to test the package on
+# the minimum and maximum supported versions for each distro. In
+# particular, debian version ordering can be tricky. E.g.
+# "1.3.0~somestring" is considered lower than "1.3.0" since usually
+# the "~" is appended to denote a beta version.
+#
+# For more info, see: https://askubuntu.com/a/229749
+
 cat > debian/control <<EOF
 Source: dropbox
 Section: gnome
 Priority: optional
 Maintainer: Dropbox <support@dropbox.com>
-Build-Depends: cdbs, debhelper (>= 9), build-essential, libnautilus-extension-dev (>= 3.10.1), libglib2.0-dev (>= 2.40.0), python-gtk2 (>= 2.24.0), python-docutils
+Build-Depends: cdbs, debhelper (>= 9), build-essential, libnautilus-extension-dev (>= 3.10.1), libglib2.0-dev (>= 2.40), python-gtk2 (>= 2.24), python-docutils
 Standards-Version: 3.9.4.0
 
 Package: dropbox
@@ -432,7 +440,7 @@ Replaces: nautilus-dropbox
 Breaks: nautilus-dropbox
 Provides: nautilus-dropbox
 Architecture: any
-Depends: procps, python-gtk2 (>= 2.24.0), python (>= 2.7), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 2.10.0), libc6 (>= 2.19), libcairo2 (>= 1.13.0), libglib2.0-0 (>= 2.40.0), libgtk2.0-0 (>= 2.24.23), libpango1.0-0 (>= 1.36.3), lsb-release
+Depends: procps, python-gtk2 (>= 2.24), python (>= 2.7), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 2.10), libc6 (>= 2.19), libcairo2 (>= 1.13), libglib2.0-0 (>= 2.40), libgtk2.0-0 (>= 2.24.23), libpango1.0-0 (>= 1.36.3), lsb-release
 Suggests: nautilus (>= 3.10.1), python-gpg (>= 1.8.0)
 Homepage: https://www.dropbox.com/
 Description: cloud synchronization engine - CLI and Nautilus extension

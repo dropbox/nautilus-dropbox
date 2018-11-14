@@ -44,7 +44,7 @@ try:
     gpgme = None
 except ImportError:
     gpg = None
-    # Still support gpgme for now. Remove this once we only support 17.10+.
+    # Still support gpgme for now. Remove this once we only support 17.04+.
     try:
         import gpgme
     except ImportError:
@@ -56,10 +56,10 @@ from posixpath import curdir, sep, pardir, join, abspath, commonprefix
 INFO = u"Dropbox is the easiest way to share and store your files online. Want to learn more? Head to"
 LINK = u"https://www.dropbox.com/"
 WARNING = u"In order to use Dropbox, you must download the proprietary daemon."
-GPG_WARNING = u"Note: python-gpg (python-gpgme for Ubuntu 17.04 and lower) is not installed, we will not be able to verify binary signatures."
+GPG_WARNING = u"Note: python-gpg (python-gpgme for Ubuntu 16.10 and lower) is not installed, we will not be able to verify binary signatures."
 ERROR_CONNECTING = u"Trouble connecting to Dropbox servers. Maybe your internet connection is down, or you need to set your http_proxy environment variable."
 ERROR_SIGNATURE = u"Downloaded binary does not match Dropbox signature, aborting install."
-ERROR_INVALID_DROPBOX = u"Could not run Dropbox. Make sure your computer meets the minimum requirements:\nhttps://www.dropbox.com/help/desktop-web/system-requirements#desktop"
+ERROR_INVALID_DROPBOX = u"Could not start the Dropbox daemon. Make sure your computer meets the minimum requirements:\nhttps://www.dropbox.com/help/desktop-web/system-requirements#desktop"
 
 DOWNLOAD_LOCATION_FMT = "https://www.dropbox.com/download?plat=%s"
 SIGNATURE_LOCATION_FMT = "https://www.dropbox.com/download?plat=%s&signature=1"
@@ -611,6 +611,7 @@ else:
                     break
                 setprogress(DOWNLOADING, progress)
         except Exception:
+            traceback.print_exc()
             FatalVisibleError(ERROR_CONNECTING)
         else:
             setprogress(DOWNLOADING, 1.0)
@@ -621,8 +622,10 @@ else:
             for name, i, total in download.unpack():
                 setprogress(UNPACKING, float(i)/total)
         except SignatureVerifyError:
+            traceback.print_exc()
             FatalVisibleError(ERROR_SIGNATURE)
         except Exception:
+            traceback.print_exc()
             FatalVisibleError(ERROR_CONNECTING)
         else:
             setprogress(UNPACKING, 1.0)
