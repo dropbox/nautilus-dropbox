@@ -87,6 +87,7 @@ BuildRequires:  cairo-devel
 BuildRequires:  gtk2-devel
 BuildRequires:  atk-devel
 BuildRequires:  pango-devel
+BuildRequires:  pygtk2-devel >= %{pygtk2_version}
 
 %description
 Nautilus Dropbox is an extension that integrates

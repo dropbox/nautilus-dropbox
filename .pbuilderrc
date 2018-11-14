@@ -1,3 +1,5 @@
+# Copied from https://wiki.ubuntu.com/PbuilderHowto#Updating_Using_the_Local_Repository
+
 # Codenames for Debian suites according to their alias. Update these when
 # needed.
 STABLE_CODENAME="stretch"

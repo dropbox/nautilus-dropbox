@@ -26,3 +26,6 @@ missing
 stamp-h1
 src/libnautilus-dropbox.la
 src/libnautilus_dropbox_la*
+rpmbuild/
+mockout/
+nautilus-dropbox-*.tar.bz2

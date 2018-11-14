@@ -3,6 +3,10 @@ import os.path
 import re
 import subprocess
 
+REPO_DIR = os.path.abspath(os.path.dirname(__file__))
+
+MOCK_OUT = os.path.join(REPO_DIR, "mockout")
+
 def cmd(args):
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = proc.communicate()
@@ -28,18 +32,16 @@ class BuildController(object):
 
         # Get dropbox.py
         assert self.system('make dropbox') == 0
-        assert self.system('cp /home/releng/nautilus-dropbox/dropbox /home/releng/result/packages/dropbox.py') == 0
+        assert self.system(
+            'cp {REPO_DIR}/dropbox /home/releng/result/packages/dropbox.py'.format(
+                REPO_DIR=REPO_DIR,
+            )) == 0
 
         # Tar it up
         assert self.system('cd /home/releng/result/; tar czvf /tmp/nautilus-dropbox-release.tar.gz *') == 0
 
-        rev = cmd('git describe --tags --always'.split())
-
-        # SCP it to sonic
-        assert self.system('scp /tmp/nautilus-dropbox-release.tar.gz sonic:/var/www/builds/nautilus-dropbox/nautilus-dropbox-release-%s.tar.gz' % rev) == 0
-
     def build_deb(self, dist, arch):
-        assert self.system('sh generate-deb.sh -n') == 0
+        assert self.system('sh generate-deb.sh') == 0
         with open('buildme') as f:
             deb_path = f.readline().strip()
         os.unlink('buildme')
@@ -59,7 +61,7 @@ class BuildController(object):
         assert self.system('rm -rf %s' % result) == 0
         assert self.system('mkdir -p %s/pool/main' % result) == 0
         for arch in archs:
-            assert self.system('cp /var/cache/pbuilder/%s-%s/result/* %s/pool/main' %(dist, arch, result)) == 0
+            assert self.system('cp /var/cache/pbuilder/%s-%s/result/* %s/pool/main' % (dist, arch, result)) == 0
 
         old = os.getcwd()
         os.chdir(result)
@@ -83,7 +85,7 @@ class BuildController(object):
         assert self.system('mkdir -p /home/releng/result/fedora/pool/') == 0
 
         for arch in archs:
-            assert self.system('cp /var/lib/mock/%s-%s/result/*.rpm /home/releng/result/fedora/pool' %(dist, arch)) == 0
+            assert self.system('cp %s/%s-%s/result/*.rpm /home/releng/result/fedora/pool' % (MOCK_OUT, dist, arch)) == 0
 
         files = os.listdir('/home/releng/result/fedora/pool')
         for f in files:
@@ -108,7 +110,7 @@ class BuildController(object):
 
     def build_rpm(self, config):
         # config='fedora-21-i386,fedora-21-x86_64'
-        assert self.system('sh generate-rpm.sh -n') == 0
+        assert self.system('sh generate-rpm.sh') == 0
 
         path = None
         with open('buildme') as f:
@@ -121,16 +123,25 @@ class BuildController(object):
         if not path:
             raise Exception("No srpm generated")
 
-        assert self.system('rm -rf /var/lib/mock/%s/result/*' %(config)) == 0
+        assert ' ' not in MOCK_OUT, "MOCK_OUT path cannot contain spaces: %s" % (MOCK_OUT,)
+
+        mock_config_out = os.path.join(MOCK_OUT, config, "result")
+
+        assert self.system('rm -rf %s/*' % (mock_config_out,)) == 0
 
         try:
-            assert self.system('/usr/bin/mock -r %s rebuild %s' % (config, path)) == 0
+            assert self.system(
+                '/usr/bin/mock -r {config} --resultdir={mock_config_out} rebuild {path}'.format(
+                    config=config,
+                    mock_config_out=mock_config_out,
+                    path=path)) == 0
         except:
             # We failed.  Let's push the logs to the server so that we have them.
-            self.system('cat /var/lib/mock/%s/*.log >&2' %(config,))
+            self.system('cat %s/*.log >&2' % (mock_config_out,))
             raise
         else:
-            assert self.system('find /var/lib/mock/%s/result/ -name *.rpm | xargs /usr/bin/expect sign-rpm.exp' %(config,)) == 0
+            assert self.system('find %s/ -name *.rpm | xargs /usr/bin/expect sign-rpm.exp' % (
+                mock_config_out,)) == 0
 
     def build_all(self):
 
