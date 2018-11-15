@@ -4,7 +4,7 @@ Date based versioning is now used in this project.  This is so that it doesn't g
 
 Version 2018.11.08:
 ------------------
-	* Add support for Fedora 23 - 29, Debian stretch
+	* Add support for Fedora 23 - 29, Debian stretch and buster
 	* Drop support for Fedora releases older than 21, Ubuntu releases
 	older than trusty, and Debian releases older than jessie
 	* Display link url on `status`
