@@ -16,6 +16,7 @@ Version 2018.11.08:
 	* Validate that Dropbox runs after downloading it
 	* Use python-gpg instead of python-gpgme if it's installed, since
 	python-gpgme is not available in Ubuntu 18.04.
+	* Update icons included in package to the redesigned icons.
 
 Version 2015.10.28:
 ------------------
