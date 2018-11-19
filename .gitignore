@@ -29,3 +29,4 @@ src/libnautilus_dropbox_la*
 rpmbuild/
 mockout/
 nautilus-dropbox-*.tar.bz2
+.vscode
