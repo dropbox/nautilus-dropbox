@@ -790,7 +790,7 @@ def start_dropbox():
     if os.access(db_path, os.X_OK):
         f = open("/dev/null", "w")
         # we don't reap the child because we're gonna die anyway, let init do it
-        a = subprocess.Popen(["dbus-launch", db_path], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
+        a = subprocess.Popen([db_path], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
                              stderr=sys.stderr, stdout=f, close_fds=True)
 
         # in seconds
