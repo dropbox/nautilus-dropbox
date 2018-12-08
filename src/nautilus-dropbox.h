@@ -27,7 +27,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <libnautilus-extension/nautilus-info-provider.h>
+#include <nautilus-extension.h>
 
 #include "dropbox-command-client.h"
 #include "nautilus-dropbox-hooks.h"

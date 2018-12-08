@@ -24,8 +24,7 @@
 #ifndef DROPBOX_COMMAND_CLIENT_H
 #define DROPBOX_COMMAND_CLIENT_H
 
-#include <libnautilus-extension/nautilus-info-provider.h>
-#include <libnautilus-extension/nautilus-file-info.h>
+#include <nautilus-extension.h>
 
 G_BEGIN_DECLS
 

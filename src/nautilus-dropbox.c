@@ -37,10 +37,6 @@
 #include <glib-object.h>
 #include <gtk/gtk.h>
 
-#include <libnautilus-extension/nautilus-extension-types.h>
-#include <libnautilus-extension/nautilus-menu-provider.h>
-#include <libnautilus-extension/nautilus-info-provider.h>
-
 #include "g-util.h"
 #include "dropbox-command-client.h"
 #include "nautilus-dropbox.h"
