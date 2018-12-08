@@ -65,7 +65,7 @@ typedef void (*DropboxCommandClientConnectionAttemptHook)(guint, gpointer);
 typedef GHookFunc DropboxCommandClientConnectHook;
 
 typedef struct {
-  GMutex *command_connected_mutex;
+  GMutex command_connected_mutex;
   gboolean command_connected;
   GAsyncQueue *command_queue; 
   GList *ca_hooklist;
