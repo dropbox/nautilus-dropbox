@@ -1,6 +1,6 @@
 # Initialization
 
-AC_INIT([nautilus-dropbox],2018.11.08)
+AC_INIT([nautilus-dropbox],2018.11.28)
 
 AM_INIT_AUTOMAKE([foreign])
 
@@ -55,8 +55,7 @@ else
 fi
 ])
 
-PYTHON_CHECK_MODULE(pygtk, gtk)
-PYTHON_CHECK_MODULE(gobject, gobject)
+PYTHON_CHECK_MODULE(gi, gi)
 PYTHON_CHECK_MODULE(docutils, docutils)
 
 # Make dependency CFLAGS and LIBS available

@@ -323,7 +323,9 @@ class DownloadState(object):
 
 def load_serialized_images():
     global box_logo_pixbuf, window_icon
-    import gtk
+    import gi
+    gi.require_version('GdkPixbuf', '2.0')
+    from gi.repository import GdkPixbuf
     box_logo_pixbuf = @IMAGEDATA64@
     window_icon = @IMAGEDATA16@
 
@@ -331,27 +333,29 @@ GUI_AVAILABLE = os.environ.get("DISPLAY", '')
 
 if GUI_AVAILABLE:
     def download():
-        import pygtk
-        pygtk.require("2.0")
-        import gtk
-        import gobject
-        import pango
+        import gi
+        gi.require_version('Gdk', '3.0')
+        gi.require_version('Gtk', '3.0')
+        from gi.repository import GObject
+        from gi.repository import Gdk
+        from gi.repository import Gtk
+        from gi.repository import Pango
         import webbrowser
 
-        gtk.gdk.threads_init()
+        GObject.threads_init()
 
         load_serialized_images()
 
         global FatalVisibleError
         def FatalVisibleError(s):
-            error = gtk.MessageDialog(parent = None,
-                                      flags = gtk.DIALOG_MODAL,
-                                      type = gtk.MESSAGE_ERROR,
-                                      buttons = gtk.BUTTONS_OK,
+            error = Gtk.MessageDialog(parent = None,
+                                      flags = Gtk.DialogFlags.MODAL,
+                                      type = Gtk.MessageType.ERROR,
+                                      buttons = Gtk.ButtonsType.OK,
                                       message_format = s)
             error.set_title("Error")
             error.run()
-            gtk.main_quit()
+            Gtk.main_quit()
             sys.exit(-1)
 
         class GeneratorTask(object):
@@ -369,17 +373,17 @@ if GUI_AVAILABLE:
                             ret = ()
                         if not isinstance(ret, tuple):
                             ret = (ret,)
-                        gobject.idle_add(self.loop_callback, *ret)
+                        GObject.idle_add(self.loop_callback, *ret)
 
                         if self._stopped:
                             thread.exit()
                 except Exception, ex:
                     print ex
                     if self.on_exception is not None:
-                        gobject.idle_add(self.on_exception, ex)
+                        GObject.idle_add(self.on_exception, ex)
                 else:
                     if self.on_done is not None:
-                        gobject.idle_add(self.on_done)
+                        GObject.idle_add(self.on_done)
 
             def start(self, *args, **kwargs):
                 t = threading.Thread(target=self._run, args=args, kwargs=kwargs)
@@ -389,7 +393,7 @@ if GUI_AVAILABLE:
             def stop(self):
                 self._stopped = True
 
-        class DownloadDialog(gtk.Dialog):
+        class DownloadDialog(Gtk.Dialog):
             def handle_delete_event(self, wid, ev, data=None):
                 self.handle_cancel(wid)
 
@@ -401,7 +405,7 @@ if GUI_AVAILABLE:
                     self.task.stop()
                 if self.download:
                     self.download.cancel()
-                gtk.main_quit()
+                Gtk.main_quit()
                 self.user_cancelled = True
 
             def handle_ok(self, button):
@@ -443,7 +447,7 @@ if GUI_AVAILABLE:
                     self.update_progress(UNPACKING, 1.0)
                     if not self.download.is_dropbox_valid():
                         FatalVisibleError(ERROR_INVALID_DROPBOX)
-                    gtk.main_quit()
+                    Gtk.main_quit()
 
                 def error(ex):
                     if isinstance(ex, SignatureVerifyError):
@@ -467,15 +471,15 @@ if GUI_AVAILABLE:
             def label_motion(self, widget, event):
                 offx, offy = self.label.get_layout_offsets()
                 layout = self.label.get_layout()
-                index = layout.xy_to_index(int((offx+event.x)*pango.SCALE),
-                                           int((offy+event.y)*pango.SCALE))[0]
+                index = layout.xy_to_index(int((offx+event.x)*Pango.SCALE),
+                                           int((offy+event.y)*Pango.SCALE))[1]
                 link_index = layout.get_text().find(LINK)
                 if index >= link_index and index < link_index+len(LINK):
                     self.hovering = True
-                    self.label_box.window.set_cursor(gtk.gdk.Cursor(gtk.gdk.HAND2))
+                    self.label_box.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.HAND2))
                 else:
                     self.hovering = False
-                    self.label_box.window.set_cursor(gtk.gdk.Cursor(gtk.gdk.ARROW))
+                    self.label_box.get_window().set_cursor(Gdk.Cursor(Gdk.CursorType.ARROW))
 
 
             def __init__(self):
@@ -488,34 +492,35 @@ if GUI_AVAILABLE:
                 self.user_cancelled = False
                 self.task = None
 
-                self.ok = ok = gtk.Button(stock=gtk.STOCK_OK)
+                self.ok = ok = Gtk.Button(stock=Gtk.STOCK_OK)
                 ok.connect('clicked', self.handle_ok)
                 self.action_area.add(ok)
                 ok.show()
 
-                cancel = gtk.Button(stock=gtk.STOCK_CANCEL)
+                cancel = Gtk.Button(stock=Gtk.STOCK_CANCEL)
                 cancel.connect('clicked', self.handle_cancel)
                 self.action_area.add(cancel)
                 cancel.show()
 
                 self.connect('delete_event', self.handle_delete_event)
 
-                self.box_logo = gtk.image_new_from_pixbuf(box_logo_pixbuf)
+                self.box_logo = Gtk.Image.new_from_pixbuf(box_logo_pixbuf)
                 self.box_logo.show()
 
                 self.set_icon(window_icon)
 
-                self.progress = gtk.ProgressBar()
+                self.progress = Gtk.ProgressBar()
                 self.progress.set_property('width-request', 300)
+                self.progress.set_property('show-text', True)
 
-                self.label = gtk.Label()
+                self.label = Gtk.Label()
                 GPG_WARNING_MSG = (u"\n\n" + GPG_WARNING) if not gpg and not gpgme else u""
                 self.label.set_markup('%s <span foreground="#000099" underline="single" weight="bold">%s</span>\n\n%s%s' % (INFO, LINK, WARNING, GPG_WARNING_MSG))
                 self.label.set_line_wrap(True)
                 self.label.set_property('width-request', 300)
                 self.label.show()
 
-                self.label_box = gtk.EventBox()
+                self.label_box = Gtk.EventBox()
                 self.label_box.add(self.label)
                 self.label_box.connect("button-release-event", self.mouse_up)
                 self.label_box.connect("button-press-event", self.mouse_down)
@@ -523,14 +528,14 @@ if GUI_AVAILABLE:
 
                 self.label_box.show()
                 def on_realize(widget):
-                    self.label_box.add_events(gtk.gdk.POINTER_MOTION_MASK)
+                    self.label_box.add_events(Gdk.EventMask.POINTER_MOTION_MASK)
                 self.label_box.connect("realize", on_realize)
 
-                self.hbox = gtk.HBox(spacing=10)
+                self.hbox = Gtk.HBox(spacing=10)
                 self.hbox.set_property('border-width',10)
-                self.hbox.pack_start(self.box_logo, False, False)
-                self.hbox.pack_start(self.label_box, False, False)
-                self.hbox.pack_start(self.progress, False, False)
+                self.hbox.pack_start(self.box_logo, False, False, 0)
+                self.hbox.pack_start(self.label_box, False, False, 0)
+                self.hbox.pack_start(self.progress, False, False, 0)
                 self.hbox.show()
 
                 self.vbox.add(self.hbox)
@@ -539,17 +544,17 @@ if GUI_AVAILABLE:
 
                 try:
                     if can_reroll_autostart():
-                        dont_show_again = gtk.CheckButton("_Don't show this again")
+                        dont_show_again = Gtk.CheckButton.new_with_mnemonic("_Don't show this again")
                         dont_show_again.connect('toggled', self.handle_dont_show_toggle)
                         dont_show_again.show()
 
-                        self.dont_show_again_align = gtk.Alignment(xalign=1.0, yalign=0.0, xscale=0.0, yscale=0.0)
+                        self.dont_show_again_align = Gtk.Alignment(xalign=1.0, yalign=0.0, xscale=0.0, yscale=0.0)
                         self.dont_show_again_align.add(dont_show_again)
                         self.dont_show_again_align.show()
 
-                        hbox = gtk.HBox()
+                        hbox = Gtk.HBox()
                         hbox.set_property('border-width', 10)
-                        hbox.pack_start(self.dont_show_again_align, True, True)
+                        hbox.pack_start(self.dont_show_again_align, True, True, 0)
                         hbox.show()
 
                         self.vbox.add(hbox)
@@ -562,7 +567,7 @@ if GUI_AVAILABLE:
 
         dialog = DownloadDialog()
         dialog.show()
-        gtk.main()
+        Gtk.main()
         if dialog.user_cancelled:
             raise Exception("user cancelled download!!!")
 else:
@@ -790,7 +795,7 @@ def start_dropbox():
     if os.access(db_path, os.X_OK):
         f = open("/dev/null", "w")
         # we don't reap the child because we're gonna die anyway, let init do it
-        a = subprocess.Popen(["dbus-launch", db_path], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
+        a = subprocess.Popen([db_path], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
                              stderr=sys.stderr, stdout=f, close_fds=True)
 
         # in seconds
