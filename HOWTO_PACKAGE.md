@@ -11,7 +11,7 @@ a 16.04 Ubuntu machine.
 This is a non-exhaustive list of what you'll need:
 
 ```
-sudo apt-get install pbuilder debootstrap devscripts libnautilus-extension-dev mock rpm expect createrepo cdbs gnome-common debian-archive-keyring
+sudo apt-get install pbuilder debootstrap devscripts libnautilus-extension-dev mock rpm expect createrepo
 ```
 
 3. Copy .pbuilderrc to ~/.pbuilderrc
@@ -27,6 +27,9 @@ sudo DIST=jessie ARCH=amd64 pbuilder create --debootstrapopts --variant=buildd
 
 5. Add yourself to the mock group (create it if it doesn't exist), and
    then logout and login for the group to take affect.
+   Probably you have to run `build_packages.py` command with `sudo` permission which 
+   means you should add your root account to the mock group. Otherwise, you will see
+   `The password you typed is invalid.` error.
 
 6. Copy rpm_resources/fedora-*.cfg to /etc/mock.
 
