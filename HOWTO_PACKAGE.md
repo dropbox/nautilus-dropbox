@@ -11,7 +11,7 @@ a 16.04 Ubuntu machine.
 This is a non-exhaustive list of what you'll need:
 
 ```
-sudo apt-get install pbuilder debootstrap devscripts libnautilus-extension-dev mock rpm expect createrepo
+sudo apt-get install pbuilder debootstrap devscripts libnautilus-extension-dev mock rpm expect createrepo cdbs gnome-common debian-archive-keyring
 ```
 
 3. Copy .pbuilderrc to ~/.pbuilderrc
