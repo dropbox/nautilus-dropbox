@@ -432,7 +432,7 @@ Source: dropbox
 Section: gnome
 Priority: optional
 Maintainer: Dropbox <support@dropbox.com>
-Build-Depends: cdbs, debhelper (>= 9), build-essential, libnautilus-extension-dev (>= 3.10.1), libglib2.0-dev (>= 2.40), python-gtk2 (>= 2.24), python-docutils
+Build-Depends: cdbs, debhelper (>= 9), build-essential, libnautilus-extension-dev (>= 3.10.1), libglib2.0-dev (>= 2.40), python-gi (>= 3.20), python-docutils
 Standards-Version: 3.9.4.0
 
 Package: dropbox
@@ -440,7 +440,7 @@ Replaces: nautilus-dropbox
 Breaks: nautilus-dropbox
 Provides: nautilus-dropbox
 Architecture: any
-Depends: procps, python-gtk2 (>= 2.24), python (>= 2.7), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 2.10), libc6 (>= 2.19), libcairo2 (>= 1.13), libglib2.0-0 (>= 2.40), libgtk2.0-0 (>= 2.24.23), libpango1.0-0 (>= 1.36.3), lsb-release
+Depends: procps, python-gi (>= 3.20), python (>= 2.7), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 2.10), libc6 (>= 2.19), libcairo2 (>= 1.13), libglib2.0-0 (>= 2.40), libgtk-3-dev (>= 3.0), libpango1.0-0 (>= 1.36.3), lsb-release
 Suggests: nautilus (>= 3.10.1), python-gpg (>= 1.8.0)
 Homepage: https://www.dropbox.com/
 Description: cloud synchronization engine - CLI and Nautilus extension
