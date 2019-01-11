@@ -170,11 +170,10 @@ def is_dropbox_running():
     pidfile = os.path.expanduser("~/.dropbox/dropbox.pid")
 
     try:
-        import psutil
         with open(pidfile, "r") as f:
             pid = int(f.read())
-        process = psutil.Process(pid)
-        cmdline = process.name().lower()
+        with open("/proc/%d/cmdline" % pid, "r") as f:
+            cmdline = f.read().lower()
     except:
         cmdline = ""
 
