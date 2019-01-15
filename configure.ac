@@ -30,6 +30,7 @@ PKG_CHECK_MODULES(NAUTILUS, libnautilus-extension >= $NAUTILUS_REQUIRED)
 PKG_CHECK_MODULES(GLIB, glib-2.0 >= $GLIB_REQUIRED)
 
 AC_PATH_PROG([PYTHON], [python])
+AC_PATH_PROG([PYTHON3], [python3])
 
 AC_PATH_PROG([RST2MAN], [rst2man], [python rst2man.py])
 AC_SUBST(RST2MAN)
@@ -55,8 +56,30 @@ else
 fi
 ])
 
+AC_DEFUN([PYTHON3_CHECK_MODULE], [
+AC_MSG_CHECKING([for $1 on python3])
+
+cat <<EOF | python3
+try:
+ import $2
+except:
+ exit(1)
+else:
+ exit(0)
+EOF
+
+if test $? -ne 0; then
+   AC_MSG_RESULT([no])
+   AC_MSG_ERROR([couldn't find $1])
+else
+   AC_MSG_RESULT([yes])
+fi
+])
+
 PYTHON_CHECK_MODULE(gi, gi)
 PYTHON_CHECK_MODULE(docutils, docutils)
+
+PYTHON3_CHECK_MODULE(gi, gi)
 
 # Make dependency CFLAGS and LIBS available
 AC_SUBST(NAUTILUS_CFLAGS)

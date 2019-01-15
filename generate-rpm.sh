@@ -76,9 +76,10 @@ BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id} -u -n)
 Requires:	nautilus-extensions >= %{nautilus_version}
 Requires:	glib2 >= %{glib_version}
 Requires:	libgnome >= %{gnome_version}
-Requires:	pygobject3 >= %{pygobject3_version}
+Requires:   python3
+Requires:   python3-gobject >= %{pygobject3_version}
 
-%{?with_suggest_tags:Suggests: pygpgme}
+%{?with_suggest_tags:Suggests: python3-pygpgme}
 
 BuildRequires:	nautilus-devel >= %{nautilus_version}
 BuildRequires:	glib2-devel >= %{glib_version}
@@ -87,8 +88,8 @@ BuildRequires:  cairo-devel
 BuildRequires:  gtk3-devel
 BuildRequires:  atk-devel
 BuildRequires:  pango-devel
-BuildRequires:  pygobject3-devel >= %{pygobject3_version}
-
+BuildRequires:  python3
+BuildRequires:  python3-gobject >= %{pygobject3_version}
 %description
 Nautilus Dropbox is an extension that integrates
 the Dropbox web service with your GNOME Desktop.
