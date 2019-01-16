@@ -76,7 +76,6 @@ else
 fi
 ])
 
-PYTHON_CHECK_MODULE(gi, gi)
 PYTHON_CHECK_MODULE(docutils, docutils)
 
 PYTHON3_CHECK_MODULE(gi, gi)

@@ -257,10 +257,9 @@ class DownloadState(object):
 
         Returns True if Dropbox can run, false otherwise.
         """
-        db_path = DROPBOXD_PATH.encode(sys.getfilesystemencoding())
         f = open("/dev/null", "w")
         try:
-            a = subprocess.Popen([db_path, "/testrun", "0"], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
+            a = subprocess.Popen([DROPBOXD_PATH, "/testrun", "0"], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
                                  stderr=sys.stderr, stdout=f, close_fds=True)
         except Exception as e:
             print (e)
@@ -748,11 +747,10 @@ def requires_dropbox_running(meth):
     return newmeth
 
 def start_dropbox():
-    db_path = DROPBOXD_PATH.encode(sys.getfilesystemencoding())
-    if os.access(db_path, os.X_OK):
+    if os.access(DROPBOXD_PATH, os.X_OK):
         f = open("/dev/null", "w")
         # we don't reap the child because we're gonna die anyway, let init do it
-        subprocess.Popen([db_path], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
+        subprocess.Popen([DROPBOXD_PATH], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
                              stderr=sys.stderr, stdout=f, close_fds=True)
 
         # in seconds
@@ -885,7 +883,7 @@ options:
 
                     for a in args:
                         try:
-                            (dirs if os.path.isdir(a) else nondirs).append(a.decode(enc))
+                            (dirs if os.path.isdir(a) else nondirs).append(a)
                         except UnicodeDecodeError:
                             continue
 
@@ -1040,7 +1038,7 @@ Prints out a public url for FILE (which must be in your public folder).
     try:
         with closing(DropboxCommand()) as dc:
             try:
-                console_print(dc.get_public_link(path=os.path.abspath(args[0].decode(sys.getfilesystemencoding()))).get(u'link', [u'No Link'])[0])
+                console_print(dc.get_public_link(path=os.path.abspath(args[0])).get(u'link', [u'No Link'])[0])
             except DropboxCommand.CommandError as e:
                 console_print("Couldn't get public url: " + str(e))
             except DropboxCommand.BadConnectionError:
@@ -1095,9 +1093,9 @@ PASSWORD - (optional) proxy password (only valid with "manual" mode)
     mode = None
     type_ = None
     if len(args) >= 1:
-        mode = args[0].decode(sys.getfilesystemencoding()).lower()
+        mode = args[0].lower()
     if len(args) >= 2:
-        type_ = args[1].decode(sys.getfilesystemencoding()).lower()
+        type_ = args[1].lower()
 
     if (len(args) == 0 or
         mode not in [u'none', u'auto', u'manual'] or
@@ -1111,7 +1109,7 @@ PASSWORD - (optional) proxy password (only valid with "manual" mode)
     ARGS = ['mode', 'type', 'host', 'port', 'username', 'password']
 
     # Load the args into a dictionary
-    kwargs = dict(zip(ARGS, [a.decode(sys.getfilesystemencoding()) for a in args]))
+    kwargs = dict(zip(ARGS, [a for a in args]))
 
     # Re-set these two because they were coerced to lower case
     kwargs['mode'] = mode
@@ -1147,8 +1145,8 @@ UPLOAD - one of "unlimited", "auto", or a manual limit in KB/s
         console_print(throttle.__doc__, linebreak=False)
         return
 
-    downlimit = args[0].decode(sys.getfilesystemencoding()).lower()
-    uplimit = args[1].decode(sys.getfilesystemencoding()).lower()
+    downlimit = args[0].lower()
+    uplimit = args[1].lower()
 
     download_limit = None
     download_mode = None
@@ -1351,7 +1349,7 @@ Any specified path must be within Dropbox.
     elif len(args) >= 2:
         sub_command = args[0]
         paths = args[1:]
-        absolute_paths = [os.path.abspath(path.decode(sys.getfilesystemencoding())) for path in paths]
+        absolute_paths = [os.path.abspath(path) for path in paths]
         if sub_command == "add":
             try:
                 with closing(DropboxCommand(timeout=None)) as dc:
@@ -1484,7 +1482,7 @@ options:
 Note: May only work on current Ubuntu distributions.
 """
     if len(argv) != 1:
-        console_print(''.join(autostart.__doc__.split('\n', 1)[1:]).decode('ascii'))
+        console_print(''.join(autostart.__doc__.split('\n', 1)[1:]))
         return
 
     s = argv[0].lower()
@@ -1511,11 +1509,11 @@ With no arguments, print a list of commands and a short description of each. Wit
         return usage(argv)
     for command in commands:
         if command == argv[0]:
-            console_print(commands[command].__doc__.split('\n', 1)[1].decode('ascii'))
+            console_print(commands[command].__doc__.split('\n', 1)[1])
             return
     for alias in aliases:
         if alias == argv[0]:
-            console_print(aliases[alias].__doc__.split('\n', 1)[1].decode('ascii'))
+            console_print(aliases[alias].__doc__.split('\n', 1)[1])
             return
     console_print("unknown command '%s'" % argv[0], f=sys.stderr)
 
