@@ -147,7 +147,7 @@ def is_dropbox_running():
 
 @contextmanager
 def gpg_context(keys):
-    gpg_conf_contents = ''
+    gpg_conf_contents = b''
     _gpghome = tempfile.mkdtemp(prefix='tmp.gpghome')
 
     try:
