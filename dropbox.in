@@ -1109,7 +1109,7 @@ PASSWORD - (optional) proxy password (only valid with "manual" mode)
     ARGS = ['mode', 'type', 'host', 'port', 'username', 'password']
 
     # Load the args into a dictionary
-    kwargs = dict(zip(ARGS, [a for a in args]))
+    kwargs = dict(zip(ARGS, args))
 
     # Re-set these two because they were coerced to lower case
     kwargs['mode'] = mode
