@@ -432,7 +432,7 @@ Source: dropbox
 Section: gnome
 Priority: optional
 Maintainer: Dropbox <support@dropbox.com>
-Build-Depends: cdbs, debhelper (>= 9), build-essential, libnautilus-extension-dev (>= 3.10.1), libglib2.0-dev (>= 2.40), python-gi (>= 3.12), python-docutils
+Build-Depends: cdbs, debhelper (>= 9), build-essential, libnautilus-extension-dev (>= 3.10.1), libglib2.0-dev (>= 2.40), python-gi (>= 3.12), python-docutils, python3-gi (>= 3.12), python3-docutils
 Standards-Version: 3.9.4.0
 
 Package: dropbox
@@ -440,8 +440,8 @@ Replaces: nautilus-dropbox
 Breaks: nautilus-dropbox
 Provides: nautilus-dropbox
 Architecture: any
-Depends: procps, python-gi (>= 3.12), python (>= 2.7), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 2.10), libc6 (>= 2.19), libcairo2 (>= 1.13), libglib2.0-0 (>= 2.40), libgtk-3-0 (>= 3.10.8), libpango1.0-0 (>= 1.36.3), lsb-release, gir1.2-gdkpixbuf-2.0 (>= 2.30.7), gir1.2-glib-2.0 (>= 1.40.0), gir1.2-gtk-3.0 (>= 3.10.8), gir1.2-pango-1.0 (>= 1.36.3)
-Suggests: nautilus (>= 3.10.1), python-gpg (>= 1.8.0)
+Depends: procps, python3-gi (>= 3.12), python3 (>= 3.4.0), \${python:Depends}, \${misc:Depends}, libatk1.0-0 (>= 2.10), libc6 (>= 2.19), libcairo2 (>= 1.13), libglib2.0-0 (>= 2.40), libgtk-3-0 (>= 3.10.8), libpango1.0-0 (>= 1.36.3), lsb-release, gir1.2-gdkpixbuf-2.0 (>= 2.30.7), gir1.2-glib-2.0 (>= 1.40.0), gir1.2-gtk-3.0 (>= 3.10.8), gir1.2-pango-1.0 (>= 1.36.3)
+Suggests: nautilus (>= 3.10.1), python3-gpg (>= 1.8.0)
 Homepage: https://www.dropbox.com/
 Description: cloud synchronization engine - CLI and Nautilus extension
  Dropbox is a free service that lets you bring your photos, docs, and videos
