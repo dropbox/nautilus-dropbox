@@ -262,7 +262,7 @@ class DownloadState(object):
             a = subprocess.Popen([DROPBOXD_PATH, "/testrun", "0"], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
                                  stderr=sys.stderr, stdout=f, close_fds=True)
         except Exception as e:
-            print (e)
+            print(e)
             return False
 
         # in seconds
@@ -335,7 +335,7 @@ if GUI_AVAILABLE:
                         if self._stopped:
                             _thread.exit()
                 except Exception as e:
-                    print (e)
+                    print(e)
                     if self.on_exception is not None:
                         GObject.idle_add(self.on_exception, e)
                 else:
