@@ -432,7 +432,7 @@ Source: dropbox
 Section: gnome
 Priority: optional
 Maintainer: Dropbox <support@dropbox.com>
-Build-Depends: cdbs, debhelper (>= 9), build-essential, libnautilus-extension-dev (>= 3.10.1), libglib2.0-dev (>= 2.40), python-gi (>= 3.12), python-docutils, python3-gi (>= 3.12), python3-docutils
+Build-Depends: cdbs, debhelper (>= 9), build-essential, libnautilus-extension-dev (>= 3.10.1), libglib2.0-dev (>= 2.40), python-docutils, python3-gi (>= 3.12)
 Standards-Version: 3.9.4.0
 
 Package: dropbox

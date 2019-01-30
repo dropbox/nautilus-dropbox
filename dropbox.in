@@ -631,7 +631,7 @@ class DropboxCommand(object):
         self.s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.s.settimeout(timeout)
         try:
-            self.s.connect(os.path.expanduser(u'~/.dropbox/command_socket'))
+            self.s.connect(os.path.expanduser('~/.dropbox/command_socket'))
         except socket.error:
             raise DropboxCommand.CouldntConnectError()
         self.f = self.s.makefile("rw", 4096)
@@ -900,7 +900,7 @@ options:
                         path = "%s (File doesn't exist!)" % os.path.basename(file_path)
                         return (path, path)
                     try:
-                        status = dc.icon_overlay_file_status(path=file_path).get(u'status', [None])[0]
+                        status = dc.icon_overlay_file_status(path=file_path).get('status', [None])[0]
                     except DropboxCommand.CommandError as e:
                         path =  "%s (%s)" % (os.path.basename(file_path), e)
                         return (path, path)
@@ -941,7 +941,7 @@ options:
                         if type(subname) != str:
                             continue
 
-                        if not options.all and subname[0] == u'.':
+                        if not options.all and subname[0] == '.':
                             continue
 
                         try:
@@ -1006,7 +1006,7 @@ options:
                         continue
 
                     try:
-                        status = dc.icon_overlay_file_status(path=fp).get(u'status', [u'unknown'])[0]
+                        status = dc.icon_overlay_file_status(path=fp).get('status', ['unknown'])[0]
                         console_print("%-*s %s" % (indent, file+':', status))
                     except DropboxCommand.CommandError as e:
                         console_print("%-*s %s" % (indent, file+':', e))
@@ -1038,7 +1038,7 @@ Prints out a public url for FILE (which must be in your public folder).
     try:
         with closing(DropboxCommand()) as dc:
             try:
-                console_print(dc.get_public_link(path=os.path.abspath(args[0])).get(u'link', [u'No Link'])[0])
+                console_print(dc.get_public_link(path=os.path.abspath(args[0])).get('link', ['No Link'])[0])
             except DropboxCommand.CommandError as e:
                 console_print("Couldn't get public url: " + str(e))
             except DropboxCommand.BadConnectionError:
@@ -1064,7 +1064,7 @@ Prints out a shared link for FILE.
         with closing(DropboxCommand()) as dc:
             try:
                 path = os.path.abspath(args[0])
-                link = dc.get_shared_link(path=path).get('link', [u'No link'])[0]
+                link = dc.get_shared_link(path=path).get('link', ['No link'])[0]
                 console_print(link)
             except DropboxCommand.CommandError as e:
                 console_print("Couldn't get shared link: " + str(e))
@@ -1098,10 +1098,10 @@ PASSWORD - (optional) proxy password (only valid with "manual" mode)
         type_ = args[1].lower()
 
     if (len(args) == 0 or
-        mode not in [u'none', u'auto', u'manual'] or
+        mode not in ['none', 'auto', 'manual'] or
         (mode == 'manual' and len(args) not in (4, 6)) or
         (mode != 'manual' and len(args) != 1) or
-        (mode == 'manual' and type_ not in [u'http', u'socks4', u'socks5'])):
+        (mode == 'manual' and type_ not in ['http', 'socks4', 'socks5'])):
         # Print help
         console_print(proxy.__doc__, linebreak=False)
         return
@@ -1120,7 +1120,7 @@ PASSWORD - (optional) proxy password (only valid with "manual" mode)
         with closing(DropboxCommand()) as dc:
             try:
                 dc.set_proxy_settings(**kwargs)
-                console_print(u'set')
+                console_print('set')
             except DropboxCommand.CommandError as e:
                 console_print("Couldn't set proxy: " + str(e))
             except DropboxCommand.BadConnectionError:
@@ -1150,42 +1150,42 @@ UPLOAD - one of "unlimited", "auto", or a manual limit in KB/s
 
     download_limit = None
     download_mode = None
-    if downlimit == u'unlimited':
+    if downlimit == 'unlimited':
         download_mode = downlimit
     else:
         try:
             download_limit = int(downlimit)
-            download_mode = u'manual'
+            download_mode = 'manual'
         except ValueError:
             console_print(throttle.__doc__, linebreak=False)
             return
 
     upload_limit = None
     upload_mode = None
-    if uplimit in [u'unlimited', u'auto']:
+    if uplimit in ['unlimited', 'auto']:
         upload_mode = uplimit
     else:
         try:
             upload_limit = int(uplimit)
-            upload_mode = u'manual'
+            upload_mode = 'manual'
         except ValueError:
             console_print(throttle.__doc__, linebreak=False)
             return
 
     kwargs = {
-        u'download_mode': download_mode,
-        u'upload_mode': upload_mode,
+        'download_mode': download_mode,
+        'upload_mode': upload_mode,
     }
     if download_limit:
-        kwargs[u'download_limit'] = str(download_limit)
+        kwargs['download_limit'] = str(download_limit)
     if upload_limit:
-        kwargs[u'upload_limit'] = str(upload_limit)
+        kwargs['upload_limit'] = str(upload_limit)
 
     try:
         with closing(DropboxCommand()) as dc:
             try:
                 dc.set_bandwidth_limits(**kwargs)
-                console_print(u'set')
+                console_print('set')
             except DropboxCommand.CommandError as e:
                 console_print("Couldn't set bandwidth limits: " + str(e))
             except DropboxCommand.BadConnectionError:
@@ -1210,9 +1210,9 @@ Prints out the current status of the Dropbox daemon.
     try:
         with closing(DropboxCommand()) as dc:
             try:
-                lines = dc.get_dropbox_status()[u'status']
+                lines = dc.get_dropbox_status()['status']
                 if len(lines) == 0:
-                    console_print(u'Idle')
+                    console_print('Idle')
                 else:
                     for line in lines:
                         console_print(line)
@@ -1323,12 +1323,12 @@ Any specified path must be within Dropbox.
         try:
             with closing(DropboxCommand()) as dc:
                 try:
-                    lines = [relpath(path) for path in dc.get_ignore_set()[u'ignore_set']]
+                    lines = [relpath(path) for path in dc.get_ignore_set()['ignore_set']]
                     lines.sort()
                     if len(lines) == 0:
-                        console_print(u'No directories are being ignored.')
+                        console_print('No directories are being ignored.')
                     else:
-                        console_print(u'Excluded: ')
+                        console_print('Excluded: ')
                         for line in lines:
                             console_print(str(line))
                 except KeyError:
@@ -1450,10 +1450,10 @@ options:
 
 
 def can_reroll_autostart():
-    return ".config" in os.listdir(os.path.expanduser(u'~'))
+    return ".config" in os.listdir(os.path.expanduser('~'))
 
 def reroll_autostart(should_autostart):
-    home_dir = os.path.expanduser(u'~')
+    home_dir = os.path.expanduser('~')
     contents = os.listdir(home_dir)
 
     # UBUNTU
