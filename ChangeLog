@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project.  This is so that it doesn't get confused with the Dropbox desktop client.
 
+Version 2019.01.31
+------------------
+    * Move to Python 3 and GTK3
+
 Version 2018.11.28
 ------------------
 	* Fix bug where the Dropbox tray icon wouldn't display on Ubuntu
