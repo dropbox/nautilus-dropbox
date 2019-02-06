@@ -226,8 +226,7 @@ KEYDATA
           find_apt_sources() {
             APTDIR=$(apt_config_val Dir)
             APTETC=$(apt_config_val 'Dir::Etc')
-            APT_SOURCES="$APTDIR$APTETC$(apt_config_val 'Dir::Etc::sourcelist')"
-            APT_SOURCESDIR="$APTDIR$APTETC$/(apt_config_val 'Dir::Etc::sourceparts')"
+            APT_SOURCESDIR="$APTDIR$APTETC/$(apt_config_val 'Dir::Etc::sourceparts')"
           }
 
           # Add the Dropbox repository to the apt sources.
@@ -380,8 +379,7 @@ uninstall_key() {
 find_apt_sources() {
   APTDIR=$(apt_config_val Dir)
   APTETC=$(apt_config_val 'Dir::Etc')
-  APT_SOURCES="$APTDIR$APTETC$(apt_config_val 'Dir::Etc::sourcelist')"
-  APT_SOURCESDIR="$APTDIR$APTETC$(apt_config_val 'Dir::Etc::sourceparts')"
+  APT_SOURCESDIR="$APTDIR$APTETC/$(apt_config_val 'Dir::Etc::sourceparts')"
 }
 
 # Remove a repository from the apt sources.
