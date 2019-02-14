@@ -14,9 +14,9 @@ fi
 
 # get version
 if which gawk; then
-    CURVER=$(gawk '/^AC_INIT/{sub("AC_INIT\\(\\[nautilus-dropbox\\],", ""); sub("\\)", ""); print $0}' configure.ac)
+    CURVER=$(gawk '/^AC_INIT/{sub("AC_INIT\\(\\[nautilus-dropbox\\], ", ""); sub("\\)", ""); print $0}' configure.ac)
 else
-    CURVER=$(awk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\],", ""); sub("\)", ""); print $0}' configure.ac)
+    CURVER=$(awk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\], ", ""); sub("\)", ""); print $0}' configure.ac)
 fi
 
 # backup old rpmmacros file
