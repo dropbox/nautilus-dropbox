@@ -41,3 +41,7 @@ sudo DIST=jessie ARCH=amd64 pbuilder create --debootstrapopts --variant=buildd
 8. Build all the packages with: `python build_packages.py`
 
 If the build is successful, a tar of the output will be in: /tmp/nautilus-dropbox-release.tar.gz
+
+8. Update the ChangeLog with all the changes in the release.
+
+9. Tag the release and push the tag to GitHub.
