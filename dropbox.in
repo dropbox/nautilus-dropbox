@@ -843,10 +843,11 @@ def columnize(list, display_list=None, display_width=None):
 
 @command
 def update(args):
-    """download latest version of dropbox
+    """download latest version of Dropbox
 dropbox update
 
-Downloads the latest version of dropbox.
+Downloads the latest version of Dropbox. This should not be required
+normally, as Dropbox automatically updates itself.
 """
     download()
 
@@ -1026,7 +1027,7 @@ This is an alias for filestatus -l
 @command
 @requires_dropbox_running
 def puburl(args):
-    """get public url of a file in your dropbox's public folder
+    """get public url of a file in your Dropbox's public folder
 dropbox puburl FILE
 
 Prints out a public url for FILE (which must be in your public folder).
@@ -1051,7 +1052,7 @@ Prints out a public url for FILE (which must be in your public folder).
 @command
 @requires_dropbox_running
 def sharelink(args):
-    """get a shared link for a file in your dropbox
+    """get a shared link for a file in your Dropbox
 dropbox sharelink FILE
 
 Prints out a shared link for FILE.
@@ -1230,7 +1231,7 @@ Prints out the current status of the Dropbox daemon.
 
 @command
 def running(argv):
-    """return whether dropbox is running
+    """return whether Dropbox is running
 dropbox running
 
 Returns 1 if running 0 if not running.
@@ -1243,7 +1244,7 @@ def stop(args):
     """stop dropboxd
 dropbox stop
 
-Stops the dropbox daemon.
+Stops the Dropbox daemon.
 """
     try:
         with closing(DropboxCommand()) as dc:
@@ -1263,7 +1264,7 @@ def grab_link_url_if_necessary():
             try:
                 link_url = dc.needs_link().get("link_url", None)
                 if link_url is not None:
-                    console_print("To link this computer to a dropbox account, visit the following url:\n%s" % link_url[0])
+                    console_print("To link this computer to a Dropbox account, visit the following url:\n%s" % link_url[0])
                     return True
                 else:
                     return False
@@ -1283,8 +1284,8 @@ def lansync(argv):
 dropbox lansync [y/n]
 
 options:
-  y  dropbox will use LAN sync (default)
-  n  dropbox will not use LAN sync
+  y  Dropbox will use LAN sync (default)
+  n  Dropbox will not use LAN sync
 """
     if len(argv) != 1:
         console_print(lansync.__doc__, linebreak=False)
@@ -1408,7 +1409,7 @@ def start(argv):
     """start dropboxd
 dropbox start [-i]
 
-Starts the dropbox daemon, dropboxd. If dropboxd is already running, this will do nothing.
+Starts the Dropbox daemon, dropboxd. If dropboxd is already running, this will do nothing.
 
 options:
   -i --install  auto install dropboxd if not available on the system
@@ -1472,12 +1473,12 @@ def reroll_autostart(should_autostart):
 
 @command
 def autostart(argv):
-    """automatically start dropbox at login
+    """automatically start Dropbox at login
 dropbox autostart [y/n]
 
 options:
-  n  dropbox will not start automatically at login
-  y  dropbox will start automatically at login (default)
+  n  Dropbox will not start automatically at login
+  y  Dropbox will start automatically at login (default)
 
 Note: May only work on current Ubuntu distributions.
 """
