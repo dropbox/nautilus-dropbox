@@ -29,7 +29,7 @@ package.
 You will need to install the following dependencies (instructions are Ubuntu-specific):
 
 ```
-$ sudo apt-get install -y gnome-common libnautilus-extension-dev python-gtk2-dev python-docutils
+$ sudo apt-get install -y gnome-common libnautilus-extension-dev python3-gi python3-docutils
 ```
 
 Then run the following to build and install nautilus-dropbox:

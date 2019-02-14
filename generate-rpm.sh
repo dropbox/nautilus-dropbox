@@ -76,14 +76,14 @@ BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id} -u -n)
 Requires:	nautilus-extensions >= %{nautilus_version}
 Requires:	glib2 >= %{glib_version}
 Requires:	libgnome >= %{gnome_version}
-Requires:   python3
-Requires:   python3-gobject >= %{pygobject3_version}
+Requires:	python3
+Requires:	python3-gobject >= %{pygobject3_version}
 
 %{?with_suggest_tags:Suggests: python3-pygpgme}
 
 BuildRequires:	nautilus-devel >= %{nautilus_version}
 BuildRequires:	glib2-devel >= %{glib_version}
-BuildRequires:	python-docutils
+BuildRequires:	python3-docutils
 BuildRequires:  cairo-devel
 BuildRequires:  gtk3-devel
 BuildRequires:  atk-devel
