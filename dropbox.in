@@ -848,7 +848,7 @@ dropbox update
 
 Downloads the latest version of Dropbox. This should not be required
 normally, as Dropbox automatically updates itself.
-"""
+    """
     download()
 
 @command
@@ -861,9 +861,9 @@ dropbox filestatus [-l] [-a] [FILE]...
 Prints the current status of each FILE.
 
 options:
-  -l --list  prints out information in a format similar to ls. works best when your console supports color :)
-  -a --all   do not ignore entries starting with .
-"""
+  -l --list  Prints out information in a format similar to ls. Works best when your console supports color :)
+  -a --all   Do not ignore entries starting with "."
+    """
     global enc
 
     oparser = optparse.OptionParser()
@@ -1021,7 +1021,7 @@ def ls(args):
 dropbox ls [FILE]...
 
 This is an alias for filestatus -l
-"""
+    """
     return filestatus(["-l"] + args)
 
 @command
@@ -1031,7 +1031,7 @@ def puburl(args):
 dropbox puburl FILE
 
 Prints out a public url for FILE (which must be in your public folder).
-"""
+    """
     if len(args) != 1:
         console_print(puburl.__doc__,linebreak=False)
         return
@@ -1056,7 +1056,7 @@ def sharelink(args):
 dropbox sharelink FILE
 
 Prints out a shared link for FILE.
-"""
+    """
     if len(args) != 1:
         console_print(sharelink.__doc__, linebreak=False)
         return
@@ -1090,7 +1090,7 @@ HOST - proxy hostname (only valid with "manual" mode)
 PORT - proxy port (only valid with "manual" mode)
 USERNAME - (optional) proxy username (only valid with "manual" mode)
 PASSWORD - (optional) proxy password (only valid with "manual" mode)
-"""
+    """
     mode = None
     type_ = None
     if len(args) >= 1:
@@ -1141,7 +1141,7 @@ Set bandwidth limits for file sync.
 
 DOWNLOAD - either "unlimited" or a manual limit in KB/s
 UPLOAD - one of "unlimited", "auto", or a manual limit in KB/s
-"""
+    """
     if len(args) != 2:
         console_print(throttle.__doc__, linebreak=False)
         return
@@ -1203,7 +1203,7 @@ def status(args):
 dropbox status
 
 Prints out the current status of the Dropbox daemon.
-"""
+    """
     if len(args) != 0:
         console_print(status.__doc__,linebreak=False)
         return
@@ -1234,8 +1234,8 @@ def running(argv):
     """return whether Dropbox is running
 dropbox running
 
-Returns 1 if running 0 if not running.
-"""
+Returns 1 if running, and 0 if not running.
+    """
     return int(is_dropbox_running())
 
 @command
@@ -1245,7 +1245,7 @@ def stop(args):
 dropbox stop
 
 Stops the Dropbox daemon.
-"""
+    """
     try:
         with closing(DropboxCommand()) as dc:
             try:
@@ -1286,7 +1286,7 @@ dropbox lansync [y/n]
 options:
   y  Dropbox will use LAN sync (default)
   n  Dropbox will not use LAN sync
-"""
+    """
     if len(argv) != 1:
         console_print(lansync.__doc__, linebreak=False)
         return
@@ -1315,11 +1315,15 @@ dropbox exclude add [DIRECTORY] [DIRECTORY] ...
 dropbox exclude remove [DIRECTORY] [DIRECTORY] ...
 
 "list" prints a list of directories currently excluded from syncing.
-"add" adds one or more directories to the exclusion list, then resynchronizes Dropbox.
-"remove" removes one or more directories from the exclusion list, then resynchronizes Dropbox.
+"add" adds one or more directories to the exclusion list, then
+resynchronizes Dropbox.
+"remove" removes one or more directories from the exclusion list, then
+resynchronizes Dropbox.
+
 With no arguments, executes "list".
+
 Any specified path must be within Dropbox.
-"""
+    """
     if len(args) == 0:
         try:
             with closing(DropboxCommand()) as dc:
@@ -1409,11 +1413,12 @@ def start(argv):
     """start dropboxd
 dropbox start [-i]
 
-Starts the Dropbox daemon, dropboxd. If dropboxd is already running, this will do nothing.
+Starts the Dropbox daemon, dropboxd. If dropboxd is already running,
+this will do nothing.
 
 options:
   -i --install  auto install dropboxd if not available on the system
-"""
+    """
 
     should_install = "-i" in argv or "--install" in argv
 
@@ -1481,7 +1486,7 @@ options:
   y  Dropbox will start automatically at login (default)
 
 Note: May only work on current Ubuntu distributions.
-"""
+    """
     if len(argv) != 1:
         console_print(''.join(autostart.__doc__.split('\n', 1)[1:]))
         return
@@ -1504,31 +1509,33 @@ def help(argv):
     """provide help
 dropbox help [COMMAND]
 
-With no arguments, print a list of commands and a short description of each. With a command, print descriptive help on how to use the command.
-"""
+With no arguments, print a list of commands and a short description of
+each. With a command, print descriptive help on how to use the
+command.
+    """
     if not argv:
-        return usage(argv)
+        return usage()
     for command in commands:
         if command == argv[0]:
-            console_print(commands[command].__doc__.split('\n', 1)[1])
+            console_print(commands[command].__doc__.split('\n', 1)[1].strip())
             return
     for alias in aliases:
         if alias == argv[0]:
-            console_print(aliases[alias].__doc__.split('\n', 1)[1])
+            console_print(aliases[alias].__doc__.split('\n', 1)[1].strip())
             return
     console_print("unknown command '%s'" % argv[0], f=sys.stderr)
 
-def usage(argv):
+def usage():
     console_print("Dropbox command-line interface\n")
     console_print("commands:\n")
     console_print("Note: use dropbox help <command> to view usage for a specific command.\n")
     out = []
     for command in commands:
         out.append((command, commands[command].__doc__.splitlines()[0]))
+    out.sort(key=lambda x: x[0])
     spacing = max(len(o[0])+3 for o in out)
     for o in out:
         console_print(" %-*s%s" % (spacing, o[0], o[1]))
-    console_print()
 
 def main(argv):
     global commands
@@ -1543,7 +1550,7 @@ def main(argv):
             break
 
     if cut == None:
-        usage(argv)
+        usage()
         os._exit(0)
         return
 
