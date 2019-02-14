@@ -4,6 +4,8 @@ Date based versioning is now used in this project.  This is so that it doesn't g
 
 Version 2019.02.14
 ------------------
+	* Add "version" command, which prints out the version of the
+	Dropbox daemon and the Dropbox command-line interface.
 	* Update gpg warning to tell users to install the Python 3 GPG
 	libraries instead of the Python 2 libraries.
 	* Fix bug where the dropbox nautilus repo wasn't being added to

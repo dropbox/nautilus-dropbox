@@ -70,7 +70,8 @@ DOWNLOADING = "Downloading Dropbox... %d%%"
 UNPACKING = "Unpacking Dropbox... %d%%"
 
 PARENT_DIR = os.path.expanduser("~")
-DROPBOXD_PATH = "%s/.dropbox-dist/dropboxd" % PARENT_DIR
+DROPBOX_DIST_PATH = "%s/.dropbox-dist" % PARENT_DIR
+DROPBOXD_PATH = os.path.join(DROPBOX_DIST_PATH, "dropboxd")
 DESKTOP_FILE = "@DESKTOP_FILE_DIR@/dropbox.desktop"
 
 enc = locale.getpreferredencoding()
@@ -1503,6 +1504,24 @@ Note: May only work on current Ubuntu distributions.
         console_print(autostart.__doc__,linebreak=False)
     else:
         reroll_autostart(should_autostart)
+
+@command
+def version(argv):
+    """print version information for Dropbox
+dropbox version
+
+Prints the version information for the Dropbox proprietary daemon, if
+it's installed, and the Dropbox command-line interface.
+    """
+    dropbox_daemon_version = "Not installed"
+    try:
+        with open(os.path.join(DROPBOX_DIST_PATH, 'VERSION')) as f:
+            dropbox_daemon_version = f.read().strip()
+    except OSError:
+        pass
+
+    console_print("Dropbox daemon version: %s" % dropbox_daemon_version)
+    console_print("Dropbox command-line interface version: @PACKAGE_VERSION@")
 
 @command
 def help(argv):
