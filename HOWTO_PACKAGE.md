@@ -38,7 +38,7 @@ sudo DIST=jessie ARCH=amd64 pbuilder create --debootstrapopts --variant=buildd
 
 7. Copy rpm_resources/.rpmmacros to ~/.rpmmacros
 
-8. Build all the packages with: `python build_packages.py`
+8. Build all the packages with: `python3 build_packages.py`
 
 If the build is successful, a tar of the output will be in: /tmp/nautilus-dropbox-release.tar.gz
 
