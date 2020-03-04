@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project.  This is so that it doesn't get confused with the Dropbox desktop client.
 
+Version 2020.03.04
+------------------
+	* Coerce XDG_CURRENT_DESKTOP to "Unity". This works around the
+	dropbox binary that will only activate the indicator icon and menu
+	on Ubuntu Unity < 16.10. This patch coerces XDG_CURRENT_DESKTOP to
+	report as "Unity" for the budgie-desktop
+	https://bugs.launchpad.net/ubuntu/+source/nautilus-dropbox/+bug/1683051
+
 Version 2019.02.14
 ------------------
 	* Add "version" command, which prints out the version of the
