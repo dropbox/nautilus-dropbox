@@ -4,14 +4,14 @@ This is a work-in-progress guide on how to build Ubuntu, Debian, and
 Fedora packages for nautilus-dropbox. It assumes you're building from
 a 16.04 Ubuntu machine.
 
-1. Obtain the signing key.
+1. Obtain the signing key. Add it to your keyring using `gpg --import /path/to/key`.
 
 2. Install the build dependencies.
 
 This is a non-exhaustive list of what you'll need:
 
 ```
-sudo apt-get install pbuilder debootstrap devscripts libnautilus-extension-dev mock rpm expect createrepo cdbs gnome-common debian-archive-keyring
+sudo apt-get install pbuilder debootstrap devscripts libnautilus-extension-dev mock rpm expect createrepo cdbs gnome-common debian-archive-keyring python3-docutils
 ```
 
 3. Copy .pbuilderrc to ~/.pbuilderrc
