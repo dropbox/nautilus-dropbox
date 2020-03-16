@@ -663,9 +663,11 @@ class DropboxCommand(object):
 
         self.f.flush()
 
-        # Start a ticker
-        ticker_thread = CommandTicker()
-        ticker_thread.start()
+        ticker_thread = None
+        if sys.stderr.isatty():
+            # Start a ticker
+            ticker_thread = CommandTicker()
+            ticker_thread.start()
 
         # This is the potentially long-running call.
         try:
@@ -673,9 +675,10 @@ class DropboxCommand(object):
         except KeyboardInterrupt:
             raise DropboxCommand.BadConnectionError("Keyboard interruption detected")
         finally:
-            # Tell the ticker to stop.
-            ticker_thread.stop()
-            ticker_thread.join()
+            if ticker_thread is not None:
+                # Tell the ticker to stop.
+                ticker_thread.stop()
+                ticker_thread.join()
 
         if ok:
             toret = {}
