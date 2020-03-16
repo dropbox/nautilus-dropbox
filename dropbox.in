@@ -939,7 +939,11 @@ options:
                         init, cleanup = "\x1b[36;1m", "\x1b[0m"
                     elif status == "unsyncable":
                         init, cleanup = "\x1b[41;1m", "\x1b[0m"
-                    elif status == "selsync":
+                    elif status in ("selective sync", "ignored"):
+                        # https://help.dropbox.com/files-folders/restore-delete/ignored-files
+                        # gray-bar on local ignored files
+                        # formerly ignored files were local files under selsync paths
+                        # Accept "selective sync", in addition to "ignored" - for compatibility to < v94 of dropbox
                         init, cleanup = "\x1b[37;1m", "\x1b[0m"
                     else:
                         init, cleanup = '', ''
