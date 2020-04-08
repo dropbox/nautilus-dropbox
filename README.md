@@ -26,10 +26,18 @@ Dropbox Nautilus yourself if you need a package for a distribution
 that we don't support, or you want to develop on the Dropbox Nautilus
 package.
 
-You will need to install the following dependencies (instructions are Ubuntu-specific):
+You will need to install the following dependencies:
+
+For Ubuntu:
 
 ```
 $ sudo apt-get install -y gnome-common libnautilus-extension-dev python3-gi python3-docutils
+```
+
+For Fedora:
+
+```
+$ sudo dnf install -y gnome-common nautilus-devel python3-docutils python3-gobject
 ```
 
 Then run the following to build and install nautilus-dropbox:
