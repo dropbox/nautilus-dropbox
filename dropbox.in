@@ -1026,6 +1026,8 @@ options:
                     try:
                         status = dc.icon_overlay_file_status(path=fp).get('status', ['unknown'])[0]
                         console_print("%-*s %s" % (indent, file+':', status))
+                    except DropboxCommand.BadConnectionError:
+                        console_print("Dropbox isn't responding!")
                     except DropboxCommand.CommandError as e:
                         console_print("%-*s %s" % (indent, file+':', e))
     except DropboxCommand.CouldntConnectError:
