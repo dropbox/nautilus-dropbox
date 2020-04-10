@@ -1320,7 +1320,10 @@ options:
         console_print(lansync.__doc__,linebreak=False)
     else:
         with closing(DropboxCommand()) as dc:
-            dc.set_lan_sync(lansync='enabled' if should_lansync else 'disabled')
+            try:
+                dc.set_lan_sync(lansync='enabled' if should_lansync else 'disabled')
+            except DropboxCommand.BadConnectionError:
+                console_print("Dropbox isn't responding!")
 
 
 @command
