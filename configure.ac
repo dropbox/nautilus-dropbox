@@ -97,6 +97,11 @@ NAUTILUS_VERSION=`$PKG_CONFIG --modversion libnautilus-extension`
 if test -n "$NAUTILUS_VERSION"; then
     NAUTILUS_VERSION_MAJOR=`echo -n $NAUTILUS_VERSION | cut -d . -f 1`
     NAUTILUS_VERSION_MINOR=`echo -n $NAUTILUS_VERSION | cut -d . -f 2`
+    case "$NAUTILUS_VERSION_MINOR" in
+      *[[a-zA-Z]]* )
+          NAUTILUS_VERSION_MINOR=0
+          ;;
+    esac
     NAUTILUS_VERSION_MICRO=`echo -n $NAUTILUS_VERSION | cut -d . -f 3`
 fi
 
