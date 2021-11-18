@@ -611,7 +611,7 @@ class CommandTicker(threading.Thread):
         first = True
         while True:
             self.stop_event.wait(0.25)
-            if self.stop_event.isSet(): break
+            if self.stop_event.is_set(): break
             if i == len(ticks):
                 first = False
                 i = 0
