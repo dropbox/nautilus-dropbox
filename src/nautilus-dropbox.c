@@ -37,9 +37,7 @@
 #include <glib-object.h>
 #include <gtk/gtk.h>
 
-#include <libnautilus-extension/nautilus-extension-types.h>
-#include <libnautilus-extension/nautilus-menu-provider.h>
-#include <libnautilus-extension/nautilus-info-provider.h>
+#include <nautilus-extension.h>
 
 #include "g-util.h"
 #include "dropbox-command-client.h"
@@ -661,7 +659,6 @@ get_file_items_callback(GHashTable *response, gpointer ud)
 
 static GList *
 nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
-                                GtkWidget            *window,
 				GList                *files)
 {
   /*
@@ -888,13 +885,13 @@ on_disconnect(NautilusDropbox *cvs) {
 
 
 static void
-nautilus_dropbox_menu_provider_iface_init (NautilusMenuProviderIface *iface) {
+nautilus_dropbox_menu_provider_iface_init (NautilusMenuProviderInterface *iface) {
   iface->get_file_items = nautilus_dropbox_get_file_items;
   return;
 }
 
 static void
-nautilus_dropbox_info_provider_iface_init (NautilusInfoProviderIface *iface) {
+nautilus_dropbox_info_provider_iface_init (NautilusInfoProviderInterface *iface) {
   iface->update_file_info = nautilus_dropbox_update_file_info;
   iface->cancel_update = nautilus_dropbox_cancel_update;
   return;
