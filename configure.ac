@@ -12,7 +12,7 @@ AM_CONFIG_HEADER(config.h)
 #AC_PROG_INTLTOOL([0.29])
 
 # Dependency checks
-NAUTILUS_REQUIRED=2.16.0
+NAUTILUS_REQUIRED=43.rc
 GLIB_REQUIRED=2.14.0
 
 # Used programs
@@ -26,7 +26,7 @@ if test "x$HAVE_PKGCONFIG" = "xno"; then
 	AC_MSG_ERROR(you need to have pkgconfig installed !)
 fi
 
-PKG_CHECK_MODULES(NAUTILUS, libnautilus-extension >= $NAUTILUS_REQUIRED)
+PKG_CHECK_MODULES(NAUTILUS, libnautilus-extension-4 >= $NAUTILUS_REQUIRED)
 PKG_CHECK_MODULES(GLIB, glib-2.0 >= $GLIB_REQUIRED)
 
 AC_PATH_PROG([PYTHON3], [python3])
@@ -84,10 +84,10 @@ AC_MSG_CHECKING([for nautilus extension directory])
 if test -n "$with_nautilus_extension_dir"; then
     NAUTILUS_EXTENSION_DIR=$with_nautilus_extension_dir
 else
-    NAUTILUS_EXTENSION_DIR=`$PKG_CONFIG --variable=extensiondir libnautilus-extension`
+    NAUTILUS_EXTENSION_DIR=`$PKG_CONFIG --variable=extensiondir libnautilus-extension-4`
 fi
 if test -z "$NAUTILUS_EXTENSION_DIR"; then
-    NAUTILUS_EXTENSION_DIR='${exec_prefix}/lib/nautilus/extension-1.0'
+    NAUTILUS_EXTENSION_DIR='${exec_prefix}/lib/nautilus/extension-4'
 fi
 
 AC_MSG_RESULT([${NAUTILUS_EXTENSION_DIR}])
