@@ -768,14 +768,13 @@ add_emblem_paths(GHashTable* emblem_paths_response)
 
   gchar **emblem_paths_list;
   int i;
-
-  GtkIconTheme *theme = gtk_icon_theme_get_default();
+  GtkIconTheme *theme = gtk_icon_theme_get_for_display (gdk_display_get_default ());
 
   if (emblem_paths_response &&
       (emblem_paths_list = g_hash_table_lookup(emblem_paths_response, "path"))) {
       for (i = 0; emblem_paths_list[i] != NULL; i++) {
 	if (emblem_paths_list[i][0])
-	  gtk_icon_theme_append_search_path(theme, emblem_paths_list[i]);
+	  gtk_icon_theme_add_search_path(theme, emblem_paths_list[i]);
       }
   }
   g_hash_table_unref(emblem_paths_response);
@@ -794,15 +793,14 @@ remove_emblem_paths(GHashTable* emblem_paths_response)
       goto exit;
 
   // We need to remove the old paths.
-  GtkIconTheme * icon_theme = gtk_icon_theme_get_default();
   gchar ** paths;
-  gint path_count;
+  GtkIconTheme *theme = gtk_icon_theme_get_for_display (gdk_display_get_default ());
 
-  gtk_icon_theme_get_search_path(icon_theme, &paths, &path_count);
+  paths = gtk_icon_theme_get_search_path(theme);
 
   gint i, j, out = 0;
   gboolean found = FALSE;
-  for (i = 0; i < path_count; i++) {
+  for (i = 0; paths[i] != NULL; i++) {
       gboolean keep = TRUE;
       for (j = 0; emblem_paths_list[j] != NULL; j++) {
 	  if (emblem_paths_list[j][0]) {
@@ -824,7 +822,7 @@ remove_emblem_paths(GHashTable* emblem_paths_response)
      accomodate the changes */
   if (found) {
     paths[out] = NULL; /* Clear the last one */
-    gtk_icon_theme_set_search_path(icon_theme, (const gchar **)paths, out);
+    gtk_icon_theme_set_search_path(theme, (const gchar **)paths);
   }
 
   g_strfreev(paths);
