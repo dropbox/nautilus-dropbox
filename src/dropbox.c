@@ -27,9 +27,6 @@
 
 #include <glib-object.h>
 
-#include <gdk/gdk.h>
-#include <gtk/gtk.h>
-
 #include "nautilus-dropbox.h"
 
 static GType type_list[1];
