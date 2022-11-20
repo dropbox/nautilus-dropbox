@@ -447,12 +447,12 @@ if GUI_AVAILABLE:
                 self.user_cancelled = False
                 self.task = None
 
-                self.ok = ok = Gtk.Button(stock=Gtk.STOCK_OK)
+                self.ok = ok = Gtk.Button.new_with_mnemonic("_OK")
                 ok.connect('clicked', self.handle_ok)
                 self.action_area.add(ok)
                 ok.show()
 
-                cancel = Gtk.Button(stock=Gtk.STOCK_CANCEL)
+                cancel = Gtk.Button.new_with_mnemonic("_Cancel")
                 cancel.connect('clicked', self.handle_cancel)
                 self.action_area.add(cancel)
                 cancel.show()
