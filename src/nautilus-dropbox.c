@@ -37,9 +37,7 @@
 #include <glib-object.h>
 #include <gtk/gtk.h>
 
-#include <libnautilus-extension/nautilus-extension-types.h>
-#include <libnautilus-extension/nautilus-menu-provider.h>
-#include <libnautilus-extension/nautilus-info-provider.h>
+#include <nautilus-extension.h>
 
 #include "g-util.h"
 #include "dropbox-command-client.h"
@@ -49,7 +47,7 @@
 static char *emblems[] = {"dropbox-uptodate", "dropbox-syncing", "dropbox-unsyncable"};
 gchar *DEFAULT_EMBLEM_PATHS[2] = { EMBLEMDIR , NULL };
 
-gboolean dropbox_use_nautilus_submenu_workaround;
+
 gboolean dropbox_use_operation_in_progress_workaround;
 
 static GType dropbox_type = 0;
@@ -630,13 +628,6 @@ nautilus_dropbox_parse_menu(gchar			**options,
 	g_object_set_property (G_OBJECT(item), "sensitive", &sensitive);
       }
 
-      /* taken from nautilus-file-repairer (http://repairer.kldp.net/):
-       * this code is a workaround for a bug of nautilus
-       * See: http://bugzilla.gnome.org/show_bug.cgi?id=508878 */
-      if (dropbox_use_nautilus_submenu_workaround) {
-	toret = g_list_append(toret, item);
-      }
-
       g_object_unref(item);
       g_string_free(new_action_string, TRUE);
       ret++;
@@ -661,7 +652,6 @@ get_file_items_callback(GHashTable *response, gpointer ud)
 
 static GList *
 nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
-                                GtkWidget            *window,
 				GList                *files)
 {
   /*
@@ -778,14 +768,13 @@ add_emblem_paths(GHashTable* emblem_paths_response)
 
   gchar **emblem_paths_list;
   int i;
-
-  GtkIconTheme *theme = gtk_icon_theme_get_default();
+  GtkIconTheme *theme = gtk_icon_theme_get_for_display (gdk_display_get_default ());
 
   if (emblem_paths_response &&
       (emblem_paths_list = g_hash_table_lookup(emblem_paths_response, "path"))) {
       for (i = 0; emblem_paths_list[i] != NULL; i++) {
 	if (emblem_paths_list[i][0])
-	  gtk_icon_theme_append_search_path(theme, emblem_paths_list[i]);
+	  gtk_icon_theme_add_search_path(theme, emblem_paths_list[i]);
       }
   }
   g_hash_table_unref(emblem_paths_response);
@@ -804,15 +793,14 @@ remove_emblem_paths(GHashTable* emblem_paths_response)
       goto exit;
 
   // We need to remove the old paths.
-  GtkIconTheme * icon_theme = gtk_icon_theme_get_default();
   gchar ** paths;
-  gint path_count;
+  GtkIconTheme *theme = gtk_icon_theme_get_for_display (gdk_display_get_default ());
 
-  gtk_icon_theme_get_search_path(icon_theme, &paths, &path_count);
+  paths = gtk_icon_theme_get_search_path(theme);
 
   gint i, j, out = 0;
   gboolean found = FALSE;
-  for (i = 0; i < path_count; i++) {
+  for (i = 0; paths[i] != NULL; i++) {
       gboolean keep = TRUE;
       for (j = 0; emblem_paths_list[j] != NULL; j++) {
 	  if (emblem_paths_list[j][0]) {
@@ -834,7 +822,7 @@ remove_emblem_paths(GHashTable* emblem_paths_response)
      accomodate the changes */
   if (found) {
     paths[out] = NULL; /* Clear the last one */
-    gtk_icon_theme_set_search_path(icon_theme, (const gchar **)paths, out);
+    gtk_icon_theme_set_search_path(theme, (const gchar **)paths);
   }
 
   g_strfreev(paths);
@@ -888,13 +876,13 @@ on_disconnect(NautilusDropbox *cvs) {
 
 
 static void
-nautilus_dropbox_menu_provider_iface_init (NautilusMenuProviderIface *iface) {
+nautilus_dropbox_menu_provider_iface_init (NautilusMenuProviderInterface *iface) {
   iface->get_file_items = nautilus_dropbox_get_file_items;
   return;
 }
 
 static void
-nautilus_dropbox_info_provider_iface_init (NautilusInfoProviderIface *iface) {
+nautilus_dropbox_info_provider_iface_init (NautilusInfoProviderInterface *iface) {
   iface->update_file_info = nautilus_dropbox_update_file_info;
   iface->cancel_update = nautilus_dropbox_cancel_update;
   return;
