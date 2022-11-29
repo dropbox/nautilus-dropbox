@@ -1042,31 +1042,6 @@ This is an alias for filestatus -l
 
 @command
 @requires_dropbox_running
-def puburl(args):
-    """get public url of a file in your Dropbox's public folder
-dropbox puburl FILE
-
-Prints out a public url for FILE (which must be in your public folder).
-    """
-    if len(args) != 1:
-        console_print(puburl.__doc__,linebreak=False)
-        return
-
-    try:
-        with closing(DropboxCommand()) as dc:
-            try:
-                console_print(dc.get_public_link(path=os.path.abspath(args[0])).get('link', ['No Link'])[0])
-            except DropboxCommand.CommandError as e:
-                console_print("Couldn't get public url: " + str(e))
-            except DropboxCommand.BadConnectionError:
-                console_print("Dropbox isn't responding!")
-            except DropboxCommand.EOFError:
-                console_print("Dropbox daemon stopped.")
-    except DropboxCommand.CouldntConnectError:
-        console_print("Dropbox isn't running!")
-
-@command
-@requires_dropbox_running
 def sharelink(args):
     """get a shared link for a file in your Dropbox
 dropbox sharelink FILE
