@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project.  This is so that it doesn't get confused with the Dropbox desktop client.
 
+Unreleased
+----------
+	* Update to use libnautilus-extension-4 and gtk4, supporting Nautilus 43+.
+	* Fix various uses of deprecated APIs, such as the "DeprecationWarning: isSet() is deprecated" warning.
+	* Fix colors of ignored files in `dropbox filestatus`.
+	* Remove the long-broken `dropbox puburl` command.
+	* Don't print a ticker to stderr if it's not a tty.
+
 Version 2020.03.04
 ------------------
 	* Coerce XDG_CURRENT_DESKTOP to "Unity". This works around the
