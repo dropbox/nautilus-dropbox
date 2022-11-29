@@ -37,7 +37,7 @@ $ sudo apt-get install -y gnome-common libnautilus-extension-dev python3-gi pyth
 For Fedora:
 
 ```
-$ sudo dnf install -y gnome-common nautilus-devel python3-docutils python3-gobject
+$ sudo dnf install -y gnome-common nautilus-devel gtk4-devel python3-docutils
 ```
 
 Then run the following to build and install nautilus-dropbox:
