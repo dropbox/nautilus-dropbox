@@ -27,9 +27,6 @@
 
 #include <glib-object.h>
 
-#include <gdk/gdk.h>
-#include <gtk/gtk.h>
-
 #include "nautilus-dropbox.h"
 
 static GType type_list[1];
@@ -41,9 +38,6 @@ nautilus_module_initialize (GTypeModule *module) {
   nautilus_dropbox_register_type (module);
   type_list[0] = NAUTILUS_TYPE_DROPBOX;
 
-  dropbox_use_nautilus_submenu_workaround
-    = (NAUTILUS_VERSION_MAJOR < 2 ||
-       (NAUTILUS_VERSION_MAJOR == 2 && NAUTILUS_VERSION_MINOR <= 22));
   dropbox_use_operation_in_progress_workaround = TRUE;
 }
 

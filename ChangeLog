@@ -2,6 +2,28 @@
 All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project.  This is so that it doesn't get confused with the Dropbox desktop client.
 
+Version 2020.03.04
+------------------
+	* Coerce XDG_CURRENT_DESKTOP to "Unity". This works around the
+	dropbox binary that will only activate the indicator icon and menu
+	on Ubuntu Unity < 16.10. This patch coerces XDG_CURRENT_DESKTOP to
+	report as "Unity" for the budgie-desktop
+	https://bugs.launchpad.net/ubuntu/+source/nautilus-dropbox/+bug/1683051
+
+Version 2019.02.14
+------------------
+	* Add "version" command, which prints out the version of the
+	Dropbox daemon and the Dropbox command-line interface.
+	* Update gpg warning to tell users to install the Python 3 GPG
+	libraries instead of the Python 2 libraries.
+	* Fix bug where the dropbox nautilus repo wasn't being added to
+	the apt sources correctly on Ubuntu 18.04 and up.
+	* Move build dependencies to Python 3.
+
+Version 2019.01.31
+------------------
+	* Move to Python 3 and GTK3
+
 Version 2018.11.28
 ------------------
 	* Fix bug where the Dropbox tray icon wouldn't display on Ubuntu

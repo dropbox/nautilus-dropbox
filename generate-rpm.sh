@@ -14,9 +14,9 @@ fi
 
 # get version
 if which gawk; then
-    CURVER=$(gawk '/^AC_INIT/{sub("AC_INIT\\(\\[nautilus-dropbox\\],", ""); sub("\\)", ""); print $0}' configure.ac)
+    CURVER=$(gawk '/^AC_INIT/{sub("AC_INIT\\(\\[nautilus-dropbox\\], ", ""); sub("\\)", ""); print $0}' configure.ac)
 else
-    CURVER=$(awk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\],", ""); sub("\)", ""); print $0}' configure.ac)
+    CURVER=$(awk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\], ", ""); sub("\)", ""); print $0}' configure.ac)
 fi
 
 # backup old rpmmacros file
@@ -60,7 +60,7 @@ cat <<EOF > rpmbuild/SPECS/nautilus-dropbox.spec
 %define glib_version 2.42.1
 %define nautilus_version 3.14.2
 %define libgnome_version 2.32.1
-%define pygtk2_version 2.24.0
+%define pygobject3_version 3.14.0
 %define pygpgme_version 0.3
 
 Name:		nautilus-dropbox
@@ -76,19 +76,20 @@ BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id} -u -n)
 Requires:	nautilus-extensions >= %{nautilus_version}
 Requires:	glib2 >= %{glib_version}
 Requires:	libgnome >= %{gnome_version}
-Requires:	pygtk2 >= %{pygtk2_version}
+Requires:	python3
+Requires:	python3-gobject >= %{pygobject3_version}
 
-%{?with_suggest_tags:Suggests: pygpgme}
+%{?with_suggest_tags:Suggests: python3-pygpgme}
 
 BuildRequires:	nautilus-devel >= %{nautilus_version}
 BuildRequires:	glib2-devel >= %{glib_version}
-BuildRequires:	python-docutils
+BuildRequires:	python3-docutils
 BuildRequires:  cairo-devel
-BuildRequires:  gtk2-devel
+BuildRequires:  gtk3-devel
 BuildRequires:  atk-devel
 BuildRequires:  pango-devel
-BuildRequires:  pygtk2-devel >= %{pygtk2_version}
-
+BuildRequires:  python3
+BuildRequires:  python3-gobject >= %{pygobject3_version}
 %description
 Nautilus Dropbox is an extension that integrates
 the Dropbox web service with your GNOME Desktop.

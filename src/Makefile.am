@@ -1,4 +1,4 @@
-INCLUDES =						\
+libnautilus_dropbox_la_CPPFLAGS =			\
 	-I$(top_srcdir)					\
 	-I$(top_builddir)
 
@@ -13,6 +13,7 @@ libnautilus_dropbox_la_CFLAGS = 	                \
 	$(WARN_CFLAGS)                                  \
 	$(DISABLE_DEPRECATED_CFLAGS)					\
 	$(NAUTILUS_CFLAGS)                              \
+	$(GTK_CFLAGS)                              \
 	$(GLIB_CFLAGS)
 
 if DEBUG

@@ -1,3 +1,4 @@
+import sys
 import os
 import os.path
 import re
@@ -11,13 +12,13 @@ def cmd(args):
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = proc.communicate()
     if proc.returncode != 0:
-        print "Error calling %s (%d)" % (' '.join(args), proc.returncode)
-        print "stdout: %s" % stdout
-        print "stderr: %s" % stderr
+        print("Error calling %s (%d)" % (' '.join(args), proc.returncode))
+        print("stdout: %s" % stdout)
+        print("stderr: %s" % stderr)
         raise Exception("Error in call")
     return stdout.strip()
 
-class BuildController(object):
+class BuildController:
     def system(self, args):
         proc = subprocess.Popen(args, shell=True)
         stdout, stderr = proc.communicate()
@@ -45,13 +46,13 @@ class BuildController(object):
         with open('buildme') as f:
             deb_path = f.readline().strip()
         os.unlink('buildme')
-        os.chdir(deb_path +'/debian')
+        os.chdir(deb_path + '/debian')
         try:
             assert self.system('sudo DIST=%s ARCH=%s pbuilder update' % (dist, arch)) == 0
-            assert self.system('sudo rm -rf /var/cache/pbuilder/%s-%s/result/*' %(dist, arch)) == 0
+            assert self.system('sudo rm -rf /var/cache/pbuilder/%s-%s/result/*' % (dist, arch)) == 0
             assert self.system('DIST=%s ARCH=%s pdebuild' % (dist, arch)) == 0
             # auto-sign doesn't work on i386 in this version of pdebuild.  So we sign in a separate step.
-            assert self.system('debsign -k5044912E /var/cache/pbuilder/%s-%s/result/*.changes' %(dist, arch)) == 0
+            assert self.system('debsign -k5044912E /var/cache/pbuilder/%s-%s/result/*.changes' % (dist, arch)) == 0
         finally:
             os.chdir('../..')
 
@@ -135,7 +136,7 @@ class BuildController(object):
                     config=config,
                     mock_config_out=mock_config_out,
                     path=path)) == 0
-        except:
+        except Exception:
             # We failed.  Let's push the logs to the server so that we have them.
             self.system('cat %s/*.log >&2' % (mock_config_out,))
             raise
@@ -149,7 +150,8 @@ class BuildController(object):
         self.system('git clean -fdx')
 
         info = {}
-        execfile("distro-info.sh", {}, info)
+        with open("distro-info.sh") as f:
+            exec(f.read(), {}, info)
 
         assert self.system('rm -rf /home/releng/result') == 0
         assert self.system('mkdir -p /home/releng/result/packages') == 0
@@ -171,5 +173,7 @@ class BuildController(object):
 
         self.generate_packages()
 
+
 if __name__ == "__main__":
+    assert sys.version_info[0] >= 3, "Must be running in Python 3"
     BuildController().build_all()
