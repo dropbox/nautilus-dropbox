@@ -13,7 +13,7 @@ REQUIRED_AUTOMAKE_VERSION=1.7
     exit 1
 }
 
-which gnome-autogen.sh || {
+command -v gnome-autogen.sh >/dev/null || {
     echo "You need to install gnome-common"
     exit 1
 }
