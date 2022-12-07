@@ -1,0 +1,32 @@
+name: Run canary builds
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    - cron: '29 1 * * 1'
+  workflow_dispatch:
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:devel
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@v3
+      - name: Install deps
+        run: apt-get install -y gnome-common libnautilus-extension-dev python3-gi python3-docutils
+      - name: Test build
+        run: ./autogen.sh && make && make install
+  fedora:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:rawhide
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@v3
+      - name: Install deps
+        run: dnf install -y gnome-common nautilus-devel gtk4-devel python3-docutils
+      - name: Test build
+        run: ./autogen.sh && make && make install
