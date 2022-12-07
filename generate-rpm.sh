@@ -29,7 +29,7 @@ cat <<EOF > $HOME/.rpmmacros
 %_tmppath              $(pwd)/rpmbuild
 %_smp_mflags  -j3
 %_signature gpg
-%_gpg_name 3565780E
+%_gpg_name 5044912e
 %_gpgbin /usr/bin/gpg
 EOF
 
@@ -58,7 +58,7 @@ cp nautilus-dropbox-$CURVER.tar.bz2 rpmbuild/SOURCES/
 
 cat <<EOF > rpmbuild/SPECS/nautilus-dropbox.spec
 %define glib_version 2.42.1
-%define nautilus_version 3.14.2
+%define nautilus_version 43.0
 %define libgnome_version 2.32.1
 %define pygobject3_version 3.14.0
 %define pygpgme_version 0.3
@@ -75,7 +75,7 @@ BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id} -u -n)
 
 Requires:	nautilus-extensions >= %{nautilus_version}
 Requires:	glib2 >= %{glib_version}
-Requires:	libgnome >= %{gnome_version}
+Requires:	libgnome >= %{libgnome_version}
 Requires:	python3
 Requires:	python3-gobject >= %{pygobject3_version}
 
@@ -84,12 +84,13 @@ Requires:	python3-gobject >= %{pygobject3_version}
 BuildRequires:	nautilus-devel >= %{nautilus_version}
 BuildRequires:	glib2-devel >= %{glib_version}
 BuildRequires:	python3-docutils
-BuildRequires:  cairo-devel
-BuildRequires:  gtk3-devel
-BuildRequires:  atk-devel
-BuildRequires:  pango-devel
-BuildRequires:  python3
-BuildRequires:  python3-gobject >= %{pygobject3_version}
+BuildRequires:	cairo-devel
+BuildRequires:	gcc
+BuildRequires:	gtk4-devel
+BuildRequires:	atk-devel
+BuildRequires:	pango-devel
+BuildRequires:	python3
+BuildRequires:	python3-gobject >= %{pygobject3_version}
 %description
 Nautilus Dropbox is an extension that integrates
 the Dropbox web service with your GNOME Desktop.
@@ -109,17 +110,8 @@ make %{?_smp_mflags}
 rm -rf \$RPM_BUILD_ROOT
 make install DESTDIR=\$RPM_BUILD_ROOT
 
-if [ -d \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0 ]; then
-    rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/*.la
-    rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/*.a
-    mkdir -p \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0
-    ln -s ../extensions-2.0/libnautilus-dropbox.so \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/
-elif [ -d \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0 ]; then
-    rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/*.la
-    rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-3.0/*.a
-    mkdir -p \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0
-    ln -s ../extensions-3.0/libnautilus-dropbox.so \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-2.0/
-fi
+rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-4/libnautilus-dropbox.{,l}a
+
 
 %post
 /sbin/ldconfig
@@ -128,8 +120,7 @@ fi
 
 if [ \$1 -gt 1 ] ; then
   # Old versions of the rpm delete the files in postun.  So just in case let's make a backup copy.  The backup copy will be restored in posttrans.
-  ln -f %{_libdir}/nautilus/extensions-3.0/libnautilus-dropbox.so{,.bak}
-  ln -f %{_libdir}/nautilus/extensions-2.0/libnautilus-dropbox.so{,.bak}
+  ln -f %{_libdir}/nautilus/extensions-4/libnautilus-dropbox.so{,.bak}
 fi
 
 EOF
@@ -194,9 +185,9 @@ fi
 PROCS=`pgrep -x nautilus`
 
 for PROC in $PROCS; do
-  # Extract the display variable so that we can show a box.  
-  # Hope they have xauth to localhost. 
-  export `cat /proc/$PROC/environ | tr "\0" "\n" | grep DISPLAY` 
+  # Extract the display variable so that we can show a box.
+  # Hope they have xauth to localhost.
+  export `cat /proc/$PROC/environ | tr "\0" "\n" | grep DISPLAY`
 
   zenity --question --timeout=30 --title=Dropbox --text='The Nautilus File Browser has to be restarted. Any open file browser windows will be closed in the process. Do this now?' > /dev/null 2>&1
   if [ $? -eq 0 ] ; then
@@ -227,20 +218,14 @@ fi
 %posttrans
 /usr/bin/gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 
-# Old versions of the rpm delete these files in postun.  Fortunately we have saved a backup.  
-if [ ! -e %{_libdir}/nautilus/extensions-3.0/libnautilus-dropbox.so ]; then
-  if [ -e %{_libdir}/nautilus/extensions-3.0/libnautilus-dropbox.so.bak ]; then
-    mv -f %{_libdir}/nautilus/extensions-3.0/libnautilus-dropbox.so{.bak,}
-  fi
-fi
-if [ ! -e %{_libdir}/nautilus/extensions-2.0/libnautilus-dropbox.so ]; then
-  if [ -e %{_libdir}/nautilus/extensions-2.0/libnautilus-dropbox.so.bak ]; then
-    mv -f %{_libdir}/nautilus/extensions-2.0/libnautilus-dropbox.so{.bak,}
+# Old versions of the rpm delete these files in postun.  Fortunately we have saved a backup.
+if [ ! -e %{_libdir}/nautilus/extensions-4/libnautilus-dropbox.so ]; then
+  if [ -e %{_libdir}/nautilus/extensions-4/libnautilus-dropbox.so.bak ]; then
+    mv -f %{_libdir}/nautilus/extensions-4/libnautilus-dropbox.so{.bak,}
   fi
 fi
 
-rm -f %{_libdir}/nautilus/extensions-3.0/libnautilus-dropbox.so.bak
-rm -f %{_libdir}/nautilus/extensions-2.0/libnautilus-dropbox.so.bak
+rm -f %{_libdir}/nautilus/extensions-4/libnautilus-dropbox.so.bak
 
 %clean
 rm -rf \$RPM_BUILD_ROOT
@@ -248,8 +233,7 @@ rm -rf \$RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %doc
-%{_libdir}/nautilus/extensions-2.0/*.so*
-%{_libdir}/nautilus/extensions-3.0/*.so*
+%{_libdir}/nautilus/extensions-4/*.so*
 %{_datadir}/icons/hicolor/*
 %{_datadir}/nautilus-dropbox/emblems/*
 %{_bindir}/dropbox

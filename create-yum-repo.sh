@@ -3,7 +3,7 @@
 set -e
 
 # DISTS must be defined.
-ARCHS="i386 x86_64"
+ARCHS="x86_64"
 
 for DIST in $DISTS; do
 

@@ -110,7 +110,7 @@ class BuildController:
                                    (distro, f, distro)) == 0
 
     def build_rpm(self, config):
-        # config='fedora-21-i386,fedora-21-x86_64'
+        # config='fedora-37-i386,fedora-37-x86_64'
         assert self.system('sh generate-rpm.sh') == 0
 
         path = None
@@ -132,7 +132,7 @@ class BuildController:
 
         try:
             assert self.system(
-                '/usr/bin/mock -r {config} --resultdir={mock_config_out} rebuild {path}'.format(
+                'sudo /usr/bin/mock -r {config} --resultdir={mock_config_out} rebuild {path}'.format(
                     config=config,
                     mock_config_out=mock_config_out,
                     path=path)) == 0
@@ -141,6 +141,7 @@ class BuildController:
             self.system('cat %s/*.log >&2' % (mock_config_out,))
             raise
         else:
+            assert self.system('sudo chown -R $(whoami):$(whoami) %s' % (mock_config_out,))
             assert self.system('find %s/ -name *.rpm | xargs /usr/bin/expect sign-rpm.exp' % (
                 mock_config_out,)) == 0
 
@@ -156,22 +157,29 @@ class BuildController:
         assert self.system('rm -rf /home/releng/result') == 0
         assert self.system('mkdir -p /home/releng/result/packages') == 0
 
-        # Ubuntu
-        self.build_deb('trusty', 'i386')
-        self.build_deb('trusty', 'amd64')
-        self.generate_deb_repo('Ubuntu', info['UBUNTU_CODENAMES'], 'trusty', ['amd64', 'i386'])
+        deb_created = False
+        rpm_created = False
+        if len(sys.argv) == 1 or 'deb' in sys.argv:
+            # Ubuntu
+            self.build_deb('trusty', 'i386')
+            self.build_deb('trusty', 'amd64')
+            self.generate_deb_repo('Ubuntu', info['UBUNTU_CODENAMES'], 'trusty', ['amd64', 'i386'])
 
-        # Debian
-        self.build_deb('jessie', 'i386')
-        self.build_deb('jessie', 'amd64')
-        self.generate_deb_repo('Debian', info['DEBIAN_CODENAMES'], 'jessie', ['amd64', 'i386'])
+            # Debian
+            self.build_deb('jessie', 'i386')
+            self.build_deb('jessie', 'amd64')
+            self.generate_deb_repo('Debian', info['DEBIAN_CODENAMES'], 'jessie', ['amd64', 'i386'])
+            deb_created = True
 
         # Fedora
-        self.build_rpm('fedora-21-i386')
-        self.build_rpm('fedora-21-x86_64')
-        self.generate_yum_repo('Fedora', info['FEDORA_CODENAMES'], 'fedora-21', ['i386', 'x86_64'], 'fc21')
+        if len(sys.argv) == 1 or 'rpm' in sys.argv:
+            # Fedora dropped 32-bit support several versions ago.
+            self.build_rpm('fedora-37-x86_64')
+            self.generate_yum_repo('Fedora', info['FEDORA_CODENAMES'], 'fedora-37', ['x86_64'], 'fc37')
+            rpm_created = True
 
-        self.generate_packages()
+        if deb_created and rpm_created:
+            self.generate_packages()
 
 
 if __name__ == "__main__":
