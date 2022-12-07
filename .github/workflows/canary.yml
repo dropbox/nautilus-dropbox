@@ -16,7 +16,7 @@ jobs:
       - name: Clone repo
         uses: actions/checkout@v3
       - name: Install deps
-        run: apt-get install -y gnome-common libnautilus-extension-dev python3-gi python3-docutils
+        run: apt-get update && apt-get install -y gnome-common libnautilus-extension-dev python3-gi python3-docutils
       - name: Test build
         run: ./autogen.sh && make && make install
   fedora:
@@ -27,6 +27,6 @@ jobs:
       - name: Clone repo
         uses: actions/checkout@v3
       - name: Install deps
-        run: dnf install -y gnome-common nautilus-devel gtk4-devel python3-docutils
+        run: dnf install -y gnome-common nautilus-devel gtk4-devel python3-docutils python3-gobject
       - name: Test build
         run: ./autogen.sh && make && make install
