@@ -28,7 +28,7 @@ an Ubuntu 22.10 machine for the `.deb` build and a Fedora 37 machine for the `.r
 
    4. Build all the packages with: `python3 build_packages.py deb`
 
-4. On a Fedora machine:
+3. On a Fedora machine:
    1. Install dependencies:
 
       ```
@@ -53,9 +53,9 @@ an Ubuntu 22.10 machine for the `.deb` build and a Fedora 37 machine for the `.r
 
    5. Build all the packages with: `python3 build_packages.py rpm`
 
-5. Gather the built outputs from both machines, and put them in the repo root
+4. Gather the built outputs from both machines, and put them in the repo root
    (this step can be done on either machine). Run `python3 build_packages.py package`.
 
-6. Update the ChangeLog with all the changes in the release.
+5. Update the ChangeLog with all the changes in the release.
 
-7. Tag the release and push the tag to GitHub.
+6. Tag the release and push the tag to GitHub.
