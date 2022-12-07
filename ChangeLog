@@ -2,8 +2,8 @@
 All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project.  This is so that it doesn't get confused with the Dropbox desktop client.
 
-Unreleased
-----------
+Version 2022.12.05
+------------------
 	* Update to use libnautilus-extension-4 and gtk4, supporting Nautilus 43+.
 	* Fix various uses of deprecated APIs, such as the "DeprecationWarning: isSet() is deprecated" warning.
 	* Fix colors of ignored files in `dropbox filestatus`.
