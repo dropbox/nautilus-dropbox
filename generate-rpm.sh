@@ -118,11 +118,6 @@ rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-4/libnautilus-dropbox.{,l}a
 /usr/bin/update-desktop-database &> /dev/null || :
 /bin/touch --no-create %{_datadir}/icons/hicolor &>/dev/null || :
 
-if [ \$1 -gt 1 ] ; then
-  # Old versions of the rpm delete the files in postun.  So just in case let's make a backup copy.  The backup copy will be restored in posttrans.
-  ln -f %{_libdir}/nautilus/extensions-4/libnautilus-dropbox.so{,.bak}
-fi
-
 EOF
 
 cat <<'EOF' >> rpmbuild/SPECS/nautilus-dropbox.spec
@@ -217,13 +212,6 @@ fi
 
 %posttrans
 /usr/bin/gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
-
-# Old versions of the rpm delete these files in postun.  Fortunately we have saved a backup.
-if [ ! -e %{_libdir}/nautilus/extensions-4/libnautilus-dropbox.so ]; then
-  if [ -e %{_libdir}/nautilus/extensions-4/libnautilus-dropbox.so.bak ]; then
-    mv -f %{_libdir}/nautilus/extensions-4/libnautilus-dropbox.so{.bak,}
-  fi
-fi
 
 rm -f %{_libdir}/nautilus/extensions-4/libnautilus-dropbox.so.bak
 
