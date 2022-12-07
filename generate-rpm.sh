@@ -121,24 +121,6 @@ rm \$RPM_BUILD_ROOT%{_libdir}/nautilus/extensions-4/libnautilus-dropbox.{,l}a
 EOF
 
 cat <<'EOF' >> rpmbuild/SPECS/nautilus-dropbox.spec
-for I in /home/*/.dropbox-dist;
-do
-  # require a minimum version of 1.0.0
-  DROPBOX_VERSION="$I/VERSION"
-  if test -e "$DROPBOX_VERSION"; then
-    VERSION=`cat "$DROPBOX_VERSION"`
-
-    case "$VERSION" in
-      2.[0-9].*|1.*.*|0.*.*)
-        # Anything below 2.10 is deprecated!
-        # stop dropbox
-        pkill -xf $I/dropbox > /dev/null 2>&1
-        sleep 0.5
-        rm -rf "$I"
-    esac
-  fi
-done
-
 DEFAULTS_FILE="/etc/default/dropbox-repo"
 
 if [ ! -e "$DEFAULTS_FILE" ]; then
