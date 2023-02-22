@@ -46,19 +46,6 @@ include /usr/share/cdbs/1/class/autotools.mk
 
 # Avoid postinst-has-useless-call-to-ldconfig and pkg-has-shlibs-control-file-but-no-actual-shared-libs
 DEB_DH_MAKESHLIBS_ARGS=-Xnautilus-dropbox
-
-debian/tmp/usr/lib/nautilus/extensions-2.0/libnautilus-dropbox.so:
-	mkdir -p debian/tmp/usr/lib/nautilus/extensions-2.0
-	ln -s ../extensions-3.0/libnautilus-dropbox.so debian/tmp/usr/lib/nautilus/extensions-2.0/
-
-debian/tmp/usr/lib/nautilus/extensions-3.0/libnautilus-dropbox.so:
-	mkdir -p debian/tmp/usr/lib/nautilus/extensions-3.0
-	ln -s ../extensions-2.0/libnautilus-dropbox.so debian/tmp/usr/lib/nautilus/extensions-3.0/
-
-install/dropbox:: debian/tmp/usr/lib/nautilus/extensions-3.0/libnautilus-dropbox.so  debian/tmp/usr/lib/nautilus/extensions-2.0/libnautilus-dropbox.so
-	rm debian/tmp/usr/lib/nautilus/extensions-?.0/*.la
-	rm debian/tmp/usr/lib/nautilus/extensions-?.0/*.a
-
 EOF
 chmod a+x debian/rules
 
@@ -76,7 +63,7 @@ $(date -R).
 
 It was downloaded from https://www.dropbox.com/download?dl=packages/nautilus-dropbox-$CURVER.tar.bz2
 
-Copyright: 
+Copyright:
 
   Copyright Dropbox, Inc.
 
@@ -410,7 +397,7 @@ rm -rf /var/lib/update-notifier/user.d/dropbox-start-required
 exit 0
 EOF
 
-echo "6" > debian/compat
+echo "10" > debian/compat
 
 cat > debian/dropbox.install <<EOF
 debian/tmp/usr/*
@@ -430,7 +417,7 @@ Source: dropbox
 Section: gnome
 Priority: optional
 Maintainer: Dropbox <support@dropbox.com>
-Build-Depends: cdbs, debhelper (>= 9), build-essential, libnautilus-extension-dev (>= 3.10.1), libglib2.0-dev (>= 2.40), python3-docutils, python3-gi (>= 3.12)
+Build-Depends: cdbs, debhelper (>= 10), build-essential, libnautilus-extension-dev (>= 43.0), libgtk-4-dev (>= 4.8), libglib2.0-dev (>= 2.40), python3-docutils, python3-gi (>= 3.12)
 Standards-Version: 3.9.4.0
 
 Package: dropbox
@@ -438,8 +425,8 @@ Replaces: nautilus-dropbox
 Breaks: nautilus-dropbox
 Provides: nautilus-dropbox
 Architecture: any
-Depends: procps, python3-gi (>= 3.12), python3 (>= 3.4.0), \${python3:Depends}, \${misc:Depends}, libatk1.0-0 (>= 2.10), libc6 (>= 2.19), libcairo2 (>= 1.13), libglib2.0-0 (>= 2.40), libgtk-3-0 (>= 3.10.8), libpango1.0-0 (>= 1.36.3), lsb-release, gir1.2-gdkpixbuf-2.0 (>= 2.30.7), gir1.2-glib-2.0 (>= 1.40.0), gir1.2-gtk-3.0 (>= 3.10.8), gir1.2-pango-1.0 (>= 1.36.3)
-Suggests: nautilus (>= 3.10.1), python3-gpg (>= 1.8.0)
+Depends: procps, python3-gi (>= 3.12), python3 (>= 3.4.0), \${python3:Depends}, \${misc:Depends}, libatk1.0-0 (>= 2.10), libc6 (>= 2.19), libcairo2 (>= 1.13), libglib2.0-0 (>= 2.40), libgtk-4-1 (>= 4.8.0), libpango1.0-0 (>= 1.36.3), lsb-release, gir1.2-gdkpixbuf-2.0 (>= 2.30.7), gir1.2-glib-2.0 (>= 1.40.0), gir1.2-gtk-4.0 (>= 4.8.0), gir1.2-pango-1.0 (>= 1.36.3)
+Suggests: nautilus (>= 43.0), python3-gpg (>= 1.8.0)
 Homepage: https://www.dropbox.com/
 Description: cloud synchronization engine - CLI and Nautilus extension
  Dropbox is a free service that lets you bring your photos, docs, and videos

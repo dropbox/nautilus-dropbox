@@ -52,7 +52,9 @@ class BuildController:
             assert self.system('sudo rm -rf /var/cache/pbuilder/%s-%s/result/*' % (dist, arch)) == 0
             assert self.system('DIST=%s ARCH=%s pdebuild' % (dist, arch)) == 0
             # auto-sign doesn't work on i386 in this version of pdebuild.  So we sign in a separate step.
-            assert self.system('debsign -k5044912E /var/cache/pbuilder/%s-%s/result/*.changes' % (dist, arch)) == 0
+            # We also have to use the long key ID here instead of the short one (like we do in Fedora),
+            # since debsign no longer accepts short key IDs.
+            assert self.system('debsign -k FC918B335044912E /var/cache/pbuilder/%s-%s/result/*.changes' % (dist, arch)) == 0
         finally:
             os.chdir('../..')
 
@@ -160,14 +162,13 @@ class BuildController:
 
         if len(sys.argv) == 1 or 'deb' in sys.argv:
             # Ubuntu
-            self.build_deb('trusty', 'i386')
-            self.build_deb('trusty', 'amd64')
-            self.generate_deb_repo('Ubuntu', info['UBUNTU_CODENAMES'], 'trusty', ['amd64', 'i386'])
+            self.build_deb('kinetic', 'amd64')
+            self.generate_deb_repo('Ubuntu', info['UBUNTU_CODENAMES'], 'kinetic', ['amd64'])
 
             # Debian
-            self.build_deb('jessie', 'i386')
-            self.build_deb('jessie', 'amd64')
-            self.generate_deb_repo('Debian', info['DEBIAN_CODENAMES'], 'jessie', ['amd64', 'i386'])
+            self.build_deb('bookworm', 'i386')
+            self.build_deb('bookworm', 'amd64')
+            self.generate_deb_repo('Debian', info['DEBIAN_CODENAMES'], 'bookworm', ['amd64', 'i386'])
 
         # Fedora
         if len(sys.argv) == 1 or 'rpm' in sys.argv:
