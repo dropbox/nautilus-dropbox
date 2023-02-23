@@ -2,14 +2,14 @@
 
 # Codenames for Debian suites according to their alias. Update these when
 # needed.
-STABLE_CODENAME="stretch"
+STABLE_CODENAME="bullseye"
 STABLE_BACKPORTS_SUITE="$STABLE_CODENAME-backports"
 
 # List of Debian suites.
-DEBIAN_SUITES=("jessie")
+DEBIAN_SUITES=("bookworm")
 
 # List of Ubuntu suites. Update these when needed.
-UBUNTU_SUITES=("trusty")
+UBUNTU_SUITES=("kinetic")
 
 # Mirrors to use. Update these to your preferred mirror.
 DEBIAN_MIRROR="ftp.us.debian.org"

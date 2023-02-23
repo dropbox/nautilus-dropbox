@@ -15,15 +15,14 @@ an Ubuntu 22.10 machine for the `.deb` build and a Fedora 37 machine for the `.r
       sudo apt-get install pbuilder debootstrap devscripts libnautilus-extension-dev cdbs gnome-common debian-archive-keyring python3-docutils
       ```
 
-   2. Copy `.pbuilderrc` to `~/.pbuilderrc`
+   2. Copy `.pbuilderrc` to `/root/.pbuilderrc`
 
    3. Create chroots for each of the Debian or Ubuntu builds you'll be doing.
 
    ```
-   sudo DIST=trusty ARCH=i386 pbuilder create --debootstrapopts --variant=buildd
-   sudo DIST=trusty ARCH=amd64 pbuilder create --debootstrapopts --variant=buildd
-   sudo DIST=jessie ARCH=i386 pbuilder create --debootstrapopts --variant=buildd
-   sudo DIST=jessie ARCH=amd64 pbuilder create --debootstrapopts --variant=buildd
+   sudo DIST=kinetic ARCH=amd64 pbuilder create --debootstrapopts --variant=buildd
+   sudo DIST=bookworm ARCH=i386 pbuilder create --debootstrapopts --variant=buildd
+   sudo DIST=bookworm ARCH=amd64 pbuilder create --debootstrapopts --variant=buildd
    ```
 
    4. Build all the packages with: `python3 build_packages.py deb`

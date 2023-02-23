@@ -24,7 +24,7 @@ PKG_PROG_PKG_CONFIG
 
 PKG_CHECK_MODULES(NAUTILUS, libnautilus-extension-4 >= $NAUTILUS_REQUIRED)
 PKG_CHECK_MODULES(GLIB, glib-2.0 >= $GLIB_REQUIRED)
-PKG_CHECK_MODULES(GTK, gtk4 >= 4.6.0)
+PKG_CHECK_MODULES(GTK, gtk4)
 
 AC_SUBST(GTK_CFLAGS)
 
@@ -112,7 +112,7 @@ EMBLEM_DIR='${datadir}/nautilus-dropbox/emblems'
 AC_SUBST(EMBLEM_DIR)
 
 AC_CONFIG_FILES([
-	Makefile 
+	Makefile
 	src/Makefile
 	data/Makefile
 	data/icons/Makefile
