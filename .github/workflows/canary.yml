@@ -25,12 +25,26 @@ jobs:
         run: |
           . ./distro-info.sh
           . /etc/os-release
-          if [[ "$UBUNTU_CODENAMES" == *"$VERSION_CODENAME"* ]]; then
-            echo "$NAME $VERSION is supported."
-          else
-            echo "$NAME $VERSION needs to be added to distro-info.sh in order to produce the correct repo."
-            exit 1
-          fi
+          ./check-distro-info-support.sh "$VERSION_CODENAME" "$NAME $VERSION" "$UBUNTU_CODENAMES"
+
+  debian:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:sid
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@v3
+      - name: Install deps
+        run: apt-get update && apt-get install -y gnome-common libnautilus-extension-dev libgtk-4-dev python3-gi python3-docutils
+      - name: Test build
+        run: ./autogen.sh && make && make install
+      - name: Run tests
+        run: python3 ./dropbox_test.py
+      - name: Check that latest OS version is supported
+        run: |
+          . ./distro-info.sh
+          . /etc/os-release
+          ./check-distro-info-support.sh "$VERSION_CODENAME" "$PRETTY_NAME" "$DEBIAN_CODENAMES"
 
   fedora:
     runs-on: ubuntu-latest
@@ -49,9 +63,4 @@ jobs:
         run: |
           . ./distro-info.sh
           . /etc/os-release
-          if [[ "$FEDORA_CODENAMES" == *"$VERSION_ID"* ]]; then
-            echo "Fedora $VERSION_ID is supported."
-          else
-            echo "Fedora $VERSION_ID needs to be added to distro-info.sh in order to produce the correct repo."
-            exit 1
-          fi
+          ./check-distro-info-support.sh "$VERSION_ID" "Fedora $VERSION_ID" "$FEDORA_CODENAMES"
