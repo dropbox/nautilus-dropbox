@@ -35,12 +35,19 @@ dropbox = module_from_spec(spec)
 if spec.loader:
     spec.loader.exec_module(dropbox)
 
+class FatalVisibleErrorForTest(Exception):
+    pass
+
 class TestDropbox(unittest.TestCase):
 
     def test_plat_fails_on_non_linux(self):
         sys.platform = 'darwin'
-        #with self.assertRaises(dropbox.FatalVisibleError):
-        dropbox.plat()
+        def raise_error(s):
+            raise FatalVisibleErrorForTest(s)
+
+        setattr(dropbox, "FatalVisibleError", raise_error)
+        with self.assertRaises(FatalVisibleErrorForTest):
+            dropbox.plat()
 
     def test_reroll_autostart_without_config_dir(self):
         os.listdir = MagicMock(return_value=[])
@@ -83,14 +90,14 @@ class TestDropboxCommand(unittest.TestCase):
     class MockFile:
         def __init__(self):
             self.buf = ""
-        
+
         def write(self, text):
             self.buf += text
-        
+
         def writelines(self, texts):
             for text in texts:
                 self.buf += text
-        
+
     def setUp(self):
         # Set all mocks for DropboxCommand
         self.mock_socket = MagicMock()
@@ -123,11 +130,11 @@ class TestDropboxCommand(unittest.TestCase):
         self.cmd.close()
         self.mock_file.close.assert_called_once()
         self.mock_socket.close.assert_called_once()
-        
+
     def test_command_without_param(self):
         self.cmd.get_dropbox_status()
         assert self.mock_file.buf == "get_dropbox_status\ndone\n"
-    
+
     def test_command_with_params(self):
         kwargs = {
             'download_mode': 'manual',
@@ -145,7 +152,7 @@ class TestDropboxCommand(unittest.TestCase):
 
     def test_command_error(self):
         self.mock_file.readline = MagicMock(side_effect=['error', 'command not available', 'done'])
-        with self.assertRaises(dropbox.DropboxCommand.CommandError): 
+        with self.assertRaises(dropbox.DropboxCommand.CommandError):
             self.cmd.get_dropbox_status()
 
 
