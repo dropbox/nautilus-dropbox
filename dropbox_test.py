@@ -28,26 +28,22 @@ import sys
 import unittest
 from importlib.util import spec_from_loader, module_from_spec
 from importlib.machinery import SourceFileLoader
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 spec = spec_from_loader("dropbox", SourceFileLoader("dropbox", "./dropbox"))
 dropbox = module_from_spec(spec)
 if spec.loader:
     spec.loader.exec_module(dropbox)
 
-class FatalVisibleErrorForTest(Exception):
-    pass
-
 class TestDropbox(unittest.TestCase):
 
-    def test_plat_fails_on_non_linux(self):
+    # We have to use patch.object() here because we use some funky tricks to
+    # import the `dropbox` module that regular patch() doesn't like.
+    @patch.object(dropbox, 'FatalVisibleError', create=True)
+    def test_plat_fails_on_non_linux(self, fve_mock):
         sys.platform = 'darwin'
-        def raise_error(s):
-            raise FatalVisibleErrorForTest(s)
-
-        setattr(dropbox, "FatalVisibleError", raise_error)
-        with self.assertRaises(FatalVisibleErrorForTest):
-            dropbox.plat()
+        dropbox.plat()
+        fve_mock.assert_called()
 
     def test_reroll_autostart_without_config_dir(self):
         os.listdir = MagicMock(return_value=[])
