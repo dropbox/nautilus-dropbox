@@ -1,11 +1,11 @@
 name: Run canary builds
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
   schedule:
-    - cron: '29 1 * * 1'
+    - cron: "29 1 * * 1"
   workflow_dispatch:
 jobs:
   ubuntu:
@@ -19,6 +19,33 @@ jobs:
         run: apt-get update && apt-get install -y gnome-common libnautilus-extension-dev libgtk-4-dev python3-gi python3-docutils
       - name: Test build
         run: ./autogen.sh && make && make install
+      - name: Run tests
+        run: python3 ./dropbox_test.py
+      - name: Check that latest OS version is supported
+        run: |
+          . ./distro-info.sh
+          . /etc/os-release
+          ./check-distro-info-support.sh "$VERSION_CODENAME" "$NAME $VERSION" "$UBUNTU_CODENAMES"
+
+  debian:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:sid
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@v3
+      - name: Install deps
+        run: apt-get update && apt-get install -y gnome-common libnautilus-extension-dev libgtk-4-dev python3-gi python3-docutils
+      - name: Test build
+        run: ./autogen.sh && make && make install
+      - name: Run tests
+        run: python3 ./dropbox_test.py
+      - name: Check that latest OS version is supported
+        run: |
+          . ./distro-info.sh
+          . /etc/os-release
+          ./check-distro-info-support.sh "$VERSION_CODENAME" "$PRETTY_NAME" "$DEBIAN_CODENAMES"
+
   fedora:
     runs-on: ubuntu-latest
     container:
@@ -30,3 +57,10 @@ jobs:
         run: dnf install -y gnome-common nautilus-devel gtk4-devel python3-docutils python3-gobject
       - name: Test build
         run: ./autogen.sh && make && make install
+      - name: Run tests
+        run: python3 ./dropbox_test.py
+      - name: Check that latest OS version is supported
+        run: |
+          . ./distro-info.sh
+          . /etc/os-release
+          ./check-distro-info-support.sh "$VERSION_ID" "Fedora $VERSION_ID" "$FEDORA_CODENAMES"

@@ -28,7 +28,7 @@ import sys
 import unittest
 from importlib.util import spec_from_loader, module_from_spec
 from importlib.machinery import SourceFileLoader
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 spec = spec_from_loader("dropbox", SourceFileLoader("dropbox", "./dropbox"))
 dropbox = module_from_spec(spec)
@@ -37,10 +37,13 @@ if spec.loader:
 
 class TestDropbox(unittest.TestCase):
 
-    def test_plat_fails_on_non_linux(self):
+    # We have to use patch.object() here because we use some funky tricks to
+    # import the `dropbox` module that regular patch() doesn't like.
+    @patch.object(dropbox, 'FatalVisibleError', create=True)
+    def test_plat_fails_on_non_linux(self, fve_mock):
         sys.platform = 'darwin'
-        #with self.assertRaises(dropbox.FatalVisibleError):
         dropbox.plat()
+        fve_mock.assert_called()
 
     def test_reroll_autostart_without_config_dir(self):
         os.listdir = MagicMock(return_value=[])
@@ -83,14 +86,14 @@ class TestDropboxCommand(unittest.TestCase):
     class MockFile:
         def __init__(self):
             self.buf = ""
-        
+
         def write(self, text):
             self.buf += text
-        
+
         def writelines(self, texts):
             for text in texts:
                 self.buf += text
-        
+
     def setUp(self):
         # Set all mocks for DropboxCommand
         self.mock_socket = MagicMock()
@@ -123,11 +126,11 @@ class TestDropboxCommand(unittest.TestCase):
         self.cmd.close()
         self.mock_file.close.assert_called_once()
         self.mock_socket.close.assert_called_once()
-        
+
     def test_command_without_param(self):
         self.cmd.get_dropbox_status()
         assert self.mock_file.buf == "get_dropbox_status\ndone\n"
-    
+
     def test_command_with_params(self):
         kwargs = {
             'download_mode': 'manual',
@@ -145,7 +148,7 @@ class TestDropboxCommand(unittest.TestCase):
 
     def test_command_error(self):
         self.mock_file.readline = MagicMock(side_effect=['error', 'command not available', 'done'])
-        with self.assertRaises(dropbox.DropboxCommand.CommandError): 
+        with self.assertRaises(dropbox.DropboxCommand.CommandError):
             self.cmd.get_dropbox_status()
 
 
