@@ -31,7 +31,7 @@ You will need to install the following dependencies:
 For Ubuntu:
 
 ```
-$ sudo apt-get install -y gnome-common libnautilus-extension-dev python3-gi python3-docutils
+$ sudo apt-get install -y gnome-common libgtk-4-dev libnautilus-extension-dev python3-gi python3-docutils
 ```
 
 For Fedora:
