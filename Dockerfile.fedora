@@ -1,0 +1,5 @@
+FROM fedora:37
+
+COPY install-rpm-deps.sh .
+RUN ./install-rpm-deps.sh
+WORKDIR /src

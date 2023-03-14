@@ -4,16 +4,18 @@
 
 set -e
 
-if [ $(basename $(pwd)) != 'nautilus-dropbox' ]; then
-    echo "This script must be run from the nautilus-dropbox folder"
-    exit -1
-fi
+# clean old package build
+rm -rf nautilus-dropbox{-,_}*
+
+# Copy to a tempdir since package generation pollutes the directory.
+SRCDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+cp -R $SRCDIR/* $TMPDIR/
+cd $TMPDIR
 
 # get version
 CURVER=$(mawk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\], ", ""); sub("\)", ""); print $0}' configure.ac)
-
-# clean old package build
-rm -rf nautilus-dropbox{-,_}*
 
 . ./distro-info.sh
 
@@ -444,6 +446,11 @@ Description: transitional dummy package for dropbox
 
 EOF
 
-# Kind of silly but this is the easiest way to communicate this info
-# to build_packages.py.
-echo nautilus-dropbox-$CURVER > ../buildme
+# Actually build the deb package.
+debuild -i -us -uc -b
+
+# Copy outputs to the build/$distro dir.
+DISTRO=$(lsb_release -s -i | tr '[:upper:]' '[:lower:]')
+OUTDIR=$SRCDIR/build/$DISTRO/pool/main
+mkdir -p $OUTDIR
+cp $TMPDIR/*.deb $TMPDIR/*.changes $TMPDIR/*.build $TMPDIR/*.buildinfo $OUTDIR/

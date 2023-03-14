@@ -32,3 +32,4 @@ nautilus-dropbox-*.tar.bz2
 nautilus-dropbox-*.*.*/
 .mypy_cache/
 .vscode/
+build

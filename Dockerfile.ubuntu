@@ -1,0 +1,5 @@
+FROM ubuntu:kinetic
+
+COPY install-apt-deps.sh .
+RUN ./install-apt-deps.sh
+WORKDIR /src
