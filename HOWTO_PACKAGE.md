@@ -2,59 +2,41 @@
 
 This is a work-in-progress guide on how to build Ubuntu, Debian, and
 Fedora packages for nautilus-dropbox. It assumes you're building from
-an Ubuntu 22.10 machine for the `.deb` build and a Fedora 37 machine for the `.rpm` build.
+an Ubuntu 22.10 machine. The individual deb and rpm packages are built
+inside Docker containers.
 
-1. Obtain the signing tarball and extract all of the files into your `~/.gnupg`
-   directory. If producing an RPM build, also import it into RPM with
-   `sudo rpm --import /path/to/key`.
-
-2. On a Debian/Ubuntu machine:
-   1. Install dependencies:
-
-      ```
-      sudo apt-get install pbuilder debootstrap devscripts libnautilus-extension-dev cdbs gnome-common debian-archive-keyring python3-docutils
-      ```
-
-   2. Copy `.pbuilderrc` to `/root/.pbuilderrc`
-
-   3. Create chroots for each of the Debian or Ubuntu builds you'll be doing.
+1. Install Docker:
 
    ```
-   sudo DIST=kinetic ARCH=amd64 pbuilder create --debootstrapopts --variant=buildd
-   sudo DIST=bookworm ARCH=i386 pbuilder create --debootstrapopts --variant=buildd
-   sudo DIST=bookworm ARCH=amd64 pbuilder create --debootstrapopts --variant=buildd
+   sudo apt install docker.io
    ```
 
-   4. Build all the packages with: `python3 build_packages.py deb`
+2. Build the deb and RPM packages. They will build inside Docker containers:
 
-3. On a Fedora machine:
-   1. Install dependencies:
+   ```
+   ./build_packages.sh
+   ```
 
-      ```
-      sudo dnf install devscripts libnautilus-extension-dev mock rpm rpm-sign rpmdevtools rpmlint expect createrepo cdbs gnome-common python3-docutils rpm-build gawk nautilus-devel
-      ```
+3. (optional) Sign the *.changes files and RPMs (this happens internally in the build system at Dropbox).
 
-   2. Add yourself to the mock group (create it if it doesn't exist), and
-      then logout and login for the group to take affect.
-      `build_packages.py` will use `sudo` for a few of the commands, so add both
-      your user account and root to the group.
+   ```
+   debsign -k FC918B335044912E build/ubuntu/pool/main/*.changes
+   debsign -k FC918B335044912E build/debian/pool/main/*.changes
+   rpmsign --addsign --key-id FC918B335044912E build/fedora/pool/*.rpm
+   ```
 
-   3. Copy `rpm_resources/fedora-*.cfg` to `/etc/mock`.
+4. Build the deb and yum repos:
 
-      If you need to add new configs when we start targetting a new Fedora
-      version, you can find all the configs here:
-      https://github.com/rpm-software-management/mock.
+   ```
+   ./build_repos.sh
+   ```
 
-      The configs in that repo are templatized, so you'll also have to manually
-      copy the template contents into your copy.
+5. (optional) Sign the repo files (this happens internally in the build system at Dropbox).
 
-   4. Copy `rpm_resources/.rpmmacros` to `~/.rpmmacros`
+   ```
+   gpg -abs --digest-algo SHA256 -o build/ubuntu/dists/$DIST/Release.gpg build/ubuntu/dists/$DIST/Release
+   ```
 
-   5. Build all the packages with: `python3 build_packages.py rpm`
+6. Update the ChangeLog with all the changes in the release.
 
-4. Gather the built outputs from both machines, and put them in the repo root
-   (this step can be done on either machine). Run `python3 build_packages.py package`.
-
-5. Update the ChangeLog with all the changes in the release.
-
-6. Tag the release and push the tag to GitHub.
+7. Tag the release and push the tag to GitHub.

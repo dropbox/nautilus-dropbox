@@ -3,15 +3,18 @@
 set -e
 
 #DISTS and DISTRO must be defined.
+SRCDIR=$(pwd)
 ARCHS="i386 amd64 source"
 
-mkdir .cache
+cd build/$DISTRO
+rm -rf dists
+mkdir -p .cache
 
 for DIST in $DISTS; do
 
-mkdir -p dists/$DIST/main/binary-amd64
-mkdir -p dists/$DIST/main/binary-i386
-mkdir -p dists/$DIST/main/source
+    mkdir -p dists/$DIST/main/binary-amd64
+    mkdir -p dists/$DIST/main/binary-i386
+    mkdir -p dists/$DIST/main/source
 
     cat > apt-ftparchive.conf <<EOF
 Dir {
@@ -50,8 +53,14 @@ APT::FTPArchive::Release::Suite "$DIST";
 EOF
 
     apt-ftparchive -c apt-release.conf release dists/$DIST > dists/$DIST/Release
-    gpg -abs --digest-algo SHA256 -o dists/$DIST/Release.gpg dists/$DIST/Release
 
 done
+
 rm -rf apt-release.conf apt-ftparchive.conf
 
+# Create symlinks for packages.
+mkdir -p $SRCDIR/build/packages/$DISTRO
+for F in pool/main/*.deb; do
+    echo Symlinking $F
+    ln -sf ../../$DISTRO/pool/main/$F $SRCDIR/build/packages/$DISTRO/
+done

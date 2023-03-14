@@ -1,0 +1,5 @@
+FROM i386/debian:bookworm
+
+COPY install-apt-deps.sh .
+RUN ./install-apt-deps.sh
+WORKDIR /src

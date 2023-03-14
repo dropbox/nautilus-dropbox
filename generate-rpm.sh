@@ -5,12 +5,7 @@ set -e
 # you need to have the following packages:
 # rpmdevtools, rpm-build, gawk, nautilus-devel, automake,
 # autoconf, gnome-common, libtool, gcc
-
-if [ $(basename $(pwd)) != 'nautilus-dropbox' ]; then
-    echo "This script must be run from the nautilus-dropbox folder"
-    exit -1
-fi
-
+SRCDIR=$(pwd)
 
 # get version
 if which gawk; then
@@ -18,20 +13,6 @@ if which gawk; then
 else
     CURVER=$(awk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\], ", ""); sub("\)", ""); print $0}' configure.ac)
 fi
-
-# backup old rpmmacros file
-if [ -e $HOME/.rpmmacros ] && [ ! -e $HOME/.rpmmacros.old ]; then
-    mv $HOME/.rpmmacros $HOME/.rpmmacros.old
-fi
-
-cat <<EOF > $HOME/.rpmmacros
-%_topdir      $(pwd)/rpmbuild
-%_tmppath              $(pwd)/rpmbuild
-%_smp_mflags  -j3
-%_signature gpg
-%_gpg_name 5044912e
-%_gpgbin /usr/bin/gpg
-EOF
 
 # clean old package build
 rm -rf nautilus-dropbox{-,_}*
@@ -215,14 +196,13 @@ rm -rf \$RPM_BUILD_ROOT
 - This package does not use a changelog
 EOF
 
+ROOTDIR=$SRCDIR/rpmbuild
 cd rpmbuild
 
-# Kind of silly but this is the easiest way to communicate this info
-# to build_packages.py.
-rpmbuild -bs SPECS/nautilus-dropbox.spec > ../buildme
+rpmbuild -D "_topdir $ROOTDIR" -D "_tmppath $ROOTDIR" -D "_smp_mflags -j3" \
+  -ba --clean SPECS/nautilus-dropbox.spec
 
-
-# restore old macros file
-if [ -e $HOME/.rpmmacros.old ]; then
-    mv $HOME/.rpmmacros.old $HOME/.rpmmacros
-fi
+# Copy outputs to the build/$distro dir.
+OUTDIR=$SRCDIR/build/fedora/pool
+mkdir -p $OUTDIR
+cp RPMS/*/*.rpm SRPMS/*.rpm $OUTDIR/
