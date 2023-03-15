@@ -163,9 +163,7 @@ case "$1" in
           # Install the repository signing key (see also:
           # https://linux.dropbox.com/fedora/rpm-public-key.asc)
           install_key() {
-            APT_KEY="`which apt-key 2> /dev/null`"
-            if [ -x "$APT_KEY" ]; then
-              "$APT_KEY" add - >/dev/null 2>&1 <<KEYDATA
+            cat >/etc/apt/keyrings/dropbox.asc <<KEYDATA
 -----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: GnuPG v1.4.9 (GNU/Linux)
 
@@ -186,7 +184,6 @@ NosAevX5tBo++iD1WY2/lFVUJkvAvge2WFk3c6tAwZT/tKxspFy4M/tNbDKeyvr6
 =5rWG
 -----END PGP PUBLIC KEY BLOCK-----
 KEYDATA
-            fi
           }
 
           DISTRIB_CODENAME=`lsb_release -s -c`
@@ -198,7 +195,7 @@ KEYDATA
               fi
           done
 
-          REPOCONFIG="deb [arch=i386,amd64] http://linux.dropbox.com/$DISTRO $REPO main"
+          REPOCONFIG="deb [arch=i386,amd64 signed-by=/etc/apt/keyrings/dropbox.asc] http://linux.dropbox.com/$DISTRO $REPO main"
 
           APT_GET="`which apt-get 2> /dev/null`"
           APT_CONFIG="`which apt-config 2> /dev/null`"
