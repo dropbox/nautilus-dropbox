@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project.  This is so that it doesn't get confused with the Dropbox desktop client.
 
+Version 2023.09.06
+------------------
+	* Add Ubuntu 23.10 to build matrix
+
 Version 2022.12.05
 ------------------
 	* Update to use libnautilus-extension-4 and gtk4, supporting Nautilus 43+.
