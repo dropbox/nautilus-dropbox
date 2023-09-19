@@ -62,5 +62,5 @@ rm -rf apt-release.conf apt-ftparchive.conf
 mkdir -p $SRCDIR/build/packages/$DISTRO
 for F in pool/main/*.deb; do
     echo Symlinking $F
-    ln -sf ../../$DISTRO/pool/main/$F $SRCDIR/build/packages/$DISTRO/
+    ln -sf ../../$DISTRO/$F $SRCDIR/build/packages/$DISTRO/
 done
