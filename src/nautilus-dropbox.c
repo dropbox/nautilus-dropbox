@@ -549,7 +549,6 @@ static int
 nautilus_dropbox_parse_menu(gchar			**options,
 			    NautilusMenu		*menu,
 			    GString			*old_action_string,
-			    GList			*toret,
 			    NautilusMenuProvider	*provider,
 			    GList			*files)
 {
@@ -585,7 +584,7 @@ nautilus_dropbox_parse_menu(gchar			**options,
       g_string_append(new_action_string, "::");
 
       ret += nautilus_dropbox_parse_menu(suboptions, submenu, new_action_string,
-					 toret, provider, files);
+					 provider, files);
 
       item = nautilus_menu_item_new(new_action_string->str,
 				    item_name, "", NULL);
@@ -738,7 +737,7 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
     GString *action_string = g_string_new("NautilusDropbox::");
 
     if (!nautilus_dropbox_parse_menu(options, root_menu, action_string,
-				     toret, provider, files)) {
+				     provider, files)) {
 	g_object_unref(toret);
 	toret = NULL;
     }
