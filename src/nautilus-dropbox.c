@@ -728,21 +728,32 @@ nautilus_dropbox_get_file_items(NautilusMenuProvider *provider,
     /* build the menu */
     NautilusMenuItem *root_item;
     NautilusMenu *root_menu;
+    GList *submenu_items;
+    guint list_length;
 
     root_menu = nautilus_menu_new();
-    root_item = nautilus_menu_item_new("NautilusDropbox::root_item",
-				       "Dropbox", "Dropbox Options", "dropbox");
 
-    toret = g_list_append(toret, root_item);
     GString *action_string = g_string_new("NautilusDropbox::");
 
-    if (!nautilus_dropbox_parse_menu(options, root_menu, action_string,
-				     provider, files)) {
-	g_object_unref(toret);
-	toret = NULL;
-    }
+    nautilus_dropbox_parse_menu(options, root_menu, action_string,
+				provider, files);
 
-    nautilus_menu_item_set_submenu(root_item, root_menu);
+    submenu_items = nautilus_menu_get_items(root_menu);
+    list_length = g_list_length(submenu_items);
+
+    if (list_length == 1) {
+      /* Return only the single menu item */
+      toret = submenu_items;
+    } else {
+      /* Construct a Dropbox submenu */
+      root_item = nautilus_menu_item_new("NautilusDropbox::root_item",
+					 "Dropbox", "Dropbox Options",
+					 "dropbox");
+      nautilus_menu_item_set_submenu(root_item, root_menu);
+      toret = g_list_append(toret, root_item);
+
+      g_list_free_full(submenu_items, g_object_unref);
+    }
 
     g_string_free(action_string, TRUE);
     g_object_unref(root_menu);
