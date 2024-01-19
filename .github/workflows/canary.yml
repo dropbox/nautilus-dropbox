@@ -16,7 +16,7 @@ jobs:
       - name: Clone repo
         uses: actions/checkout@v3
       - name: Install deps
-        run: apt-get update && apt-get install -y gnome-common libnautilus-extension-dev libgtk-4-dev python3-gi python3-docutils
+        run: ./install-apt-deps.sh
       - name: Test build
         run: ./autogen.sh && make && make install
       - name: Run tests
@@ -35,7 +35,7 @@ jobs:
       - name: Clone repo
         uses: actions/checkout@v3
       - name: Install deps
-        run: apt-get update && apt-get install -y gnome-common libnautilus-extension-dev libgtk-4-dev python3-gi python3-docutils
+        run: ./install-apt-deps.sh
       - name: Test build
         run: ./autogen.sh && make && make install
       - name: Run tests
@@ -54,7 +54,7 @@ jobs:
       - name: Clone repo
         uses: actions/checkout@v3
       - name: Install deps
-        run: dnf install -y gnome-common nautilus-devel gtk4-devel python3-docutils python3-gobject
+        run: ./install-rpm-deps.sh
       - name: Test build
         run: ./autogen.sh && make && make install
       - name: Run tests
