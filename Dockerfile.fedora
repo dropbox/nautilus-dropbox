@@ -1,4 +1,5 @@
-FROM fedora:37
+# Leading edge release.
+FROM fedora:latest
 
 COPY install-rpm-deps.sh .
 RUN ./install-rpm-deps.sh
