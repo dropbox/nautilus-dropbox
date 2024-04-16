@@ -1,7 +1,7 @@
 # TODO: update this to 24.04 once it's released. Ideally this should _always_
 # be the latest LTS release, but an interim release is used here because Jammy
 # doesn't have the minimum version of GNOME necessary to build the extension.
-FROM ubuntu:mantic
+FROM ubuntu:noble
 
 COPY install-apt-deps.sh .
 RUN ./install-apt-deps.sh
