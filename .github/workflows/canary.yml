@@ -31,12 +31,12 @@ jobs:
             codenames: $FEDORA_CODENAMES
     runs-on: ubuntu-latest
     container:
-      image: ${{ strategy.matrix.config.image }}
+      image: ${{ matrix.config.image }}
     steps:
       - name: Clone repo
         uses: actions/checkout@v3
       - name: Install deps
-        run: ./${{ strategy.matrix.config.deps-script }}
+        run: ./${{ matrix.config.deps-script }}
       - name: Test build
         run: ./autogen.sh && make && make install
       - name: Run tests
@@ -46,9 +46,9 @@ jobs:
           . ./distro-info.sh
           . /etc/os-release
           ./check-distro-info-support.sh \
-            "${{ strategy.matrix.config.codename }}" \
-            "${{ strategy.matrix.config.pretty-name }}" \
-            "${{ strategy.matrix.config.codenames }}"
+            "${{ matrix.config.codename }}" \
+            "${{ matrix.config.pretty-name }}" \
+            "${{ matrix.config.codenames }}"
 
   build-packages:
     runs-on: ubuntu-latest
@@ -89,14 +89,14 @@ jobs:
             version: devel
     runs-on: ubuntu-latest
     container:
-      image: "${{ strategy.matrix.platform.distro }}:${{ strategy.matrix.platform.version }}"
+      image: "${{ matrix.platform.distro }}:${{ matrix.platform.version }}"
     env:
       DEBIAN_FRONTEND: noninteractive
     steps:
       - name: Download packages
         uses: actions/download-artifact@v4
         with:
-          name: "${{ strategy.matrix.platform.distro }}_packages"
+          name: "${{ matrix.platform.distro }}_packages"
       - name: Install packages
         run: apt update && apt upgrade -y && apt install -y --fix-missing ./dropbox_*.*.*_amd64.deb
 
@@ -107,7 +107,7 @@ jobs:
         version: [latest, rawhide]
     runs-on: ubuntu-latest
     container:
-      image: "fedora:${{ strategy.matrix.version }}"
+      image: "fedora:${{ matrix.version }}"
     steps:
       - name: Download packages
         uses: actions/download-artifact@v4
