@@ -1,0 +1,72 @@
+name: Test package installation
+description: Tests that the built .deb and .rpm packages can be installed on a subset of supported versions
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+jobs:
+  build-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@v3
+      - name: Build packages
+        run: ./build_packages.sh
+      - name: Upload Ubuntu packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu_packages
+          path: build/ubuntu/pool/main
+      - name: Upload Debian packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian_packages
+          path: build/debian/pool/main
+      - name: Upload Fedora packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: fedora_packages
+          path: build/fedora/pool
+
+  test_debs:
+    strategy:
+      matrix:
+        platform:
+          # Test on all Debian and Ubuntu LTS releases that have GTK 4+, plus prerelease
+          - distro: debian
+            version: bookworm
+          - distro: debian
+            version: sid
+          - distro: ubuntu
+            version: "24.04"
+          - distro: ubuntu
+            version: devel
+    runs-on: ubuntu-latest
+    container:
+      image: "${{ strategy.matrix.platform.distro }}:${{ strategy.matrix.platform.version }}"
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: "${{ strategy.matrix.platform.distro }}_packages"
+      - name: Install packages
+        run: apt update && apt upgrade -y && apt install -y --fix-missing ./dropbox_*.*.*_amd64.deb
+
+  test_rpm:
+    strategy:
+      matrix:
+        version: [latest, rawhide]
+    runs-on: ubuntu-latest
+    container:
+      image: "fedora:${{ strategy.matrix.version }}"
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: "fedora_packages"
+      - name: Install packages
+        run: dnf upgrade && dnf install ./nautilus-dropbox-*.*.*-*.*.x86_64.rpm
