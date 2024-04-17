@@ -13,29 +13,30 @@ jobs:
   validate-source-build:
     strategy:
       matrix:
-        - image: ubuntu:devel
-          deps-script: install-apt-deps.sh
-          codename: $VERSION_CODENAME
-          pretty-name: $NAME $VERSION
-          codenames: $UBUNTU_CODENAMES
-        - image: debian:sid
-          deps-script: install-apt-deps.sh
-          codename: $VERSION_CODENAME
-          pretty-name: $NAME $VERSION
-          codenames: $UBUNTU_CODENAMES
-        - image: fedora:rawhide
-          deps-script: install-rpm-deps.sh
-          codename: $VERSION_ID
-          pretty-name: Fedora $VERSION_ID
-          codenames: $FEDORA_CODENAMES
+        config:
+          - image: ubuntu:devel
+            deps-script: install-apt-deps.sh
+            codename: $VERSION_CODENAME
+            pretty-name: $NAME $VERSION
+            codenames: $UBUNTU_CODENAMES
+          - image: debian:sid
+            deps-script: install-apt-deps.sh
+            codename: $VERSION_CODENAME
+            pretty-name: $NAME $VERSION
+            codenames: $UBUNTU_CODENAMES
+          - image: fedora:rawhide
+            deps-script: install-rpm-deps.sh
+            codename: $VERSION_ID
+            pretty-name: Fedora $VERSION_ID
+            codenames: $FEDORA_CODENAMES
     runs-on: ubuntu-latest
     container:
-      image: ${{ strategy.matrix.image }}
+      image: ${{ strategy.matrix.config.image }}
     steps:
       - name: Clone repo
         uses: actions/checkout@v3
       - name: Install deps
-        run: ./${{ strategy.matrix.deps-script }}
+        run: ./${{ strategy.matrix.config.deps-script }}
       - name: Test build
         run: ./autogen.sh && make && make install
       - name: Run tests
@@ -45,9 +46,9 @@ jobs:
           . ./distro-info.sh
           . /etc/os-release
           ./check-distro-info-support.sh \
-            "${{ strategy.matrix.codename }}" \
-            "${{ strategy.matrix.pretty-name }}" \
-            "${{ strategy.matrix.codenames }}"
+            "${{ strategy.matrix.config.codename }}" \
+            "${{ strategy.matrix.config.pretty-name }}" \
+            "${{ strategy.matrix.config.codenames }}"
 
   build-packages:
     runs-on: ubuntu-latest
