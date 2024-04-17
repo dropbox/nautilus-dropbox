@@ -116,4 +116,4 @@ jobs:
         with:
           name: "fedora_packages"
       - name: Install packages
-        run: dnf upgrade && dnf install ./nautilus-dropbox-*.*.*-*.*.x86_64.rpm
+        run: dnf upgrade -y && dnf install -y ./nautilus-dropbox-*.*.*-*.*.x86_64.rpm
