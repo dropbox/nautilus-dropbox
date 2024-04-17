@@ -424,7 +424,7 @@ Replaces: nautilus-dropbox
 Breaks: nautilus-dropbox
 Provides: nautilus-dropbox
 Architecture: any
-Depends: procps, python3-gi (>= 3.12), python3 (>= 3.4.0), \${python3:Depends}, \${misc:Depends}, libatk1.0-0 (>= 2.10), libc6 (>= 2.19), libcairo2 (>= 1.13), libglib2.0-0 (>= 2.40), libgtk-4-1 (>= 4.8.0), libpango1.0-0 (>= 1.36.3) | libpango-1.0.0 (>= 1.36.3), lsb-release, gir1.2-gdkpixbuf-2.0 (>= 2.30.7), gir1.2-glib-2.0 (>= 1.40.0), gir1.2-gtk-4.0 (>= 4.8.0), gir1.2-pango-1.0 (>= 1.36.3)
+Depends: procps, python3-gi (>= 3.12), python3 (>= 3.4.0), \${python3:Depends}, \${misc:Depends}, libatk1.0-0 (>= 2.10), libc6 (>= 2.19), libcairo2 (>= 1.13), libglib2.0-0 (>= 2.40), libgtk-4-1 (>= 4.8.0), libpango1.0-0 (>= 1.36.3) | libpango-1.0-0 (>= 1.36.3), lsb-release, gir1.2-gdkpixbuf-2.0 (>= 2.30.7), gir1.2-glib-2.0 (>= 1.40.0), gir1.2-gtk-4.0 (>= 4.8.0), gir1.2-pango-1.0 (>= 1.36.3)
 Suggests: nautilus (>= 43.0), python3-gpg (>= 1.8.0)
 Homepage: https://www.dropbox.com/
 Description: cloud synchronization engine - CLI and Nautilus extension
