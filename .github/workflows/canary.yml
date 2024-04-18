@@ -34,7 +34,7 @@ jobs:
       image: ${{ matrix.config.image }}
     steps:
       - name: Clone repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install deps
         run: ./${{ matrix.config.deps-script }}
       - name: Test build
@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Build packages
         run: ./build_packages.sh
       - name: Upload Ubuntu packages
