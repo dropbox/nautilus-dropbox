@@ -8,15 +8,35 @@ on:
     - cron: "29 1 * * 1"
   workflow_dispatch:
 jobs:
-  ubuntu:
+  # Source builds are performed on the latest beta of each supported distro to
+  # make sure we catch any code issues as soon as possible.
+  validate-source-build:
+    strategy:
+      matrix:
+        config:
+          - image: ubuntu:devel
+            deps-script: install-apt-deps.sh
+            codename: $VERSION_CODENAME
+            pretty-name: $NAME $VERSION
+            codenames: $UBUNTU_CODENAMES
+          - image: debian:sid
+            deps-script: install-apt-deps.sh
+            codename: $VERSION_CODENAME
+            pretty-name: $PRETTY_NAME
+            codenames: $DEBIAN_CODENAMES
+          - image: fedora:rawhide
+            deps-script: install-rpm-deps.sh
+            codename: $VERSION_ID
+            pretty-name: Fedora $VERSION_ID
+            codenames: $FEDORA_CODENAMES
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:devel
+      image: ${{ matrix.config.image }}
     steps:
       - name: Clone repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install deps
-        run: ./install-apt-deps.sh
+        run: ./${{ matrix.config.deps-script }}
       - name: Test build
         run: ./autogen.sh && make && make install
       - name: Run tests
@@ -25,42 +45,75 @@ jobs:
         run: |
           . ./distro-info.sh
           . /etc/os-release
-          ./check-distro-info-support.sh "$VERSION_CODENAME" "$NAME $VERSION" "$UBUNTU_CODENAMES"
+          ./check-distro-info-support.sh \
+            "${{ matrix.config.codename }}" \
+            "${{ matrix.config.pretty-name }}" \
+            "${{ matrix.config.codenames }}"
 
-  debian:
+  build-packages:
     runs-on: ubuntu-latest
-    container:
-      image: debian:sid
     steps:
       - name: Clone repo
-        uses: actions/checkout@v3
-      - name: Install deps
-        run: ./install-apt-deps.sh
-      - name: Test build
-        run: ./autogen.sh && make && make install
-      - name: Run tests
-        run: python3 ./dropbox_test.py
-      - name: Check that latest OS version is supported
-        run: |
-          . ./distro-info.sh
-          . /etc/os-release
-          ./check-distro-info-support.sh "$VERSION_CODENAME" "$PRETTY_NAME" "$DEBIAN_CODENAMES"
+        uses: actions/checkout@v4
+      - name: Build packages
+        run: ./build_packages.sh
+      - name: Upload Ubuntu packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu_packages
+          path: build/ubuntu/pool/main
+      - name: Upload Debian packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian_packages
+          path: build/debian/pool/main
+      - name: Upload Fedora packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: fedora_packages
+          path: build/fedora/pool
 
-  fedora:
+  test_debs:
+    needs: build-packages
+    strategy:
+      matrix:
+        platform:
+          # Test on all Debian and Ubuntu LTS releases that have GTK 4+, plus
+          # prerelease to make sure there are no package dependency issues.
+          - distro: debian
+            version: bookworm
+          - distro: debian
+            version: sid
+          - distro: ubuntu
+            version: "24.04"
+          - distro: ubuntu
+            version: devel
     runs-on: ubuntu-latest
     container:
-      image: fedora:rawhide
+      image: "${{ matrix.platform.distro }}:${{ matrix.platform.version }}"
+    env:
+      DEBIAN_FRONTEND: noninteractive
     steps:
-      - name: Clone repo
-        uses: actions/checkout@v3
-      - name: Install deps
-        run: ./install-rpm-deps.sh
-      - name: Test build
-        run: ./autogen.sh && make && make install
-      - name: Run tests
-        run: python3 ./dropbox_test.py
-      - name: Check that latest OS version is supported
-        run: |
-          . ./distro-info.sh
-          . /etc/os-release
-          ./check-distro-info-support.sh "$VERSION_ID" "Fedora $VERSION_ID" "$FEDORA_CODENAMES"
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: "${{ matrix.platform.distro }}_packages"
+      - name: Install packages
+        run: apt update && apt upgrade -y && apt install -y --fix-missing ./dropbox_*.*.*_amd64.deb
+
+  test_rpm:
+    needs: build-packages
+    strategy:
+      matrix:
+        # Fedora doesn't have LTS releases, so just run on latest and rawhide.
+        version: [latest, rawhide]
+    runs-on: ubuntu-latest
+    container:
+      image: "fedora:${{ matrix.version }}"
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          name: "fedora_packages"
+      - name: Install packages
+        run: dnf upgrade -y && dnf install -y ./nautilus-dropbox-*.*.*-*.*.x86_64.rpm
