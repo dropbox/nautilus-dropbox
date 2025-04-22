@@ -2,11 +2,6 @@
 All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project.  This is so that it doesn't get confused with the Dropbox desktop client.
 
-Version 2025.04.22
-==================
-	* Add Ubuntu 25.04 and Fedora 42 to build matrix
-	* Remove support for 32-bit platforms
-
 Version 2024.04.17
 ==================
 	* Add Ubuntu 24.04 to build matrix
