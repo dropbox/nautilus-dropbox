@@ -1,4 +1,4 @@
-FROM ubuntu:oracular
+FROM ubuntu:noble
 
 COPY install-apt-deps.sh .
 RUN ./install-apt-deps.sh
