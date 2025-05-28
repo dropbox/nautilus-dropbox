@@ -133,4 +133,6 @@ AC_CONFIG_FILES([
 	data/icons/hicolor/256x256/apps/Makefile
 	data/emblems/Makefile])
 
+AC_SUBST([MKDIR_P], ['/bin/mkdir -p'])
+
 AC_OUTPUT

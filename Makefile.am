@@ -14,3 +14,4 @@ dropbox.1: dropbox.txt.in dropbox docgen.py
 	$(RST2MAN) dropbox.txt > dropbox.1
 
 SUBDIRS = data src
+MKDIR_P = /bin/mkdir -p
