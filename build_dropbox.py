@@ -1,9 +1,11 @@
 import sys
 import gi
-gi.require_version('GdkPixbuf', '2.0')
-from gi.repository import GdkPixbuf
 import re
 import os
+
+gi.require_version('Gtk', '4.0')
+gi.require_version('Gdk', '4.0')
+from gi.repository import Gtk, Gdk
 
 def replace_many(src2dest, buf):
     src_re = re.compile('|'.join(re.escape(word) for word in src2dest))
@@ -12,34 +14,34 @@ def replace_many(src2dest, buf):
         return src2dest[mo.group()]
     return src_re.sub(replace_repl, buf)
 
+def get_base64_image_data(filepath):
+    # Load image as Gdk.Texture and convert to base64 string
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"Image not found: {filepath}")
+
+    with open(filepath, "rb") as f:
+        data = f.read()
+        # Encode image binary to base64 string literal
+        import base64
+        return base64.b64encode(data).decode('ascii')
+
 if __name__ == '__main__':
     try:
-        # Print current working directory for debugging
         print(f"Current working directory: {os.getcwd()}", file=sys.stderr)
-        
-        # Check if icon files exist
+
         icon64_path = "data/icons/hicolor/64x64/apps/dropbox.png"
         icon16_path = "data/icons/hicolor/16x16/apps/dropbox.png"
-        
-        if not os.path.exists(icon64_path):
-            print(f"Error: Icon file not found: {icon64_path}", file=sys.stderr)
-            sys.exit(1)
-        if not os.path.exists(icon16_path):
-            print(f"Error: Icon file not found: {icon16_path}", file=sys.stderr)
-            sys.exit(1)
-            
-        pixbuf64 = GdkPixbuf.Pixbuf.new_from_file(icon64_path)
-        pixbuf16 = GdkPixbuf.Pixbuf.new_from_file(icon16_path)
-        
-        src2dest = {'@PACKAGE_VERSION@': sys.argv[1],
-                    '@DESKTOP_FILE_DIR@': sys.argv[2],
-                    '@IMAGEDATA64@': ("GdkPixbuf.Pixbuf.new_from_data(%r, GdkPixbuf.Colorspace.RGB, %r, %r, %r, %r, %r)" %
-                                      (pixbuf64.get_pixels(), pixbuf64.get_has_alpha(), pixbuf64.get_bits_per_sample(),
-                                       pixbuf64.get_width(), pixbuf64.get_height(), pixbuf64.get_rowstride())),
-                    '@IMAGEDATA16@': ("GdkPixbuf.Pixbuf.new_from_data(%r, GdkPixbuf.Colorspace.RGB, %r, %r, %r, %r, %r)" %
-                                      (pixbuf16.get_pixels(), pixbuf16.get_has_alpha(), pixbuf16.get_bits_per_sample(),
-                                       pixbuf16.get_width(), pixbuf16.get_height(), pixbuf16.get_rowstride())),
-                    }
+
+        image64_data = get_base64_image_data(icon64_path)
+        image16_data = get_base64_image_data(icon16_path)
+
+        # Create simple placeholder strings that the app consuming this must decode if needed
+        src2dest = {
+            '@PACKAGE_VERSION@': sys.argv[1],
+            '@DESKTOP_FILE_DIR@': sys.argv[2],
+            '@IMAGEDATA64@': f'"{image64_data}"',
+            '@IMAGEDATA16@': f'"{image16_data}"',
+        }
 
         buf = sys.stdin.read()
         sys.stdout.write(replace_many(src2dest, buf))
