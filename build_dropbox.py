@@ -1,11 +1,12 @@
+import os
 import sys
 import gi
 try:
     gi.require_version('GdkPixbuf', '2.0')
     from gi.repository import GdkPixbuf
-    sys.stdout.write("GdkPixbuf is available.")
+    os.system("echo 'GdkPixbuf is available.'")
 except ValueError as e:
-    sys.stderr.write(f"Error: {e}")
+    os.system(f"echo 'Error: {e}'")
     exit(1)
 
 import re
