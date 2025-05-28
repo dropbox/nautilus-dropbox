@@ -1,8 +1,7 @@
 import sys
-import gi
 import re
 import os
-from gi.repository import Gtk, Gdk
+import base64
 
 def replace_many(src2dest, buf):
     src_re = re.compile('|'.join(re.escape(word) for word in src2dest))
@@ -12,14 +11,13 @@ def replace_many(src2dest, buf):
     return src_re.sub(replace_repl, buf)
 
 def get_base64_image_data(filepath):
-    # Load image as Gdk.Texture and convert to base64 string
+    # Load image and convert to base64 string
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Image not found: {filepath}")
 
     with open(filepath, "rb") as f:
         data = f.read()
         # Encode image binary to base64 string literal
-        import base64
         return base64.b64encode(data).decode('ascii')
 
 if __name__ == '__main__':
