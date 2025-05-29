@@ -37,6 +37,7 @@ import _thread
 import time
 import traceback
 import urllib.request
+import base64
 
 try:
     import gpg
@@ -280,8 +281,25 @@ def load_serialized_images():
     import gi
     gi.require_version('GdkPixbuf', '2.0')
     from gi.repository import GdkPixbuf
-    box_logo_pixbuf = @IMAGEDATA64@
-    window_icon = @IMAGEDATA16@
+    import base64
+    from io import BytesIO
+
+    # Decode base64 string to bytes
+    image64_str = eval("@IMAGEDATA64@")  # Use eval() to safely unescape a `repr()`d string
+    image16_str = eval("@IMAGEDATA16@")  # Use eval() to safely unescape a `repr()`d string
+    image64_bytes = base64.b64decode(image64_str)
+    image16_bytes = base64.b64decode(image16_str)
+
+    # Create GdkPixbuf from bytes
+    loader64 = GdkPixbuf.PixbufLoader()
+    loader64.write(image64_bytes)
+    loader64.close()
+    box_logo_pixbuf = loader64.get_pixbuf()
+
+    loader16 = GdkPixbuf.PixbufLoader()
+    loader16.write(image16_bytes)
+    loader16.close()
+    window_icon = loader16.get_pixbuf()
 
 GUI_AVAILABLE = os.environ.get("DISPLAY", '')
 

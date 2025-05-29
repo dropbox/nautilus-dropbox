@@ -1,6 +1,6 @@
 # Initialization
 
-AC_INIT([nautilus-dropbox], 2024.04.17)
+AC_INIT([nautilus-dropbox], 2025.05.20)
 
 AM_INIT_AUTOMAKE([foreign])
 
@@ -132,5 +132,7 @@ AC_CONFIG_FILES([
 	data/icons/hicolor/256x256/Makefile
 	data/icons/hicolor/256x256/apps/Makefile
 	data/emblems/Makefile])
+
+AC_SUBST([MKDIR_P], ['/bin/mkdir -p'])
 
 AC_OUTPUT
