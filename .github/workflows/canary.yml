@@ -57,6 +57,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Build packages
         run: ./build_packages.sh
+      - name: Install GdkPixbuf Introspection
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi gir1.2-gdkpixbuf-2.0
       - name: Upload Ubuntu packages
         uses: actions/upload-artifact@v4
         with:
