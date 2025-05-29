@@ -4,7 +4,7 @@ Date based versioning is now used in this project.  This is so that it doesn't g
 
 Version 2025.05.20
 ==================
-	* Add Ubuntu 25.04,  Ubuntu 25.10, and Fedora 42 to build matrix
+	* Add Ubuntu 25.04,  Ubuntu 25.10, Fedora 42, and Fedora 43 to build matrix
 	* Remove support for 32-bit platforms
 
 Version 2024.04.17
