@@ -285,8 +285,8 @@ def load_serialized_images():
     from io import BytesIO
 
     # Decode base64 string to bytes
-    image64_str = "@IMAGEDATA64@"
-    image16_str = "@IMAGEDATA16@"
+    image64_str = eval("@IMAGEDATA64@")  # Use eval() to safely unescape the string
+    image16_str = eval("@IMAGEDATA16@")  # Use eval() to safely unescape the string
     image64_bytes = base64.b64decode(image64_str)
     image16_bytes = base64.b64decode(image16_str)
 

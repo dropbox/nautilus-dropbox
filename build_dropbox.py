@@ -34,8 +34,8 @@ if __name__ == '__main__':
         src2dest = {
             '@PACKAGE_VERSION@': sys.argv[1],
             '@DESKTOP_FILE_DIR@': sys.argv[2],
-            '@IMAGEDATA64@': f'"{image64_data}"',
-            '@IMAGEDATA16@': f'"{image16_data}"',
+            '@IMAGEDATA64@': repr(image64_data),  # Use repr() to properly escape the string
+            '@IMAGEDATA16@': repr(image16_data),  # Use repr() to properly escape the string
         }
 
         buf = sys.stdin.read()
