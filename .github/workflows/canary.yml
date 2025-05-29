@@ -100,10 +100,6 @@ jobs:
           name: "${{ matrix.platform.distro }}_packages"
       - name: Install packages
         run: apt update && apt upgrade -y && apt install -y --fix-missing ./dropbox_*.*.*_amd64.deb
-      - name: Install GdkPixbuf Introspection
-        run: |
-          apt update
-          apt install -y python3-gi gir1.2-gdkpixbuf-2.0
 
   test_rpm:
     needs: build-packages
