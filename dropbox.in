@@ -122,13 +122,23 @@ def yes_no_question(question):
 def plat():
     if sys.platform.lower().startswith('linux'):
         arch = platform.machine()
-        if arch == 'x86_64':
-            plat = arch
+        if arch in ('x86_64', 'aarch64'):
+            return "lnx.x86_64"  # This is a cool trick called "lying."
         else:
-            FatalVisibleError("Platform not supported")
-        return "lnx.%s" % plat
+            FatalVisibleError("CPU architecture not supported")
     else:
-        FatalVisibleError("Platform not supported")
+        FatalVisibleError("Operating system not supported")
+
+def dropbox_cmd():
+    arch = platform.machine()
+    if arch == 'x86_64':
+        return [DROPBOXD_PATH]
+    elif arch == 'aarch64':
+        box64_path = shutil.which('box64')
+        assert box64_path, "Unable to find box64 executable. To run Dropbox under ARM, please make sure box64 is on your path!"
+        return [box64_path, DROPBOXD_PATH]
+    else:
+        FatalVisibleError("CPU architecture not supported")
 
 def is_dropbox_running():
     pidfile = os.path.expanduser("~/.dropbox/dropbox.pid")
@@ -138,7 +148,7 @@ def is_dropbox_running():
             pid = int(f.read())
         with open("/proc/%d/cmdline" % pid, "r") as f:
             cmdline = f.read().lower()
-    except:
+    except Exception:
         cmdline = ""
 
     return "dropbox" in cmdline
@@ -257,7 +267,7 @@ class DownloadState(object):
         """
         f = open("/dev/null", "w")
         try:
-            a = subprocess.Popen([DROPBOXD_PATH, "/testrun", "0"], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
+            a = subprocess.Popen(dropbox_cmd() + ["/testrun", "0"], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
                                  stderr=sys.stderr, stdout=f, close_fds=True)
         except Exception as e:
             print(e)
@@ -774,7 +784,7 @@ def start_dropbox():
             new_env['XDG_CURRENT_DESKTOP'] = 'Unity'
 
         # we don't reap the child because we're gonna die anyway, let init do it
-        subprocess.Popen([DROPBOXD_PATH], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
+        subprocess.Popen(dropbox_cmd(), preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
                              stderr=sys.stderr, stdout=f, close_fds=True, env=new_env)
 
         # in seconds

@@ -26,28 +26,48 @@ Dropbox Nautilus yourself if you need a package for a distribution
 that we don't support, or you want to develop on the Dropbox Nautilus
 package.
 
+### Dependencies
+
 You will need to install the following dependencies:
 
-For Ubuntu:
+#### Ubuntu
 
 ```
 $ sudo apt-get install -y gnome-common libgtk-4-dev libnautilus-extension-dev python3-gi python3-docutils
 ```
 
-For Fedora:
+If you're running on an ARM machine, you'll also have to run the following:
+
+```
+$ sudo apt-get install -y box64
+```
+
+> [!CAUTION]
+> Note that ARM support is **_NO EFFORT ONLY_**. The tray icon doesn't work, we don't produce first-party packages for it, and other things might break in the future. This is just to make it a bit easier to install on SBCs or use in VMs hosted on Apple Silicon machines.
+>
+> IF YOU FILE AN ISSUE FOR THE ARM VERSION WE WILL CLOSE IT!
+
+#### Fedora
 
 ```
 $ sudo dnf install -y gnome-common nautilus-devel gtk4-devel python3-docutils
 ```
 
+Due to difficulties with programmatically managing multiarch library installations in Fedora without breaking nonstandard setups, we don't even pretend to have an ARM version.
+
+### Building and installing
+
 Then run the following to build and install nautilus-dropbox:
+
 ```
 $ ./autogen.sh
 $ make
 $ sudo make install
 ```
 
-This creates a "binary" named "dropbox" in the repo.
+This creates a "binary" named `dropbox` in the repo.
+
+### Running
 
 To start out the installer GUI, make sure the Dropbox desktop client
 isn't currently installed and run:
@@ -55,7 +75,6 @@ isn't currently installed and run:
 ```
 $ ./dropbox start -i
 ```
-
 
 After installing the package you may run into issues unless you
 restart Nautilus. You can do that by issuing the following command
@@ -66,6 +85,6 @@ log out and log back in instead):
 $ killall nautilus
 ```
 
-## Creating a .deb or .rpm package
+## Creating a `.deb` or `.rpm` package
 
 See [HOWTO_PACKAGE.md](HOWTO_PACKAGE.md)
