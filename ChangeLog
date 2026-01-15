@@ -1,169 +1,170 @@
 # Change Log
+
 All notable changes to this project will be documented in this file.
-Date based versioning is now used in this project.  This is so that it doesn't get confused with the Dropbox desktop client.
+Date based versioning is now used in this project. This is so that it doesn't get confused with the Dropbox desktop client.
 
-Version 2026.01.15
-------------------
-	* Update signing cert hash
+## Version 2026.01.15
 
-Version 2025.05.20
-------------------
-	* Add Ubuntu 25.04,  Ubuntu 25.10, Fedora 42, and Fedora 43 to build matrix
-	* Remove support for 32-bit platforms
+    * Update signing cert hash
+    * Add Ubuntu 26.04, Debian 14, and Fedora 44 to build matrix
 
-Version 2024.04.17
-------------------
-	* Add Ubuntu 24.04 to build matrix
-	* Allow `libpango-1.0-0` as alternate spelling of `libpango1.0-0` in `.deb` package
+## Version 2025.05.20
 
-Version 2024.01.22
-------------------
-	* Collapse single-entry context menu submenus
-	* Add Debian Trixie and Fedora 40 to build matrix
+    * Add Ubuntu 25.04,  Ubuntu 25.10, Fedora 42, and Fedora 43 to build matrix
+    * Remove support for 32-bit platforms
 
-Version 2023.09.06
-------------------
-	* Add Ubuntu 23.10 to build matrix
+## Version 2024.04.17
 
-Version 2022.12.05
-------------------
-	* Update to use libnautilus-extension-4 and gtk4, supporting Nautilus 43+.
-	* Fix various uses of deprecated APIs, such as the "DeprecationWarning: isSet() is deprecated" warning.
-	* Fix colors of ignored files in `dropbox filestatus`.
-	* Remove the long-broken `dropbox puburl` command.
-	* Don't print a ticker to stderr if it's not a tty.
+    * Add Ubuntu 24.04 to build matrix
+    * Allow `libpango-1.0-0` as alternate spelling of `libpango1.0-0` in `.deb` package
 
-Version 2020.03.04
-------------------
-	* Coerce XDG_CURRENT_DESKTOP to "Unity". This works around the
-	dropbox binary that will only activate the indicator icon and menu
-	on Ubuntu Unity < 16.10. This patch coerces XDG_CURRENT_DESKTOP to
-	report as "Unity" for the budgie-desktop
-	https://bugs.launchpad.net/ubuntu/+source/nautilus-dropbox/+bug/1683051
+## Version 2024.01.22
 
-Version 2019.02.14
-------------------
-	* Add "version" command, which prints out the version of the
-	Dropbox daemon and the Dropbox command-line interface.
-	* Update gpg warning to tell users to install the Python 3 GPG
-	libraries instead of the Python 2 libraries.
-	* Fix bug where the dropbox nautilus repo wasn't being added to
-	the apt sources correctly on Ubuntu 18.04 and up.
-	* Move build dependencies to Python 3.
+    * Collapse single-entry context menu submenus
+    * Add Debian Trixie and Fedora 40 to build matrix
 
-Version 2019.01.31
-------------------
-	* Move to Python 3 and GTK3
+## Version 2023.09.06
 
-Version 2018.11.28
-------------------
-	* Fix bug where the Dropbox tray icon wouldn't display on Ubuntu
-	Unity and Ubuntu Gnome.
-	* Reverts the fix to issue #15, where the tray wouldn't display on
-	XFCE. If you're using XFCE, try the workarounds in this ticket:
-	https://bugs.launchpad.net/ubuntu/+source/nautilus-dropbox/+bug/1546176
+    * Add Ubuntu 23.10 to build matrix
 
-Version 2018.11.08:
-------------------
-	* Add support for Fedora 23 - 29, Debian stretch and buster
-	* Drop support for Fedora releases older than 21, Ubuntu releases
-	older than trusty, and Debian releases older than jessie
-	* Display link url on `status`
-	* Fix canonicalize_path
-	* Make `exclude` work with unicode paths
-	* Fix bug that caused the Dropbox tray icon to not show up in XFCE & LXDE
-	* Add "update" command, which updates the Dropbox client
-	* Unlink files that are going to be replaced by the unpack
-	* Validate that Dropbox runs after downloading it
-	* Use python-gpg instead of python-gpgme if it's installed, since
-	python-gpgme is not available in Ubuntu 18.04.
-	* Update icons included in package to the redesigned icons.
+## Version 2022.12.05
 
-Version 2015.10.28:
-------------------
-	* Add support for `sharelink`, `proxy`, and `throttle` CLI commands
-	* Add support for Fedora 22
-	* Add support for Ubuntu 15.10
+    * Update to use libnautilus-extension-4 and gtk4, supporting Nautilus 43+.
+    * Fix various uses of deprecated APIs, such as the "DeprecationWarning: isSet() is deprecated" warning.
+    * Fix colors of ignored files in `dropbox filestatus`.
+    * Remove the long-broken `dropbox puburl` command.
+    * Don't print a ticker to stderr if it's not a tty.
 
-Version 2015.02.12:
-------------------
-	* Add support for Fedora 21
-	* Add support for Ubuntu 15.04 and 14.10
-	* New version numbering format
+## Version 2020.03.04
 
-Version 0.7.1 (11/11/11):
-------------------------
-	* Use the correct location for the dropbox.desktop file
-	* Cleanup better on uninstall
-	* Support Fedora 16
+    * Coerce XDG_CURRENT_DESKTOP to "Unity". This works around the
+    dropbox binary that will only activate the indicator icon and menu
+    on Ubuntu Unity < 16.10. This patch coerces XDG_CURRENT_DESKTOP to
+    report as "Unity" for the budgie-desktop
+    https://bugs.launchpad.net/ubuntu/+source/nautilus-dropbox/+bug/1683051
 
-Version 0.7.0 (10/19/11):
-------------------------
-	* Verify signature of downloaded tarballs
-	* Fix version conflict with rst2man during build
-	* Add lansync CLI command to disable LAN sync (Requires Dropbox version 1.2.45 or later)
-	* Add support for oneiric
-	* Add support for Debian
+## Version 2019.02.14
 
-Version 0.6.9 (08/12/11):
-------------------------
-	* Fix inconsistency in licensing
+    * Add "version" command, which prints out the version of the
+    Dropbox daemon and the Dropbox command-line interface.
+    * Update gpg warning to tell users to install the Python 3 GPG
+    libraries instead of the Python 2 libraries.
+    * Fix bug where the dropbox nautilus repo wasn't being added to
+    the apt sources correctly on Ubuntu 18.04 and up.
+    * Move build dependencies to Python 3.
 
-Version 0.6.8 (09/06/11):
-------------------------
-	* Supports Fedora 15
-	* Added a 256x256 dropbox icon
+## Version 2019.01.31
 
-Version 0.6.7 (11/04/10):
-------------------------
-	* Support Fedora 14
-	* Fix stop command never exiting
-	* Fix help text for autostart command
-	* Fix support for displaying or passing in unicode file/dir names in filestatus command
+    * Move to Python 3 and GTK3
 
-Version 0.6.6 (10/25/10):
-------------------------
-	* Fix slowdown with certain commands (ls, exclude).
+## Version 2018.11.28
 
-Version 0.6.5 (10/25/10):
-------------------------
-	* Detect older clients in selective sync CLI commands.
+    * Fix bug where the Dropbox tray icon wouldn't display on Ubuntu
+    Unity and Ubuntu Gnome.
+    * Reverts the fix to issue #15, where the tray wouldn't display on
+    XFCE. If you're using XFCE, try the workarounds in this ticket:
+    https://bugs.launchpad.net/ubuntu/+source/nautilus-dropbox/+bug/1546176
 
-Version 0.6.4 (10/25/10):
-------------------------
-	* Support Selective sync in the CLI.  (Requires Dropbox version 0.8.109 or later)
+## Version 2018.11.08:
 
-Version 0.6.3 (6/14/10):
------------------------
-	* Add support for get_emblems and get_emblems path so client can tell us what to use.
-	* Remove useless notify dependency.
-	* Remove nautilus dependency so that it's easier to install.
-	* Start using dropbox.com instead of getdropbox.com
+    * Add support for Fedora 23 - 29, Debian stretch and buster
+    * Drop support for Fedora releases older than 21, Ubuntu releases
+    older than trusty, and Debian releases older than jessie
+    * Display link url on `status`
+    * Fix canonicalize_path
+    * Make `exclude` work with unicode paths
+    * Fix bug that caused the Dropbox tray icon to not show up in XFCE & LXDE
+    * Add "update" command, which updates the Dropbox client
+    * Unlink files that are going to be replaced by the unpack
+    * Validate that Dropbox runs after downloading it
+    * Use python-gpg instead of python-gpgme if it's installed, since
+    python-gpgme is not available in Ubuntu 18.04.
+    * Update icons included in package to the redesigned icons.
 
-Version 0.6.2 (3/16/10):
------------------------
-	* Fix segfault when cut and pasting files to a network directory.
-	* Fix missing emblems when filenames have quotes.
-	* Fix infinite loop on non decodable filenames.
-	* License for images changed to Creative Commons.
+## Version 2015.10.28:
 
-Version 0.3.0 (7/17/08):
------------------------
-	* Removed some bugs based on incorrect assertion usage
-	* Notifications when browser or nautilus fails to open
-	* Now affected file opens when you get a notification.
+    * Add support for `sharelink`, `proxy`, and `throttle` CLI commands
+    * Add support for Fedora 22
+    * Add support for Ubuntu 15.10
 
-Version 0.2.0 (7/9/08):
------------------------
-	* Fixed slow startup time due to handle_shell_touch being O(n) operation
-	it's now an O(1) operation on average.
-	* Fixed issue where auto download of dropbox would "fail" sometimes.
-	* Dragging and dropping now works (no outdated dropbox status).
-	* Tray icon is now more accurate regarding the current state of Dropbox.
-	* Folder tags (Photos/Public/Shared) are now implemented.
-	* Used nautilus workaround to always show dropbox status emblems.
+## Version 2015.02.12:
 
-Version 0.1.0 (7/3/08):
------------------------
-	* Initial Release!
+    * Add support for Fedora 21
+    * Add support for Ubuntu 15.04 and 14.10
+    * New version numbering format
 
+## Version 0.7.1 (11/11/11):
+
+    * Use the correct location for the dropbox.desktop file
+    * Cleanup better on uninstall
+    * Support Fedora 16
+
+## Version 0.7.0 (10/19/11):
+
+    * Verify signature of downloaded tarballs
+    * Fix version conflict with rst2man during build
+    * Add lansync CLI command to disable LAN sync (Requires Dropbox version 1.2.45 or later)
+    * Add support for oneiric
+    * Add support for Debian
+
+## Version 0.6.9 (08/12/11):
+
+    * Fix inconsistency in licensing
+
+## Version 0.6.8 (09/06/11):
+
+    * Supports Fedora 15
+    * Added a 256x256 dropbox icon
+
+## Version 0.6.7 (11/04/10):
+
+    * Support Fedora 14
+    * Fix stop command never exiting
+    * Fix help text for autostart command
+    * Fix support for displaying or passing in unicode file/dir names in filestatus command
+
+## Version 0.6.6 (10/25/10):
+
+    * Fix slowdown with certain commands (ls, exclude).
+
+## Version 0.6.5 (10/25/10):
+
+    * Detect older clients in selective sync CLI commands.
+
+## Version 0.6.4 (10/25/10):
+
+    * Support Selective sync in the CLI.  (Requires Dropbox version 0.8.109 or later)
+
+## Version 0.6.3 (6/14/10):
+
+    * Add support for get_emblems and get_emblems path so client can tell us what to use.
+    * Remove useless notify dependency.
+    * Remove nautilus dependency so that it's easier to install.
+    * Start using dropbox.com instead of getdropbox.com
+
+## Version 0.6.2 (3/16/10):
+
+    * Fix segfault when cut and pasting files to a network directory.
+    * Fix missing emblems when filenames have quotes.
+    * Fix infinite loop on non decodable filenames.
+    * License for images changed to Creative Commons.
+
+## Version 0.3.0 (7/17/08):
+
+    * Removed some bugs based on incorrect assertion usage
+    * Notifications when browser or nautilus fails to open
+    * Now affected file opens when you get a notification.
+
+## Version 0.2.0 (7/9/08):
+
+    * Fixed slow startup time due to handle_shell_touch being O(n) operation
+    it's now an O(1) operation on average.
+    * Fixed issue where auto download of dropbox would "fail" sometimes.
+    * Dragging and dropping now works (no outdated dropbox status).
+    * Tray icon is now more accurate regarding the current state of Dropbox.
+    * Folder tags (Photos/Public/Shared) are now implemented.
+    * Used nautilus workaround to always show dropbox status emblems.
+
+## Version 0.1.0 (7/3/08):
+
+    * Initial Release!
