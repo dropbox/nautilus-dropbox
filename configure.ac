@@ -1,6 +1,6 @@
 # Initialization
 
-AC_INIT([nautilus-dropbox], 2025.05.20)
+AC_INIT([nautilus-dropbox], 2026.01.15)
 
 AM_INIT_AUTOMAKE([foreign])
 
