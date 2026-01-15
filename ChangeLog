@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project.  This is so that it doesn't get confused with the Dropbox desktop client.
 
-Version 2026.01.07
+Version 2026.01.15
 ------------------
 	* Update signing cert hash
 
