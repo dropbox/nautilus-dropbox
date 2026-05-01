@@ -1,5 +1,23 @@
 #!/bin/bash
 
 apt-get update
-apt-get install -y gnome-common libgtk-4-dev libnautilus-extension-dev python3-gi python3-docutils \
-    debootstrap devscripts libnautilus-extension-dev cdbs debian-archive-keyring debhelper
+apt-get install -fy \
+    debhelper \
+    debian-archive-keyring \
+    debootstrap \
+    devscripts \
+    gnome-common \
+    libgtk-4-dev \
+    libnautilus-extension-dev \
+    libnautilus-extension-dev \
+    python3-docutils \
+    python3-gi
+
+case "${DBX_BUILD_ENV:=local}" in
+    packaging)
+        apt-get install -fy cdbs
+        ;;
+
+    *)
+        ;;
+esac

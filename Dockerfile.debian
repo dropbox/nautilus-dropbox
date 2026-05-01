@@ -1,5 +1,5 @@
 FROM debian:bookworm
 
 COPY install-apt-deps.sh .
-RUN ./install-apt-deps.sh
+RUN DBX_BUILD_ENV=packaging ./install-apt-deps.sh
 WORKDIR /src

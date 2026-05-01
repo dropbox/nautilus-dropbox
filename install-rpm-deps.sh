@@ -1,5 +1,23 @@
 #!/bin/bash
 
-dnf install -y --skip-unavailable gnome-common nautilus-devel gtk4-devel python3-docutils \
-    python3-gobject devscripts mock rpm rpm-sign rpmdevtools rpmlint expect createrepo cdbs \
-    gnome-common python3-docutils rpm-build gawk which atk-devel
+dnf install -y --skip-unavailable \
+    atk-devel \
+    cdbs \
+    createrepo \
+    devscripts \
+    expect \
+    gawk \
+    gnome-common \
+    gnome-common \
+    gtk4-devel \
+    mock \
+    nautilus-devel \
+    python3-docutils \
+    python3-docutils \
+    python3-gobject \
+    rpm \
+    rpm-build \
+    rpm-sign \
+    rpmdevtools \
+    rpmlint \
+    which
