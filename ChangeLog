@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project. This is so that it doesn't get confused with the Dropbox desktop client.
 
+## Version 2026.05.06
+
+- Put build-only packages behind a flag on Debian/Ubuntu.
+- Updated Debian/Ubuntu dependencies to handle some packages that have been renamed.
+
 ## Version 2026.03.20
 
 - Add Fedora 45 to build matrix.
