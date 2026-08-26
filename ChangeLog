@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project. This is so that it doesn't get confused with the Dropbox desktop client.
 
+## Version 2026.08.26
+
+- Makes `dropbox-cli start` more robust by adding internal retries and better messaging.
+
 ## Version 2026.05.06
 
 - Put build-only packages behind a flag on Debian/Ubuntu.

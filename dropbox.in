@@ -39,6 +39,8 @@ import traceback
 import urllib.request
 import base64
 
+from enum import Enum
+
 try:
     import gpg
     gpgme = None
@@ -54,7 +56,6 @@ from contextlib import closing, contextmanager
 from io import BytesIO
 from operator import methodcaller
 from os.path import relpath
-from posixpath import curdir, sep, pardir, join, abspath, commonprefix
 
 INFO = "Dropbox is the easiest way to share and store your files online. Want to learn more? Head to"
 LINK = "https://www.dropbox.com/"
@@ -74,6 +75,9 @@ PARENT_DIR = os.path.expanduser("~")
 DROPBOX_DIST_PATH = "%s/.dropbox-dist" % PARENT_DIR
 DROPBOXD_PATH = os.path.join(DROPBOX_DIST_PATH, "dropboxd")
 DESKTOP_FILE = "@DESKTOP_FILE_DIR@/dropbox.desktop"
+
+STARTUP_TIMEOUT_SECONDS = 60
+STARTUP_POLL_INTERVAL_SECONDS = 0.5
 
 enc = locale.getpreferredencoding()
 
@@ -787,14 +791,11 @@ def start_dropbox():
         subprocess.Popen([DROPBOXD_PATH], preexec_fn=os.setsid, cwd=os.path.expanduser("~"),
                              stderr=sys.stderr, stdout=f, close_fds=True, env=new_env)
 
-        # in seconds
-        interval = 0.5
-        wait_for = 60
-        for _ in range(int(wait_for / interval)):
+        for _ in range(int(STARTUP_TIMEOUT_SECONDS / STARTUP_POLL_INTERVAL_SECONDS)):
             if is_dropbox_running():
                 return True
             # back off from connect for a while
-            time.sleep(interval)
+            time.sleep(STARTUP_POLL_INTERVAL_SECONDS)
 
         return False
     else:
@@ -1272,25 +1273,74 @@ Stops the Dropbox daemon.
     except DropboxCommand.CouldntConnectError:
         console_print("Dropbox isn't running!")
 
-#returns true if link is necessary
-def grab_link_url_if_necessary():
-    try:
-        with closing(DropboxCommand()) as dc:
-            try:
-                link_url = dc.needs_link().get("link_url", None)
+class GrabLinkUrlResult(Enum):
+    LINK_URL_DISPLAYED = 1
+    NO_LINK_URL = 2
+    COMMAND_ERROR = 3
+    COMMAND_SOCKET_UNAVAILABLE = 4
+
+
+def grab_link_url_if_necessary(retry_until=None, report_transport_errors=True):
+    """Display a link URL when needed and report command-server readiness.
+
+    If retry_until is set to a monotonic deadline, transport failures are retried
+    until that deadline. A command-level error proves that the command server is
+    available, so it is returned separately and is not retried. Transport errors
+    are reported only after retries are exhausted.
+    """
+    attempted = False
+    transport_error_message = None
+    while retry_until is None or not attempted or time.monotonic() < retry_until:
+        attempted = True
+        command_timeout = 5
+        if retry_until is not None:
+            remaining = retry_until - time.monotonic()
+            command_timeout = max(1, min(command_timeout, remaining))
+
+        try:
+            with closing(DropboxCommand(timeout=command_timeout)) as dc:
+                try:
+                    link_url = dc.needs_link().get("link_url", None)
+                except DropboxCommand.CommandError:
+                    return GrabLinkUrlResult.COMMAND_ERROR
+
                 if link_url is not None:
                     console_print("To link this computer to a Dropbox account, visit the following url:\n%s" % link_url[0])
-                    return True
-                else:
-                    return False
-            except DropboxCommand.CommandError:
-                pass
-            except DropboxCommand.BadConnectionError:
-                console_print("Dropbox isn't responding!")
-            except DropboxCommand.EOFError:
-                console_print("Dropbox daemon stopped.")
-    except DropboxCommand.CouldntConnectError:
-        console_print("Dropbox isn't running!")
+                    return GrabLinkUrlResult.LINK_URL_DISPLAYED
+                return GrabLinkUrlResult.NO_LINK_URL
+        except DropboxCommand.CouldntConnectError:
+            transport_error_message = "Dropbox isn't running!"
+        except DropboxCommand.BadConnectionError:
+            transport_error_message = "Dropbox isn't responding!"
+        except DropboxCommand.EOFError:
+            transport_error_message = "Dropbox daemon stopped."
+
+        if retry_until is None:
+            break
+
+        remaining = retry_until - time.monotonic()
+        if remaining > 0:
+            time.sleep(min(STARTUP_POLL_INTERVAL_SECONDS, remaining))
+
+    if report_transport_errors and transport_error_message is not None:
+        console_print(transport_error_message)
+    return GrabLinkUrlResult.COMMAND_SOCKET_UNAVAILABLE
+
+
+def start_dropbox_and_report_result():
+    startup_deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+    if not start_dropbox():
+        return False
+
+    link_result = grab_link_url_if_necessary(
+        retry_until=startup_deadline, report_transport_errors=False
+    )
+    if link_result == GrabLinkUrlResult.COMMAND_SOCKET_UNAVAILABLE:
+        console_print()
+        console_print("Dropbox is running, but its command socket is unavailable!")
+    elif link_result != GrabLinkUrlResult.LINK_URL_DISPLAYED:
+        console_print("Done!")
+    return True
 
 @command
 @requires_dropbox_running
@@ -1442,13 +1492,16 @@ options:
 
     # first check if dropbox is already running
     if is_dropbox_running():
-        if not grab_link_url_if_necessary():
+        link_result = grab_link_url_if_necessary(report_transport_errors=False)
+        if link_result == GrabLinkUrlResult.COMMAND_SOCKET_UNAVAILABLE:
+            console_print("Dropbox is running, but its command socket is unavailable!")
+        elif link_result != GrabLinkUrlResult.LINK_URL_DISPLAYED:
             console_print("Dropbox is already running!")
         return
 
     console_print("Starting Dropbox...", linebreak=False)
     console_flush()
-    if not start_dropbox():
+    if not start_dropbox_and_report_result():
         if not should_install:
             console_print()
             console_print("The Dropbox daemon is not installed!")
@@ -1465,12 +1518,7 @@ options:
                 start_dropbox()
                 console_print("Done!")
             else:
-                if start_dropbox():
-                    if not grab_link_url_if_necessary():
-                        console_print("Done!")
-    else:
-        if not grab_link_url_if_necessary():
-            console_print("Done!")
+                start_dropbox_and_report_result()
 
 
 def can_reroll_autostart():
