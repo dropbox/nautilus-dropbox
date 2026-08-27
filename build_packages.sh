@@ -6,7 +6,7 @@ rm -rf build
 
 # Build deb packages.
 for DISTRO in ubuntu debian debian_i386; do
-    docker build -t nautilus-dropbox/$DISTRO -f Dockerfile.$DISTRO .
+    docker build --pull -t nautilus-dropbox/$DISTRO -f Dockerfile.$DISTRO .
     docker run -u "$(id -u):$(id -g)" -v `pwd`:/src nautilus-dropbox/$DISTRO ./generate-deb.sh
 done
 
