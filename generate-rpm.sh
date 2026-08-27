@@ -40,7 +40,6 @@ cp nautilus-dropbox-$CURVER.tar.bz2 rpmbuild/SOURCES/
 cat <<EOF > rpmbuild/SPECS/nautilus-dropbox.spec
 %define glib_version 2.42.1
 %define nautilus_version 43.0
-%define libgnome_version 2.32.1
 %define pygobject3_version 3.14.0
 %define pygpgme_version 0.3
 
@@ -56,7 +55,6 @@ BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id} -u -n)
 
 Requires:	nautilus-extensions >= %{nautilus_version}
 Requires:	glib2 >= %{glib_version}
-Requires:	libgnome >= %{libgnome_version}
 Requires:	python3
 Requires:	python3-gobject >= %{pygobject3_version}
 
