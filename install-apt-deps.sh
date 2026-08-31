@@ -15,7 +15,7 @@ apt-get install -fy \
 
 case "${DBX_BUILD_ENV:=local}" in
     packaging)
-        apt-get install -fy cdbs
+        apt-get install -fy cdbs autotools-dev automake
         ;;
 
     *)

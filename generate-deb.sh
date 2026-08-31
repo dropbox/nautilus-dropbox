@@ -14,6 +14,8 @@ trap "rm -rf $TMPDIR" EXIT
 cp -R $SRCDIR/* $TMPDIR/
 cd $TMPDIR
 
+autoreconf -f -i
+
 # get version
 CURVER=$(mawk '/^AC_INIT/{sub("AC_INIT\(\[nautilus-dropbox\], ", ""); sub("\)", ""); print $0}' configure.ac)
 
