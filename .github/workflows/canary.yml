@@ -35,6 +35,11 @@ jobs:
     steps:
       - name: Clone repo
         uses: actions/checkout@v4
+      - name: Disable frequently unavailable repos
+        run: |
+          (grep -qi "rawhide" /etc/os-release) \
+            && dnf config-manager disable fedora-cisco-openh264 \
+            || echo "No unavailable repos to disable."
       - name: Install deps
         run: ./${{ matrix.config.deps-script }}
       - name: Test build
