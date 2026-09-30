@@ -1,7 +1,7 @@
-import sys
-import re
-import os
 import base64
+import os
+import re
+import sys
 
 
 def replace_many(src2dest, buf):

@@ -21,6 +21,7 @@
 #
 from __future__ import with_statement
 
+import _thread
 import errno
 import locale
 import optparse
@@ -33,11 +34,9 @@ import sys
 import tarfile
 import tempfile
 import threading
-import _thread
 import time
 import traceback
 import urllib.request
-import base64
 
 from enum import Enum
 
@@ -323,9 +322,9 @@ def load_serialized_images():
     import gi
 
     gi.require_version("GdkPixbuf", "2.0")
-    from gi.repository import GdkPixbuf
     import base64
-    from io import BytesIO
+
+    from gi.repository import GdkPixbuf
 
     # Decode base64 string to bytes
     image64_str = eval(
@@ -358,11 +357,9 @@ if GUI_AVAILABLE:
 
         gi.require_version("Gdk", "3.0")
         gi.require_version("Gtk", "3.0")
-        from gi.repository import GLib
-        from gi.repository import Gdk
-        from gi.repository import Gtk
-        from gi.repository import Pango
         import webbrowser
+
+        from gi.repository import Gdk, GLib, Gtk, Pango
 
         load_serialized_images()
 
