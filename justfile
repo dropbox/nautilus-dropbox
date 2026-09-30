@@ -11,3 +11,6 @@ setup-tools-venv:
 lint: setup-tools-venv
     just _with_tools_venv ruff format --diff
     just _with_tools_venv ruff check
+
+format: setup-tools-venv
+    just _with_tools_venv ruff format
