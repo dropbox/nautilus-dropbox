@@ -6,8 +6,6 @@ on:
     branches: [master]
   workflow_dispatch:
 jobs:
-  # Source builds are performed on the latest beta of each supported distro to
-  # make sure we catch any code issues as soon as possible.
   ruff:
     runs-on: ubuntu-latest
     steps:
