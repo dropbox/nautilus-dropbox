@@ -1,0 +1,3 @@
+# NOTE: these are *tool* dependencies, not dependencies of the final output!
+
+ruff==0.16.9
