@@ -26,8 +26,9 @@ import shutil
 import socket
 import sys
 import unittest
-from importlib.util import spec_from_loader, module_from_spec
+
 from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
 from unittest.mock import MagicMock, patch
 
 spec = spec_from_loader("dropbox", SourceFileLoader("dropbox", "./dropbox"))
@@ -35,13 +36,13 @@ dropbox = module_from_spec(spec)
 if spec.loader:
     spec.loader.exec_module(dropbox)
 
-class TestDropbox(unittest.TestCase):
 
+class TestDropbox(unittest.TestCase):
     # We have to use patch.object() here because we use some funky tricks to
     # import the `dropbox` module that regular patch() doesn't like.
-    @patch.object(dropbox, 'FatalVisibleError', create=True)
+    @patch.object(dropbox, "FatalVisibleError", create=True)
     def test_plat_fails_on_non_linux(self, fve_mock):
-        sys.platform = 'darwin'
+        sys.platform = "darwin"
         dropbox.plat()
         fve_mock.assert_called()
 
@@ -57,7 +58,7 @@ class TestDropbox(unittest.TestCase):
         os.remove.assert_not_called()
 
     def test_reroll_autostart_false(self):
-        os.listdir = MagicMock(return_value=['.config'])
+        os.listdir = MagicMock(return_value=[".config"])
         os.path.exists = MagicMock(return_value=False)
         os.makedirs = MagicMock()
         os.remove = MagicMock()
@@ -70,7 +71,7 @@ class TestDropbox(unittest.TestCase):
         os.remove.assert_called_once()
 
     def test_reroll_autostart_true(self):
-        os.listdir = MagicMock(return_value=['.config'])
+        os.listdir = MagicMock(return_value=[".config"])
         os.path.exists = MagicMock(side_effect=[True, False])
         shutil.copyfile = MagicMock()
         os.makedirs = MagicMock()
@@ -113,7 +114,7 @@ class TestDropboxCommand(unittest.TestCase):
         dropbox.CommandTicker = self.mock_ticker
 
         # Set return ok - success for the default command response
-        self.mock_file.readline = MagicMock(side_effect=['ok', 'done'])
+        self.mock_file.readline = MagicMock(side_effect=["ok", "done"])
 
         self.mock_file.flush = MagicMock()
         self.mock_file.close = MagicMock()
@@ -133,24 +134,28 @@ class TestDropboxCommand(unittest.TestCase):
 
     def test_command_with_params(self):
         kwargs = {
-            'download_mode': 'manual',
-            'upload_mode': 'manual',
-            'download_limit': '640',
-            'upload_limit': '128',
+            "download_mode": "manual",
+            "upload_mode": "manual",
+            "download_limit": "640",
+            "upload_limit": "128",
         }
         self.cmd.set_bandwidth_limits(**kwargs)
-        assert self.mock_file.buf == ('set_bandwidth_limits\n' +
-                                    'download_mode\tmanual\n' +
-                                    'upload_mode\tmanual\n' +
-                                    'download_limit\t640\n' +
-                                    'upload_limit\t128\n' +
-                                    'done\n')
+        assert self.mock_file.buf == (
+            "set_bandwidth_limits\n"
+            + "download_mode\tmanual\n"
+            + "upload_mode\tmanual\n"
+            + "download_limit\t640\n"
+            + "upload_limit\t128\n"
+            + "done\n"
+        )
 
     def test_command_error(self):
-        self.mock_file.readline = MagicMock(side_effect=['error', 'command not available', 'done'])
+        self.mock_file.readline = MagicMock(
+            side_effect=["error", "command not available", "done"]
+        )
         with self.assertRaises(dropbox.DropboxCommand.CommandError):
             self.cmd.get_dropbox_status()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
