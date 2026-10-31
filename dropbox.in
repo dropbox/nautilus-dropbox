@@ -868,17 +868,36 @@ def requires_dropbox_running(meth):
     return newmeth
 
 
+def dropboxd_env(environ):
+    """Return the environment to launch dropboxd with."""
+    new_env = environ.copy()
+
+    # Fix indicator icon and menu on Unity environments. (LP: #1559249)
+    # Fix indicator icon and menu in Budgie environment. (LP: #1683051)
+    current_env = environ.get("XDG_CURRENT_DESKTOP", "").split(":")
+    to_check = ["Unity", "Budgie"]
+    if any(word in to_check for word in current_env):
+        new_env["XDG_CURRENT_DESKTOP"] = "Unity"
+
+    # Fix "Copy Dropbox link" not populating the clipboard on Wayland. (#164)
+    # Wayland compositors drop clipboard writes from clients without keyboard
+    # focus, and dropboxd runs in the background with only a tray icon. Prefer
+    # GTK's X11 backend so the write goes through XWayland, which forwards it
+    # to the Wayland clipboard. Fall back to Wayland if XWayland is missing.
+    if (
+        environ.get("XDG_SESSION_TYPE") == "wayland"
+        and "GDK_BACKEND" not in environ
+    ):
+        new_env["GDK_BACKEND"] = "x11,wayland"
+
+    return new_env
+
+
 def start_dropbox():
     if os.access(DROPBOXD_PATH, os.X_OK):
         f = open("/dev/null", "w")
 
-        # Fix indicator icon and menu on Unity environments. (LP: #1559249)
-        # Fix indicator icon and menu in Budgie environment. (LP: #1683051)
-        new_env = os.environ.copy()
-        current_env = os.environ.get("XDG_CURRENT_DESKTOP", "").split(":")
-        to_check = ["Unity", "Budgie"]
-        if any(word in to_check for word in current_env):
-            new_env["XDG_CURRENT_DESKTOP"] = "Unity"
+        new_env = dropboxd_env(os.environ)
 
         # we don't reap the child because we're gonna die anyway, let init do it
         subprocess.Popen(
