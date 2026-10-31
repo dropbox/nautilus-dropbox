@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 Date based versioning is now used in this project. This is so that it doesn't get confused with the Dropbox desktop client.
 
+## Version 2026.10.31
+
+- Fixed "Copy Dropbox link" not populating the clipboard on Wayland by starting `dropboxd` with GTK's X11 backend when available.
+
 ## Version 2026.09.28
 
 - Added Fedora 46 to build matrix.
