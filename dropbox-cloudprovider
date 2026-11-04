@@ -1,0 +1,311 @@
+#!/usr/bin/env python3
+#
+# dropbox-cloudprovider
+# Exports the Dropbox account to desktop environments through libcloudproviders.
+# This file is part of nautilus-dropbox.
+#
+# nautilus-dropbox is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# nautilus-dropbox is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with nautilus-dropbox.  If not, see <http://www.gnu.org/licenses/>.
+#
+import json
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import threading
+import time
+
+import gi
+
+gi.require_version("CloudProviders", "0.3")
+from gi.repository import CloudProviders, Gio, GLib
+
+BUS_NAME = "com.dropbox.Client"
+OBJECT_PATH = "/com/dropbox/Client"
+# Status changes are pushed by the daemon; polling only covers a lost socket.
+FALLBACK_POLL_SECONDS = 30
+DEBOUNCE_SECONDS = 0.2
+RECONNECT_SECONDS = 1
+
+Status = CloudProviders.AccountStatus
+# Codes returned by icon_overlay_file_status, as used by the Nautilus extension.
+FILE_STATUSES = {"up to date": Status.IDLE, "syncing": Status.SYNCING}
+
+
+def dropbox_dir():
+    return os.path.expanduser("~/.dropbox")
+
+
+def read_accounts():
+    """Returns a list of (id, name, path), one per account in info.json."""
+    try:
+        with open(os.path.join(dropbox_dir(), "info.json")) as f:
+            info = json.load(f)
+    except (OSError, ValueError):
+        info = {}
+
+    accounts = []
+    for key, account in info.items():
+        if not isinstance(account, dict) or not account.get("path"):
+            continue
+        # info.json has no account name, so use the folder name
+        # (e.g. "Dropbox (Company)"), which also tells accounts apart.
+        name = os.path.basename(account["path"].rstrip("/")) or key.capitalize()
+        accounts.append((key, name, account["path"]))
+
+    if not accounts:
+        accounts.append(("personal", "Dropbox", os.path.expanduser("~/Dropbox")))
+    return accounts
+
+
+def send_command(name, args=None):
+    """Sends a command to the daemon and returns its reply arguments.
+
+    args maps argument names to lists of values.
+
+    Raises OSError if the daemon is unreachable or rejects the command.
+    """
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+        s.settimeout(5)
+        s.connect(os.path.join(dropbox_dir(), "command_socket"))
+        f = s.makefile("rw", 4096)
+        f.write(name + "\n")
+        for key, values in (args or {}).items():
+            f.write("\t".join([key] + values) + "\n")
+        f.write("done\n")
+        f.flush()
+
+        if f.readline().rstrip("\n") != "ok":
+            raise OSError("daemon rejected " + name)
+
+        reply = {}
+        for _ in range(20):
+            line = f.readline()
+            if line == "":
+                raise OSError("daemon closed the connection")
+            args = line.rstrip("\n").split("\t")
+            if args[0] == "done":
+                return reply
+            reply[args[0]] = args[1:]
+        raise OSError("malformed daemon response")
+
+
+def get_account_status(path):
+    """Returns the sync status of an account's folder.
+
+    Unlike get_dropbox_status, the code isn't translated.
+    """
+    reply = send_command("icon_overlay_file_status", {"path": [path]})
+    code = (reply.get("status") or [""])[0]
+    return FILE_STATUSES.get(code, Status.ERROR)
+
+
+def get_status_details():
+    lines = send_command("get_dropbox_status").get("status", [])
+    return lines[0] if lines else "Idle"
+
+
+def find_dropbox_script():
+    path = shutil.which("dropbox")
+    if path is not None:
+        return path
+    sibling = os.path.join(
+        os.path.dirname(os.path.abspath(sys.argv[0])), "dropbox"
+    )
+    return sibling if os.access(sibling, os.X_OK) else None
+
+
+def build_menu():
+    menu = Gio.Menu()
+
+    section = Gio.Menu()
+    section.append("Open Dropbox Folder", "cloudprovider.open-folder")
+    section.append("Open Dropbox Website", "cloudprovider.open-website")
+    menu.append_section(None, section)
+
+    section = Gio.Menu()
+    section.append("Help", "cloudprovider.open-help")
+    menu.append_section(None, section)
+
+    section = Gio.Menu()
+    section.append("Start Dropbox", "cloudprovider.start")
+    section.append("Quit Dropbox", "cloudprovider.quit")
+    menu.append_section(None, section)
+    return menu
+
+
+def open_uri(uri):
+    try:
+        Gio.AppInfo.launch_default_for_uri(uri, None)
+    except GLib.Error:
+        pass
+
+
+def on_open_website(action, parameter):
+    open_uri("https://www.dropbox.com/")
+
+
+def on_open_help(action, parameter):
+    open_uri("https://help.dropbox.com/")
+
+
+def on_start(action, parameter):
+    script = find_dropbox_script()
+    if script is None:
+        return
+    subprocess.Popen(
+        [script, "start"],
+        preexec_fn=os.setsid,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        close_fds=True,
+    )
+
+
+def on_quit(action, parameter):
+    def run():
+        try:
+            send_command("tray_action_hard_exit")
+        except OSError:
+            pass
+
+    threading.Thread(target=run, daemon=True).start()
+
+
+def build_actions(path):
+    def on_open_folder(action, parameter):
+        open_uri(Gio.File.new_for_path(path).get_uri())
+
+    group = Gio.SimpleActionGroup()
+    for name, handler in (
+        ("open-folder", on_open_folder),
+        ("open-website", on_open_website),
+        ("open-help", on_open_help),
+        ("start", on_start),
+        ("quit", on_quit),
+    ):
+        action = Gio.SimpleAction.new(name, None)
+        action.connect("activate", handler)
+        group.add_action(action)
+    return group
+
+
+class Service:
+    def __init__(self, connection):
+        self.provider = CloudProviders.ProviderExporter.new(
+            connection, BUS_NAME, OBJECT_PATH
+        )
+        self.provider.set_name("Dropbox")
+
+        self.accounts = []
+        self.paths = read_accounts()
+        self.menu = build_menu()
+        for account_id, name, path in self.paths:
+            account = CloudProviders.AccountExporter.new(
+                self.provider, account_id
+            )
+            account.set_name(name)
+            account.set_path(path)
+            account.set_icon(Gio.ThemedIcon.new("dropbox"))
+            account.set_menu_model(self.menu)
+            actions = build_actions(path)
+            account.set_action_group(actions)
+            # Keep the action group referenced for the lifetime of the account.
+            self.accounts.append((account, actions))
+        self.set_status([], "Dropbox isn't running")
+
+        self.refresh = threading.Event()
+        threading.Thread(target=self.listen_hooks, daemon=True).start()
+        threading.Thread(target=self.poll, daemon=True).start()
+
+    def set_status(self, statuses, details):
+        for i, (account, _) in enumerate(self.accounts):
+            account.set_status(statuses[i] if i < len(statuses) else Status.ERROR)
+            account.set_status_details(details)
+        return GLib.SOURCE_REMOVE
+
+    def listen_hooks(self):
+        """Refreshes the status on sync changes and account path touches."""
+        roots = [path.rstrip("/") for _, _, path in self.paths]
+        while True:
+            try:
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+                    s.connect(os.path.join(dropbox_dir(), "iface_socket"))
+                    f = s.makefile("r", 4096)
+                    self.refresh.set()
+                    name, args = None, {}
+                    for line in f:
+                        fields = line.rstrip("\n").split("\t")
+                        if name is None:
+                            name = fields[0]
+                        elif fields[0] == "done":
+                            touched = args.get("path", [""])[0]
+                            if name == "change_state" or (
+                                name == "shell_touch"
+                                and any(
+                                    touched == r or touched.startswith(r + "/")
+                                    for r in roots
+                                )
+                            ):
+                                self.refresh.set()
+                            name, args = None, {}
+                        else:
+                            args[fields[0]] = fields[1:]
+            except OSError:
+                pass
+            self.refresh.set()
+            time.sleep(RECONNECT_SECONDS)
+
+    def poll(self):
+        last = None
+        while True:
+            self.refresh.wait(FALLBACK_POLL_SECONDS)
+            time.sleep(DEBOUNCE_SECONDS)
+            self.refresh.clear()
+            try:
+                result = (
+                    [get_account_status(path) for _, _, path in self.paths],
+                    get_status_details(),
+                )
+            except OSError:
+                result = ([], "Dropbox isn't running")
+            if result != last:
+                last = result
+                GLib.idle_add(self.set_status, *result)
+
+
+def main():
+    loop = GLib.MainLoop()
+    services = []
+
+    def on_name_acquired(connection, name):
+        services.append(Service(connection))
+
+    def on_name_lost(connection, name):
+        loop.quit()
+
+    Gio.bus_own_name(
+        Gio.BusType.SESSION,
+        BUS_NAME,
+        Gio.BusNameOwnerFlags.DO_NOT_QUEUE,
+        None,
+        on_name_acquired,
+        on_name_lost,
+    )
+    loop.run()
+
+
+if __name__ == "__main__":
+    main()

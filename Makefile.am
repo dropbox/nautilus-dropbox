@@ -1,8 +1,8 @@
 AUTOMAKE_OPTIONS = dist-bzip2 no-dist-gzip
 
-bin_SCRIPTS = dropbox
-CLEANFILES = $(bin_SCRIPTS) dropbox.1 dropbox.txt
-EXTRA_DIST = dropbox.in build_dropbox.py dropbox.txt.in docgen.py rst2man.py
+bin_SCRIPTS = dropbox dropbox-cloudprovider
+CLEANFILES = dropbox dropbox.1 dropbox.txt
+EXTRA_DIST = dropbox-cloudprovider dropbox.in build_dropbox.py dropbox.txt.in docgen.py rst2man.py
 man_MANS = dropbox.1
 
 dropbox: dropbox.in build_dropbox.py

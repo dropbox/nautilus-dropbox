@@ -59,6 +59,7 @@ Requires:	glib2 >= %{glib_version}
 Requires:	libgnome >= %{libgnome_version}
 Requires:	python3
 Requires:	python3-gobject >= %{pygobject3_version}
+Requires:	libcloudproviders
 
 %{?with_suggest_tags:Suggests: python3-pygpgme}
 
@@ -196,6 +197,7 @@ rm -rf \$RPM_BUILD_ROOT
 %{_datadir}/icons/hicolor/*
 %{_datadir}/nautilus-dropbox/emblems/*
 %{_bindir}/dropbox
+%{_bindir}/dropbox-cloudprovider
 %{_datadir}/applications/dropbox.desktop
 %{_datadir}/man/man1/dropbox.1.gz
 
