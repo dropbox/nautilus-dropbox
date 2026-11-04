@@ -868,8 +868,43 @@ def requires_dropbox_running(meth):
     return newmeth
 
 
+def start_cloudprovider():
+    """Starts the libcloudproviders service if it is installed.
+
+    A second instance exits when the bus name is already owned.
+    """
+    if not os.environ.get("DBUS_SESSION_BUS_ADDRESS"):
+        return
+
+    path = shutil.which("dropbox-cloudprovider")
+    if path is None:
+        sibling = os.path.join(
+            os.path.dirname(os.path.abspath(sys.argv[0])),
+            "dropbox-cloudprovider",
+        )
+        if not os.access(sibling, os.X_OK):
+            return
+        path = sibling
+
+    try:
+        subprocess.Popen(
+            [path],
+            preexec_fn=os.setsid,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+        )
+    except OSError:
+        pass
+
+
 def start_dropbox():
     if os.access(DROPBOXD_PATH, os.X_OK):
+        # Start it first so its fallback StatusNotifierWatcher exists when
+        # Dropbox looks for one to register its tray icon with.
+        start_cloudprovider()
+
         f = open("/dev/null", "w")
 
         # Fix indicator icon and menu on Unity environments. (LP: #1559249)
@@ -895,6 +930,7 @@ def start_dropbox():
             int(STARTUP_TIMEOUT_SECONDS / STARTUP_POLL_INTERVAL_SECONDS)
         ):
             if is_dropbox_running():
+                start_cloudprovider()
                 return True
             # back off from connect for a while
             time.sleep(STARTUP_POLL_INTERVAL_SECONDS)
@@ -1664,6 +1700,7 @@ def start(argv):
 
     # first check if dropbox is already running
     if is_dropbox_running():
+        start_cloudprovider()
         link_result = grab_link_url_if_necessary(report_transport_errors=False)
         if link_result == GrabLinkUrlResult.COMMAND_SOCKET_UNAVAILABLE:
             console_print(
