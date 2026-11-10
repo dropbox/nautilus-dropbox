@@ -62,7 +62,6 @@ GType nautilus_dropbox_get_type(void);
 void  nautilus_dropbox_register_type(GTypeModule *module);
 
 extern gboolean dropbox_use_nautilus_submenu_workaround;
-extern gboolean dropbox_use_operation_in_progress_workaround;
 
 G_END_DECLS
 
