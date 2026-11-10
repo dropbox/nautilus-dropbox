@@ -48,8 +48,6 @@ static char *emblems[] = {"dropbox-uptodate", "dropbox-syncing", "dropbox-unsync
 gchar *DEFAULT_EMBLEM_PATHS[2] = { EMBLEMDIR , NULL };
 
 
-gboolean dropbox_use_operation_in_progress_workaround;
-
 static GType dropbox_type = 0;
 
 /* for old versions of glib */
@@ -309,9 +307,7 @@ nautilus_dropbox_update_file_info(NautilusInfoProvider     *provider,
     
     *handle = (NautilusOperationHandle *) dfic;
     
-    return dropbox_use_operation_in_progress_workaround
-      ? NAUTILUS_OPERATION_COMPLETE
-      : NAUTILUS_OPERATION_IN_PROGRESS;
+    return NAUTILUS_OPERATION_IN_PROGRESS;
   }
 }
 
@@ -418,7 +414,7 @@ nautilus_dropbox_finish_file_info_command(DropboxFileInfoCommandResponse *dficr)
   }
 
   /* complete the info request */
-  if (!dropbox_use_operation_in_progress_workaround) {
+  if (!dficr->dfic->cancelled) {
       nautilus_info_provider_update_complete_invoke(dficr->dfic->update_complete,
 						    dficr->dfic->provider,
 						    (NautilusOperationHandle*) dficr->dfic,

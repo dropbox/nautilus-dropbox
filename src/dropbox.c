@@ -37,8 +37,6 @@ nautilus_module_initialize (GTypeModule *module) {
 
   nautilus_dropbox_register_type (module);
   type_list[0] = NAUTILUS_TYPE_DROPBOX;
-
-  dropbox_use_operation_in_progress_workaround = TRUE;
 }
 
 void
